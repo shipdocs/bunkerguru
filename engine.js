@@ -120,7 +120,7 @@ function pickMission() {
   mission = i; ship = berths[i]; dock = ship.dock;
   terminal = terminals[Math.floor(Math.random() * terminals.length)];
   boat.target = pickTarget(); boat.cargo = 0;
-  state.phase = 'load'; state.holdT = 0; state.bunkerT = 0; state.elapsed = 0; score = 0;
+  state.phase = 'load'; state.holdT = 0; state.bunkerT = 0; state.elapsed = 0; score = 0; state.inZone = false; state.slowWas = true;
   say(tf('Opdracht {0}: {1} t voor {2} ({3}). Laden bij {4}.', missionCount + 1, boat.target, ship.name, tr(ship.where), terminal.name), 7);
   if (typeof maybeRace === 'function' && running) maybeRace();
 }
@@ -610,7 +610,10 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
   if (running && !paused) {
     // snelvaart automatisch uit bij aanleggen/laden of een klap
-    if (warp === 2 && (state.inZone || (state.phase === 'load' && inSN(boat, terminal)) || hitFlash > 0)) { warp = 1; say(tr('Snelvaart uit'), 1); }
+    // snelvaart automatisch uit, maar alleen op het moment dat je de zone/terminal binnenvaart of een klap krijgt (flank), niet continu
+    const slowHere = (state.phase === 'sail' && state.inZone) || (state.phase === 'load' && inSN(boat, terminal)) || hitFlash > 0;
+    if (slowHere && !state.slowWas && warp === 2) { warp = 1; say(tr('Snelvaart uit'), 1); }
+    state.slowWas = slowHere;
     const sdt = dt * warp;
     if (state.phase !== 'sunk') input(dt); updateTraffic(sdt); updateRivals(sdt); for (let i = 0; i < TIME * warp; i++) physics(dt); if (state.phase !== 'done') logic(sdt);
   }
