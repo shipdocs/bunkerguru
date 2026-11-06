@@ -7,7 +7,7 @@ MAPS.push({
   radio: { sectors: ['Sector Maassluis', 'Sector Botlek', 'Sector Oude Maas'], places: ['de Botlek', 'de Geulhaven', 'de Oude Maas', 'de 2e Petroleumhaven', 'Maassluis', 'de Vondelingenplaat', 'Pernis'], tugBasin: 'Oude Maas' },
   currentSpeed: 1.5,
   tide: { ebbMax: 4.0, floodMax: 2.5, period: 540 },
-  lanes: { down: -40, up: 40, mouth: 95 },
+  lanes: { down: -20, up: 10, mouth: 95 }, // concurrenten tussen de verkeerslanen (−65 / +55), ruim van de afgemeerde schepen (±106)
   build({ quad, RIVER_HALF, TH }) {
     const S_MAX = 5200, CH0 = 2900, CH1 = 3150;
     const land = [
@@ -21,7 +21,7 @@ MAPS.push({
       { poly: quad(CH1, S_MAX, RIVER_HALF, 720), kind: 'tanks', label: 'Hoogvliet' },
       { poly: quad(-800, CH0, 720, 2600), kind: 'base' },
       { poly: quad(CH1, S_MAX, 720, 2600), kind: 'base' },
-      { poly: quad(1450, 1950, -92, -72), kind: 'dam', label: 'Dam' },
+      { poly: quad(1450, 1950, -140, -120), kind: 'dam', label: 'Dam' },
     ];
     const basins = [
       { s0: 520, s1: 720, n0: RIVER_HALF, n1: 720, name: '1e Petroleumhaven', labelN: 420 },
@@ -46,10 +46,10 @@ MAPS.push({
         { name: 'MV OUDE MAAS', col: '#f39c12', axis: 'n', a0: 700, a1: 980, c: CH0 + 28, side: +1, where: 'westwand Oude Maas' },
       ],
       traffic: [
-        { name: 'MV TRAAG', col: '#16a085', s: 3200, n: -25, v: -4.0, len: 300 },
-        { name: 'MT HAAST', col: '#d35400', s: -400, n: 30, v: 3.2, len: 240 },
-        { name: 'MV DRUK', col: '#7f8c8d', s: 1200, n: -25, v: -3.0, len: 200 },
-        { name: 'SLB BUTS', col: '#2c3e50', s: CH0 + 60, n: 2400, v: -5.0, len: 90, axis: 'n', nMin: RIVER_HALF + 80, nMax: 2500 },
+        { name: 'MV TRAAG', col: '#16a085', s: 3200, n: -65, v: -4.0, len: 300 },
+        { name: 'MT HAAST', col: '#d35400', s: -400, n: 55, v: 3.2, len: 240 },
+        { name: 'MV DRUK', col: '#7f8c8d', s: 1200, n: -65, v: -3.0, len: 200 },
+        { name: 'SLB BUTS', col: '#2c3e50', s: CH0 + 200, n: 900, v: -5.0, len: 90, axis: 'n', nMin: RIVER_HALF + 100, nMax: 1060 },
       ],
       channels: [{ s0: CH0, s1: CH1, n0: RIVER_HALF, n1: 2600, cs: 0, cn: -0.8 }], // Oude Maas stroomt naar de hoofdrivier
       rivals: [{ s: 610, n: 500, hdgOff: -Math.PI / 2 }, { s: CH1 - 60, n: 900, hdgOff: Math.PI / 2 }],

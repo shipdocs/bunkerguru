@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', 'Tip: kop tegen de stroom in, machine bij tot je stil ligt': 'Tip: bow into the current, add engine until you hold still',
+  'HIER': 'HERE', '🫧 {0} is gezonken! (−{1} 🪙)': '🫧 {0} sank! (−{1} 🪙)', '💥 Aanvaring met {0}: jij +{1}, hij +{2} schade': '💥 Collision with {0}: you +{1}, them +{2} damage', 'Tip: kop tegen de stroom in, machine bij tot je stil ligt': 'Tip: bow into the current, add engine until you hold still',
   '→ Laden bij {0} · {1} m': '→ Load at {0} · {1} m', '→ Langszij {0}: vaart eruit, M = vast': '→ Alongside {0}: kill speed, M = moor', '→ Naar {0} · {1} m': '→ To {0} · {1} m',
   '⛽ Bunkeren… {0}%': '⛽ Bunkering… {0}%', '✅ Klus klaar! Volgende opdracht over {0} s (N = nu)': '✅ Job done! Next job in {0} s (N = now)', '🫧 Gezonken – nieuwe boot volgt': '🫧 Sunk – new boat on its way', '📖 Uitleg': '📖 How to play', 'Roer midscheeps': 'Rudder amidships', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
@@ -104,7 +104,7 @@ function loadMap(def) {
   decor = []; seedD = 3;
   const add = (type, s, n, extra) => { const p = sn2w(s, n); decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); };
   if (m.decor) m.decor(add, rndD, h);
-  (m.rivals || []).forEach((rp, i) => { const r = rivals[i]; if (!r) return; const p = sn2w(rp.s, rp.n); r.x = p.x; r.y = p.y; r.hdg = TH + rp.hdgOff; r.mode = 'idle'; r.path = []; r.wait = 2 + i * 4; r.racing = false; });
+  (m.rivals || []).forEach((rp, i) => { const r = rivals[i]; if (!r) return; const p = sn2w(rp.s, rp.n); r.x = p.x; r.y = p.y; r.hdg = TH + rp.hdgOff; r.mode = 'idle'; r.path = []; r.wait = 2 + i * 4; r.racing = false; r.damage = 0; r.cur = 0; r.rev = null; });
   terminal = terminals[0]; ship = berths[0]; dock = ship.dock; mission = -1; trails.clear();
   updateTraffic(0);
 }
@@ -141,17 +141,39 @@ function mouthOf(s, n) { // punt net in de rivier recht voor de ingang van een b
   for (const b of basins) if (s > b.s0 - 1 && s < b.s1 + 1 && Math.sign(n) === b.side) return { s: (b.s0 + b.s1) / 2, n: mouthN(b.side) };
   return { s, n: mouthN(n > 0 ? 1 : -1) };
 }
-function planRoute(from, to) { // from/to in (s,n); route via rivierlaan, rechts houden
-  const m1 = mouthOf(from.s, from.n), m2 = mouthOf(to.s, to.n);
-  const L = MAP.lanes || { down: -40, up: 40 }; const lane = m2.s > m1.s ? L.up : L.down;
-  const pts = [];
-  const inB = RIVER_HALF + 90;
-  if (Math.abs(from.n) >= RIVER_HALF) pts.push({ s: m1.s, n: from.n > 0 ? Math.min(from.n, inB) : Math.max(from.n, -inB) }, m1);
-  pts.push({ s: m1.s, n: lane }, { s: m2.s, n: lane }, m2);
-  if (Math.abs(to.n) >= RIVER_HALF) pts.push({ s: m2.s, n: to.n > 0 ? Math.min(to.n, inB) : Math.max(to.n, -inB) });
+function basinAt(s, n) { for (const b of basins) if (s > b.s0 - 1 && s < b.s1 + 1 && n > Math.min(b.n0, b.n1) - 1 && n < Math.max(b.n0, b.n1) + 1) return b; return null; }
+function exitPts(p) { // van een punt in een bekken naar de rivier (bekken-hartlijn, dan de mond); leeg als je al op de rivier ligt
+  if (Math.abs(p.n) < RIVER_HALF) return [];
+  const b = basinAt(p.s, p.n), sc = b ? Math.max(b.s0 + 30, Math.min(b.s1 - 30, p.s)) : p.s, sg = Math.sign(p.n), inB = RIVER_HALF + 90; // recht in/uit op de eigen lijn, niet over de hartlijn
+  return [{ s: sc, n: sg * Math.min(Math.abs(p.n), inB) }, { s: sc, n: mouthN(sg) }];
+}
+function planRoute(from, to, approach, aheadPt) { // (s,n); via de rivierlaan, stuurboordwal houden; approach = insteekpunt vlak voor het doel
+  const L = MAP.lanes || { down: -40, up: 40 }, dir = Math.sign(to.s - from.s) || 1, lane = dir > 0 ? L.up : L.down;
+  const pts = []; if (aheadPt) pts.push(aheadPt);
+  const ex = exitPts(aheadPt || from); pts.push(...ex);
+  const fs = ex.length ? ex[ex.length - 1].s : (aheadPt || from).s;
+  pts.push({ s: fs, n: lane });
+  const ent = exitPts(to).reverse();
+  if (ent.length) pts.push({ s: ent[0].s, n: lane }, ...ent);
+  else if (approach) { // schuin insteken, maar niet over land: kies de eerste vrije afstand
+    const ad = Math.sign(to.s - approach.s) || dir, base = Math.max(200, Math.abs(approach.n - lane) * 1.6);
+    const clear = (a, b) => { for (let k = 0; k <= 1; k += 0.04) { const s = a.s + (b.s - a.s) * k, n = a.n + (b.n - a.n) * k; for (const off of [-14, 0, 14]) { const w = sn2w(s, n + off); if (land.some(l => inPoly(w, l.poly))) return false; } } return true; };
+    let best = { s: approach.s - ad * base, n: lane };
+    for (const f of [1, 0.8, 0.65, 1.3, 0.5, 1.7, 0.4, 2.2]) { const c = { s: approach.s - ad * base * f, n: lane }; if (clear(c, approach)) { best = c; break; } }
+    pts.push(best); }
+  else pts.push({ s: to.s, n: lane });
+  if (approach) pts.push(approach);
   pts.push(to);
   return pts.map(p => sn2w(p.s, p.n));
 }
+function berthApproach(b, fromS) { // doel en insteekpunt langs de ligplaats, zodat je parallel binnenkomt
+  const c = dockCenter(b);
+  // insteekpunt vóór het begin van het schip, iets van het schip af, zodat je er recht langs schuift
+  if (b.axis === 's') { const dir = Math.sign(c.s - fromS) || 1; return { to: c, approach: { s: dir > 0 ? b.a0 - 70 : b.a1 + 70, n: c.n + b.side * 8 } }; }
+  const sg = Math.sign(c.n), mouthEnd = sg > 0 ? Math.min(b.a0, b.a1) : Math.max(b.a0, b.a1), an = mouthEnd - sg * 70;
+  return { to: { s: c.s + b.side * 6, n: c.n }, approach: Math.abs(an) > RIVER_HALF + 95 ? { s: c.s + b.side * 6, n: an } : null };
+}
+function terminalTarget(tm, slot) { const c = termCenter(tm), sg = Math.sign(c.n) || 1, w = tm.s1 - tm.s0, ds = slot === undefined ? 0 : (slot - 0.5) * Math.min(48, w / 2); const bs = basinAt(c.s, c.n); let ts = c.s + ds; if (bs) ts = Math.max(bs.s0 + 55, Math.min(bs.s1 - 55, ts)); const to = { s: ts, n: c.n - sg * 30 }; return { to, approach: { s: to.s, n: to.n - sg * 100 } }; }
 const rivals = [
   { name: 'Bunker Bert', col: '#c0392b', x: 0, y: 0, hdg: 0, spd: 6.0, gold: 300, jobs: 0, mode: 'idle', path: [], wait: 2, target: null, racing: false },
   { name: 'Truus Tank', col: '#8e44ad', x: 0, y: 0, hdg: 0, spd: 5.6, gold: 300, jobs: 0, mode: 'idle', path: [], wait: 6, target: null, racing: false },
@@ -163,21 +185,88 @@ function termCenter(tm) { return { s: (tm.s0 + tm.s1) / 2, n: (tm.n0 + tm.n1) / 
 function rivalStartJob(r, berth, racing) {
   const here = w2sn(r.x, r.y);
   const tm = terminals.reduce((a, b) => Math.hypot(termCenter(b).s - here.s, termCenter(b).n - here.n) < Math.hypot(termCenter(a).s - here.s, termCenter(a).n - here.n) ? b : a);
-  r.target = berth; r.racing = racing; r.mode = 'toTerminal'; r.path = planRoute(here, termCenter(tm));
+  const tt = terminalTarget(tm, rivals.indexOf(r));
+  // vertrek vanaf een ligplaats op de rivier: eerst recht vooruit vrijvaren, niet om je as draaien naast het schip
+  let ahead = null; const lb = r.lastBerth; r.lastBerth = null;
+  if (lb && Math.hypot(r.x - lb.cx, r.y - lb.cy) < 200) { // net klaar bij een ligplaats: eerst vrijvaren
+    if (lb.axis === 's') { const p = w2sn(r.x + Math.cos(r.hdg) * 140, r.y + Math.sin(r.hdg) * 140); ahead = { s: p.s, n: p.n + lb.side * 30 }; }
+    else { const sg = Math.sign(here.n); r.rev = sn2w(here.s, sg * (RIVER_HALF - 50)); } // in een bekken: achteruit naar buiten, keren op de rivier
+  }
+  r.target = berth; r.racing = racing; r.mode = 'toTerminal'; r.path = planRoute(r.rev ? w2sn(r.rev.x, r.rev.y) : here, tt.to, tt.approach, ahead);
   if (racing) { SND.radio(); radioRival(r, berth); }
   if (racing) say(tf('📻 {0}: "Ik ga ook voor {1}!" – wie het eerst langszij ligt krijgt de klus', r.name, berth.name), 5);
 }
+function rivalQuad(r) { const c = Math.cos(r.hdg), s = Math.sin(r.hdg), L = 40, B = 9; return [[-L, -B], [L, -B], [L, B], [-L, B]].map(([a, b]) => ({ x: r.x + a * c - b * s, y: r.y + a * s + b * c })); }
+function rivalQuads() { return rivals.filter(r => r.mode !== 'sunk').map(rivalQuad); }
+function boatQuad() { const b = boat, c = Math.cos(b.hdg), s = Math.sin(b.hdg), L = toPx(b.L) / 2, B = toPx(b.B) / 2; return [[-L, -B], [L, -B], [L, B], [-L, B]].map(([a, q]) => ({ x: b.x + a * c - q * s, y: b.y + a * s + q * c })); }
+// obstakels met hun snelheid (m/s) voor de concurrenten
+function rivalObstacles(r) {
+  const o = [];
+  for (const t of traffic) { const sp = toPx(t.v) ? t.v : 0; const hv = t.axis === 'n' ? { x: -ST * t.v, y: CT * t.v } : { x: CT * t.v, y: ST * t.v }; o.push({ p: t.quad, k: 'ship', vx: hv.x, vy: hv.y, name: t.name }); }
+  for (const b of berths) o.push({ p: b.quad, k: 'berth', vx: 0, vy: 0 });
+  for (const q of rivals) if (q !== r && q.mode !== 'sunk') o.push({ p: rivalQuad(q), k: 'rival', vx: Math.cos(q.hdg) * (q.cur || 0), vy: Math.sin(q.hdg) * (q.cur || 0), who: q });
+  if (state.phase !== 'sunk') o.push({ p: boatQuad(), k: 'player', vx: boat.vx, vy: boat.vy });
+  for (const l of land) o.push({ p: l.poly, k: 'land', vx: 0, vy: 0 });
+  return o;
+}
+function rivalProbe(r, obs, finalLeg) { // wat ligt er voor de boeg?
+  const c = Math.cos(r.hdg), s = Math.sin(r.hdg);
+  for (const d of [48, 70, 100, 140]) for (const off of [-10, 0, 10]) {
+    const x = r.x + c * d - s * off, y = r.y + s * d + c * off;
+    for (const o of obs) { if (finalLeg && (o.k === 'berth' || o.k === 'land')) continue; if (inPoly({ x, y }, o.p)) return { k: o.k, d, off }; }
+  }
+  return null;
+}
+function rivalSink(r) {
+  r.mode = 'sunk'; r.sinkT = 0; r.racing = false; r.path = []; r.cur = 0; r.rev = null; const loss = Math.round(r.gold / 2); r.gold -= loss; saveRivals();
+  say(tf('🫧 {0} is gezonken! (−{1} 🪙)', r.name, loss), 4);
+  RADIO.say([{ who: r.name, spk: 3, text: lang === 'en' ? `Mayday, mayday, ${r.name} is going down! Uh... never mind, insurance.` : `Mayday, mayday, hier ${r.name}, ik zink! Eh... laat maar, de verzekering betaalt.` }], lang, true);
+}
 function updateRivals(dt) {
   for (const r of rivals) {
-    if (r.mode === 'idle') { r.wait -= dt; if (r.wait <= 0) { const b = berths[Math.floor(Math.random() * berths.length)]; if (b !== ship) rivalStartJob(r, b, false); else r.wait = 3; } continue; }
-    if (r.mode === 'loading' || r.mode === 'bunkering') { r.wait -= dt; if (r.wait <= 0) { if (r.mode === 'loading') { r.mode = 'toShip'; r.path = planRoute(w2sn(r.x, r.y), dockCenter(r.target)); } else { r.gold += 400 + Math.round(Math.random() * 500); r.jobs++; saveRivals(); r.mode = 'idle'; r.wait = 8 + Math.random() * 15; r.racing = false; } } continue; }
-    // varen langs waypoints
+    if (r.hitCD > 0) r.hitCD -= dt;
+    r.damage = r.damage || 0; r.cur = r.cur || 0;
+    if (r.mode === 'sunk') { r.sinkT += dt; if (r.sinkT > 9) { const tm = terminals[Math.floor(Math.random() * terminals.length)], p = sn2w((tm.s0 + tm.s1) / 2, (tm.n0 + tm.n1) / 2); r.x = p.x; r.y = p.y; r.damage = 0; r.mode = 'idle'; r.wait = 6; } continue; }
+    if (r.damage >= 100) { rivalSink(r); continue; }
+    if (r.mode === 'idle') { r.cur = 0; r.wait -= dt; if (r.wait <= 0) { const b = berths[Math.floor(Math.random() * berths.length)]; if (b !== ship) rivalStartJob(r, b, false); else r.wait = 3; } rivalContacts(r, dt); continue; }
+    if (r.mode === 'loading' || r.mode === 'bunkering') {
+      r.cur = 0; r.wait -= dt;
+      if (r.mode === 'loading' && r.damage > 0) { const fix = Math.min(r.damage, dt * 10); r.damage -= fix; r.gold = Math.max(0, r.gold - fix * 2); }
+      if (r.wait <= 0) { if (r.mode === 'loading') { r.mode = 'toShip'; const here = w2sn(r.x, r.y), ba = berthApproach(r.target, here.s); r.path = planRoute(here, ba.to, ba.approach); } else { r.gold += 400 + Math.round(Math.random() * 500); r.jobs++; saveRivals(); r.lastBerth = r.target; r.mode = 'idle'; r.wait = 8 + Math.random() * 15; r.racing = false; } }
+      rivalContacts(r, dt); continue;
+    }
+    if (r.rev) { // achteruit het bekken uit
+      const dx = r.rev.x - r.x, dy = r.rev.y - r.y, dd = Math.hypot(dx, dy); let da = Math.atan2(-dy, -dx) - r.hdg; da = Math.atan2(Math.sin(da), Math.cos(da));
+      r.hdg += Math.max(-0.5 * dt, Math.min(0.5 * dt, da)); r.cur = Math.min(1.5, (r.cur || 0) + 0.3 * dt * TIME);
+      const st = toPx(r.cur) * dt * TIME; r.x -= Math.cos(r.hdg) * st; r.y -= Math.sin(r.hdg) * st; rivalContacts(r, dt);
+      if (dd < 20) { r.rev = null; r.cur = 0; } continue;
+    }
+    // varen langs waypoints, met uitkijk voor de boeg
     const wp = r.path[0]; if (!wp) { r.mode = 'idle'; continue; }
     const dx = wp.x - r.x, dy = wp.y - r.y, d = Math.hypot(dx, dy);
     const want = Math.atan2(dy, dx); let da = want - r.hdg; da = Math.atan2(Math.sin(da), Math.cos(da));
-    const near = r.path.length === 1; const spd = near ? Math.min(r.spd, 1.5 + d / 60) : r.spd;
-    r.hdg += Math.max(-1.2 * dt, Math.min(1.2 * dt, da));
-    const step = toPx(spd) * dt * TIME; r.x += Math.cos(r.hdg) * step; r.y += Math.sin(r.hdg) * step;
+    const near = r.path.length === 1, finalLeg = near && d < 70;
+    let target = near ? Math.min(r.spd, 0.3 + d / 45) : r.path.length === 2 ? Math.min(r.spd, 3.5) : r.spd;
+    const obs = rivalObstacles(r), hit = rivalProbe(r, obs, finalLeg || r.path.length <= 2);
+    // dwarsverkeer: zie je een varend zeeschip op je af komen en moet je zijn laan nog in, wacht; zit je er al in, doorvaren
+    if (!hit) { const me = w2sn(r.x, r.y); for (const t of traffic) { if (t.axis === 'n') continue; const ts = w2sn(t.cx, t.cy), towards = Math.sign(t.v) === Math.sign(me.s - ts.s), ds = Math.abs(me.s - ts.s) - t.len / 2, dn = Math.abs(me.n - t.n);
+      if (towards && ds < 260 && dn < 75) { if (dn > 42) target = 0; else target = r.spd; } } }
+    if (hit) {
+      if (hit.k === 'land' || hit.k === 'berth') { da += (hit.off >= 0 ? -1 : 1) * 0.9; target = Math.min(target, 2); } // uitwijken
+      else { target = hit.d < 75 ? 0 : Math.min(target, 1.5); r.blockT = (r.blockT || 0) + dt;
+        if (hit.k === 'player' && r.blockT > 2 && !r.honked) { r.honked = true; SND.horn(); if (Math.random() < 0.5) RADIO.say([{ who: r.name, spk: 3, text: lang === 'en' ? 'Bunkerguru, move over, you are in my way!' : 'Bunkerguru, aan de kant, je ligt in de weg!' }], lang); }
+        if (r.blockT > 4) { // uitwijken, maar alleen naar open water
+          const c = Math.cos(r.hdg), s = Math.sin(r.hdg), first = Math.random() < 0.5 ? 1 : -1;
+          const free = (x, y) => [[0, 0], [20, 0], [-20, 0], [0, 20], [0, -20]].every(([a, b2]) => !obs.some(o => o.k !== 'player' && inPoly({ x: x + a, y: y + b2 }, o.p)));
+          for (const side of [first, -first]) { const x = r.x + c * 90 - s * 45 * side, y = r.y + s * 90 + c * 45 * side; if (free(x, y)) { r.path.unshift({ x, y }); break; } }
+          r.blockT = 0; }
+      }
+    } else { r.blockT = 0; r.honked = false; }
+    r.cur += Math.max(-0.9 * dt * TIME, Math.min(0.5 * dt * TIME, target - r.cur)); // remmen gaat sneller dan optrekken
+    r.hdg += Math.max(-1.2 * dt, Math.min(1.2 * dt, da)) * Math.min(1, 0.3 + r.cur / 2);
+    const step = toPx(r.cur) * dt * TIME; r.x += Math.cos(r.hdg) * step; r.y += Math.sin(r.hdg) * step;
+    rivalContacts(r, dt);
+    if (r.mode === 'sunk') continue;
     if (d < Math.max(14, step * 1.5)) { r.path.shift(); if (!r.path.length) {
       if (r.mode === 'toTerminal') { r.mode = 'loading'; r.wait = 8; }
       else if (r.mode === 'toShip') {
@@ -186,7 +275,21 @@ function updateRivals(dt) {
       } } }
   }
 }
-function rivalQuads() { return rivals.map(r => { const c = Math.cos(r.hdg), s = Math.sin(r.hdg), L = 40, B = 9; return [[-L, -B], [L, -B], [L, B], [-L, B]].map(([a, b]) => ({ x: r.x + a * c - b * s, y: r.y + a * s + b * c })); }); }
+// botsingen van een concurrent: uitduwen + schade op inslagsnelheid (relatief)
+function rivalContacts(r, dt) {
+  const c = Math.cos(r.hdg), s = Math.sin(r.hdg), rad = 9, sgn = r.rev ? -1 : 1, vx = c * r.cur * sgn, vy = s * r.cur * sgn;
+  const pts = [-0.45, 0, 0.45].map(f => ({ x: r.x + c * 80 * f, y: r.y + s * 80 * f }));
+  for (const o of rivalObstacles(r)) for (const p of pts) {
+    const e = nearestEdge(p, o.p), inside = inPoly(p, o.p);
+    if (!inside && e.d >= rad) continue;
+    let ux = p.x - e.qx, uy = p.y - e.qy, dd = Math.hypot(ux, uy); if (dd < 0.001) { ux = 0; uy = -1; dd = 1; }
+    ux /= dd; uy /= dd; if (inside) { ux = -ux; uy = -uy; }
+    const push = inside ? e.d + rad + 0.5 : rad - e.d + 0.5; r.x += ux * push; r.y += uy * push;
+    const rel = o.k === 'player' || o.k === 'rival', rvn = (vx - (rel ? o.vx : 0)) * ux + (vy - (rel ? o.vy : 0)) * uy, impact = Math.max(0, -rvn); // boot-boot: relatieve snelheid; tegen kades en zeeschepen alleen je eigen inslag
+    if (o.k !== 'player' && impact > 0.7 && !(r.hitCD > 0)) { r.hitCD = 0.6; const dmg = Math.max(2, Math.round((impact - 0.4) * 9)); r.damage += dmg; r.cur *= 0.3;
+      if (o.k === 'player' && !(state.hitCD > 0)) { state.hitCD = 0.6; const pd = Math.max(1, Math.round((impact - 0.4) * 9 * up('fender'))); boat.damage += pd; SND.hit(pd); hitFlash = 0.35; shake = Math.min(14, 4 + pd); say(tf('💥 Aanvaring met {0}: jij +{1}, hij +{2} schade', r.name, pd, dmg), 1.8); } }
+  }
+}
 // ---------- marifoonpraat ----------
 function radioChatter() {
   const en = lang === 'en', pick = a => a[Math.floor(Math.random() * a.length)];
@@ -216,17 +319,19 @@ function radioRival(r, berth) {
 }
 function maybeRace() { if (Math.random() < 0.55) { const idle = rivals.filter(r => r.mode === 'idle'); if (idle.length) { const r = idle[Math.floor(Math.random() * idle.length)]; setTimeout(() => { if (r.mode === 'idle') rivalStartJob(r, ship, true); }, 3000 + Math.random() * 6000); } } }
 function drawRival(r, t) {
-  const L = toPx(40), Bw = toPx(9), moving = r.mode === 'toTerminal' || r.mode === 'toShip';
-  { const sx = r.x - Math.cos(r.hdg) * L / 2, sy = r.y - Math.sin(r.hdg) * L / 2; const kk = moving ? Math.min(1, r.spd / 6) : 0; const trl = pushTrail(r, sx, sy, t, moving); drawTrailWake(trl, t, Bw, kk); drawKelvin(sx, sy, r.hdg, L, kk); }
+  const L = toPx(40), Bw = toPx(9), moving = (r.mode === 'toTerminal' || r.mode === 'toShip') && (r.cur || 0) > 0.3;
+  if (r.mode === 'sunk') { const k = Math.min(1, r.sinkT / 4); ctx.save(); ctx.globalAlpha = 1 - k * 0.9; ctx.translate(r.x, r.y); ctx.rotate(r.hdg + k * 0.5); ctx.scale(1 - k * 0.6, 1 - k * 0.6); ctx.fillStyle = r.col; ctx.fillRect(-L / 2, -Bw / 2, L, Bw); ctx.restore(); ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < 8; i++) { const ph = (t * 0.8 + i * 0.12) % 1; ctx.beginPath(); ctx.arc(r.x + (i - 4) * 8, r.y - ph * 40, 2 + ph * 4, 0, 7); ctx.fill(); } return; }
+  { const sx = r.x - Math.cos(r.hdg) * L / 2, sy = r.y - Math.sin(r.hdg) * L / 2; const kk = moving ? Math.min(1, (r.cur || 0) / 6) : 0; const trl = pushTrail(r, sx, sy, t, moving); drawTrailWake(trl, t, Bw, kk); drawKelvin(sx, sy, r.hdg, L, kk); }
   ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.hdg);
   const hull = () => { ctx.beginPath(); ctx.moveTo(-L / 2 + 4, -Bw / 2); ctx.lineTo(L / 2 - 16, -Bw / 2); ctx.quadraticCurveTo(L / 2 + 6, 0, L / 2 - 16, Bw / 2); ctx.lineTo(-L / 2 + 4, Bw / 2); ctx.quadraticCurveTo(-L / 2 - 3, 0, -L / 2 + 4, -Bw / 2); ctx.closePath(); };
-  if (moving) drawBowWave(L, Bw, Math.min(1, r.spd / 6), t);
+  if (moving) drawBowWave(L, Bw, Math.min(1, (r.cur || 0) / 6), t);
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.fillStyle = r.col; hull(); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3.5; ctx.stroke();
   ctx.fillStyle = '#7f8c8d'; rrect(-L / 2 + 16, -Bw / 2 + 3, L - 34, Bw - 6, 3); ctx.fill();
   ctx.fillStyle = '#fff'; rrect(-L / 2 + 4, -Bw / 2 + 2, 11, Bw - 4, 3); ctx.fill();
   ctx.restore();
   ctx.fillStyle = r.racing ? '#ffd54a' : '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(r.name + (r.racing ? ' ⚔️' : ''), r.x, r.y - 22); ctx.textAlign = 'left';
+  if (r.damage > 0) { const dc = r.damage < 40 ? '#5ee88a' : r.damage < 75 ? '#ffd54a' : '#ff5a5a'; ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(r.x - 22, r.y - 18, 44, 5); ctx.fillStyle = dc; ctx.fillRect(r.x - 22, r.y - 18, 44 * Math.min(1, r.damage / 100), 5); }
 }
 let hitFlash = 0, shake = 0, warp = 1, paused = false;
 // ---------- afmeren ----------
@@ -366,8 +471,8 @@ function physics(dt) {
   // botsingen
   const pts = [-0.45, 0, 0.45].map(f => ({ x: b.x + Math.cos(b.hdg) * toPx(b.L) * f, y: b.y + Math.sin(b.hdg) * toPx(b.L) * f }));
   const rad = toPx(b.B) / 2;
-  const walls = land.map(l => l.poly).concat(berths.map(b => b.quad), traffic.map(t => t.quad), rivalQuads());
-  for (const poly of walls) for (const p of pts) {
+  const walls = land.map(l => l.poly).concat(berths.map(b => b.quad), traffic.map(t => t.quad), rivalQuads()), nNoRival = walls.length - rivalQuads().length;
+  for (const [wi, poly] of walls.entries()) for (const p of pts) {
     const e = nearestEdge(p, poly); const inside = inPoly(p, poly);
     if (inside || e.d < rad) {
       let ux = p.x - e.qx, uy = p.y - e.qy, d = Math.hypot(ux, uy);
@@ -376,9 +481,14 @@ function physics(dt) {
       const push = inside ? e.d + rad + 0.5 : rad - e.d + 0.5;
       b.x += ux * push; b.y += uy * push;
       const vn = b.vx * ux + b.vy * uy, impact = Math.max(0, -vn); // alleen snelheid ín de kade/het schip telt, langs schuiven niet
+      const rv = wi >= nNoRival ? rivals.filter(q => q.mode !== 'sunk')[wi - nNoRival] : null;
+      const rimp = rv ? Math.max(0, -((b.vx - Math.cos(rv.hdg) * (rv.cur || 0) * (rv.rev ? -1 : 1)) * ux + (b.vy - Math.sin(rv.hdg) * (rv.cur || 0) * (rv.rev ? -1 : 1)) * uy)) : 0; // relatieve inslag, vóór terugkaatsen
       if (vn < 0) { b.vx -= vn * ux * 1.3; b.vy -= vn * uy * 1.3; }
       b.r *= 0.5;
-      if (impact > 0.8 && !(state.hitCD > 0)) { state.hitCD = 0.6; const dmg = Math.max(1, Math.round((impact - 0.5) * 9 * up('fender'))); b.damage += dmg; SND.hit(dmg); hitFlash = 0.35; shake = Math.min(14, 4 + dmg); say(tf('💥 Raak! +{0} schade', dmg), 1.2); }
+      if (wi >= nNoRival) { // botsing met een concurrent: relatieve snelheid, beide krijgen schade
+        if (rimp > 0.7 && !(state.hitCD > 0) && !(rv.hitCD > 0)) { state.hitCD = 0.6; rv.hitCD = 0.6; const k = (rimp - 0.4) * 9, pd = Math.max(1, Math.round(k * up('fender'))), od = Math.max(2, Math.round(k));
+          b.damage += pd; rv.damage += od; rv.cur *= 0.3; SND.hit(pd); hitFlash = 0.35; shake = Math.min(14, 4 + pd); say(tf('💥 Aanvaring met {0}: jij +{1}, hij +{2} schade', rv.name, pd, od), 1.8); }
+      } else if (impact > 0.8 && !(state.hitCD > 0)) { state.hitCD = 0.6; const dmg = Math.max(1, Math.round((impact - 0.5) * 9 * up('fender'))); b.damage += dmg; SND.hit(dmg); hitFlash = 0.35; shake = Math.min(14, 4 + dmg); say(tf('💥 Raak! +{0} schade', dmg), 1.2); }
     }
   }
   b.x = Math.max(0, Math.min(W, b.x)); b.y = Math.max(0, Math.min(H, b.y));

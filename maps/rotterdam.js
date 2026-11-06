@@ -7,7 +7,7 @@ MAPS.push({
   radio: { sectors: ['Sector Waalhaven', 'Sector Maasbruggen'], places: ['de Erasmusbrug', 'de Willemsbrug', 'de Rijnhaven', 'de Maashaven', 'de Waalhaven', 'de Parkhaven', 'het Noordereiland', 'de Van Brienenoordbrug'], tugBasin: 'Waalhaven' },
   currentSpeed: 1.0,
   tide: { ebbMax: 3.0, floodMax: 2.0, period: 540 },
-  lanes: { down: -120, up: -50, mouth: 200 },
+  lanes: { down: -70, up: 23, mouth: 200 }, // concurrenten: tussen de verkeerslanen (−120 / −20) en vrij van Noordereiland (n ≥ 40) en pijlers (oevers)
   i18n: {
     'oostwand Rijnhaven': 'east wall of the Rijnhaven', 'westwand Waalhaven': 'west wall of the Waalhaven', 'Parkkade onder de Euromast': 'Parkkade below the Euromast',
     'oostwand Merwehaven': 'east wall of the Merwehaven', 'Maasboulevard, voorbij de Willemsbrug': 'Maasboulevard, past the Willems bridge', 'Feijenoordkade bij De Kuip': 'Feijenoord quay near De Kuip',
@@ -63,16 +63,16 @@ MAPS.push({
       traffic: [
         { name: 'MV TRAAG', col: '#16a085', s: 4500, n: -120, v: -3.5, len: 260 },
         { name: 'RONDVAART 1', col: '#f5f5f5', s: 2000, n: -120, v: -2.5, len: 120 },
-        { name: 'MT HAAST', col: '#d35400', s: -200, n: -40, v: 3.0, len: 220 },
-        { name: 'WATERTAXI', col: '#f1c40f', s: 500, n: -40, v: 7.0, len: 50 },
-        { name: 'SLB DUW', col: '#2c3e50', s: 525, n: 1000, v: -4.0, len: 90, axis: 'n', nMin: RH + 100, nMax: 1250 },
+        { name: 'MT HAAST', col: '#d35400', s: -200, n: -20, v: 3.0, len: 220 },
+        { name: 'WATERTAXI', col: '#f1c40f', s: 500, n: -20, v: 7.0, len: 50 },
+        { name: 'SLB DUW', col: '#2c3e50', s: 350, n: 1000, v: -4.0, len: 90, axis: 'n', nMin: RH + 100, nMax: 1250 },
       ],
       bridges: [
-        { s: 2420, n0: -RH, n1: RH, name: 'Erasmusbrug', pillars: [-60], pylon: -60, col: '#dfe6ee' },
-        { s: 2750, n0: -RH, n1: 40, name: 'Willemsbrug', pillars: [-150], col: '#e74c3c' },
+        { s: 2420, n0: -RH, n1: RH, name: 'Erasmusbrug', pillars: [200], pylon: 200, col: '#dfe6ee' },
+        { s: 2750, n0: -RH, n1: 40, name: 'Willemsbrug', pillars: [-200], col: '#e74c3c' },
         { s: 2980, n0: 150, n1: RH, name: 'De Hef', towers: [150, RH], col: '#555' },
         { s: 3220, n0: 150, n1: RH, name: 'Koninginnebrug', col: '#888' },
-        { s: 4150, n0: -RH, n1: RH, name: 'Van Brienenoordbrug', pillars: [-110, 110], col: '#2c7fb8' },
+        { s: 4150, n0: -RH, n1: RH, name: 'Van Brienenoordbrug', pillars: [-190, 190], col: '#2c7fb8' },
       ],
       rivals: [{ s: 1420, n: 500, hdgOff: -Math.PI / 2 }, { s: 600, n: 700, hdgOff: -Math.PI / 2 }],
       start: { s: 2170, n: 450, hdgOff: -Math.PI / 2 },
