@@ -318,6 +318,10 @@ function physics(dt) {
   const rudForce = b.rudder * flow * Math.abs(flow) * 0.09;
   const bowF = 0.04 * up('boeg') * Math.max(0, 1 - Math.abs(u) / 3.5); // boegschroef verliest kracht boven ~2 m/s vaart door het water const dr = rudForce * 0.06 + b.bow * bowF - b.r * 0.9 - b.r * Math.abs(b.r) * 2.0;
   u += du * dt; v += (dv - rudForce * 0.3 + b.bow * bowF * 4.5) * dt; b.r += dr * dt;
+  // stroomschering: kop en hek in verschillende stroom (bekkenmond, oever) geeft een draaimoment
+  const Lp = toPx(b.L) * 0.45, cb = currentAt(b.x + cos * Lp, b.y + sin * Lp), cst = currentAt(b.x - cos * Lp, b.y - sin * Lp);
+  const shear = (-(cb.vx - cst.vx) * sin + (cb.vy - cst.vy) * cos); // dwarscomponent verschil, m/s
+  b.r += shear * 0.06 * dt;
   b.vx = u * cos - v * sin + c.vx; b.vy = u * sin + v * cos + c.vy;
   b.hdg += b.r * dt; b.x += toPx(b.vx) * dt; b.y += toPx(b.vy) * dt;
   // botsingen
