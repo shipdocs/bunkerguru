@@ -16,11 +16,11 @@ const RADIO = (() => {
     const b = box(); if (b) { b.innerHTML = `<b>📻 ${line.who}</b><br>${line.text}`; b.style.opacity = 1; }
     SND.radioOpen && SND.radioOpen();
     const finish = () => { SND.radioClose && SND.radioClose(); setTimeout(done, 700); };
-    if (!hasSpeech || SND.muted) { setTimeout(finish, 1200 + line.text.length * 55); return; }
+    if (!hasSpeech || SND.muted || (SND.speechVol && SND.speechVol() <= 0.01)) { setTimeout(finish, 1200 + line.text.length * 55); return; }
     try {
       const u = new SpeechSynthesisUtterance(line.text);
       u.lang = lang === 'en' ? 'en-GB' : 'nl-NL'; const v = voiceFor(lang, line.spk); if (v) u.voice = v;
-      u.pitch = [0.8, 1.15, 0.95, 1.3][line.spk % 4]; u.rate = [1.05, 1.15, 0.95, 1.2][line.spk % 4]; u.volume = 0.8;
+      u.pitch = [0.8, 1.15, 0.95, 1.3][line.spk % 4]; u.rate = [1.05, 1.15, 0.95, 1.2][line.spk % 4]; u.volume = SND.speechVol ? SND.speechVol() : 0.8;
       let ended = false; const end = () => { if (!ended) { ended = true; finish(); } };
       u.onend = end; u.onerror = end; setTimeout(end, 2500 + line.text.length * 90); // vangnet
       speechSynthesis.speak(u);
@@ -33,6 +33,7 @@ const RADIO = (() => {
   }
   return {
     get on() { return on; },
+    set(v) { if (on !== !!v) this.toggle(); },
     toggle() { on = !on; try { localStorage.setItem('bunker_radio', on ? '1' : '0'); } catch (e) {} if (!on) { queue = []; if (hasSpeech) speechSynthesis.cancel(); const b = box(); if (b) b.style.opacity = 0; } return on; },
     say(lines, lang, force) { if (!on && !force) return; queue.push(...lines); pump(lang); },
     tick(now, makeChatter, lang) { if (!on) return; if (!nextAt) nextAt = now + 25 + Math.random() * 20; if (now >= nextAt && !busy && !queue.length) { nextAt = now + 75 + Math.random() * 90; const l = makeChatter(); if (l) this.say(l, lang); } },

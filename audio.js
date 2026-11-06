@@ -3,20 +3,26 @@ const SND = (() => {
   let ac = null, master, engOsc, engOsc2, engGain, engFilt, bowGain, washGain, muted = false, musicOn = true, musicGain = null, musicTimer = null;
   try { musicOn = localStorage.getItem('bunker_music') !== '0'; } catch (e) {}
   try { muted = localStorage.getItem('bunker_mute') === '1'; } catch (e) {}
+  // volumes 0–100 per kanaal
+  let vol = { master: 80, sfx: 80, music: 60, radio: 80 }, sfx = null, radioBus = null;
+  try { Object.assign(vol, JSON.parse(localStorage.getItem('bunker_vol') || '{}')); } catch (e) {}
+  const gMaster = () => muted ? 0 : vol.master / 100 * 0.65, gMusic = () => musicOn ? vol.music / 100 * 0.55 : 0;
+  function applyVol() { if (!ac) return; const t = ac.currentTime; master.gain.setTargetAtTime(gMaster(), t, 0.05); sfx.gain.setTargetAtTime(vol.sfx / 100, t, 0.05); musicGain.gain.setTargetAtTime(gMusic(), t, 0.1); radioBus.gain.setTargetAtTime(vol.radio / 100, t, 0.05); }
   function noiseBuf() { const b = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = b.getChannelData(0); let l = 0; for (let i = 0; i < d.length; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = l * 3.5; } return b; }
-  function loopNoise(filtType, freq, q) { const s = ac.createBufferSource(); s.buffer = noiseBuf(); s.loop = true; const f = ac.createBiquadFilter(); f.type = filtType; f.frequency.value = freq; f.Q.value = q || 0.7; const g = ac.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(master); s.start(); return { g, f }; }
+  function loopNoise(filtType, freq, q) { const s = ac.createBufferSource(); s.buffer = noiseBuf(); s.loop = true; const f = ac.createBiquadFilter(); f.type = filtType; f.frequency.value = freq; f.Q.value = q || 0.7; const g = ac.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(sfx); s.start(); return { g, f }; }
   function init() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
-    master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ac.destination);
+    master = ac.createGain(); master.gain.value = gMaster(); master.connect(ac.destination);
+    sfx = ac.createGain(); sfx.gain.value = vol.sfx / 100; sfx.connect(master); radioBus = ac.createGain(); radioBus.gain.value = vol.radio / 100; radioBus.connect(master);
     // dieselmotor: twee zaagtanden, laagdoorlaat, lichte tremolo
     engFilt = ac.createBiquadFilter(); engFilt.type = 'lowpass'; engFilt.frequency.value = 220; engGain = ac.createGain(); engGain.gain.value = 0;
     engOsc = ac.createOscillator(); engOsc.type = 'sawtooth'; engOsc2 = ac.createOscillator(); engOsc2.type = 'square';
     const lfo = ac.createOscillator(), lfoG = ac.createGain(); lfo.frequency.value = 9; lfoG.gain.value = 0.12; lfo.connect(lfoG); lfoG.connect(engGain.gain); lfo.start();
-    engOsc.connect(engFilt); engOsc2.connect(engFilt); engFilt.connect(engGain); engGain.connect(master); engOsc.start(); engOsc2.start();
+    engOsc.connect(engFilt); engOsc2.connect(engFilt); engFilt.connect(engGain); engGain.connect(sfx); engOsc.start(); engOsc2.start();
     const b = loopNoise('bandpass', 900, 1.5); bowGain = b.g;
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
-    musicGain = ac.createGain(); musicGain.gain.value = musicOn ? 0.55 : 0; musicGain.connect(master);
+    musicGain = ac.createGain(); musicGain.gain.value = gMusic(); musicGain.connect(master);
     startMusic();
   }
   // ---------- muziek: "Drunken Sailor" (traditioneel, rechtenvrij), D dorisch ----------
@@ -88,8 +94,8 @@ const SND = (() => {
     bowGain.gain.setTargetAtTime(on * (st.bow ? 0.35 : 0), now, 0.15);
     washGain.gain.setTargetAtTime(on * Math.min(0.5, st.speed * 0.07), now, 0.4);
   }
-  function tone(type, f0, f1, dur, vol, delay) { if (!ac || muted) return; const t0 = ac.currentTime + (delay || 0); const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.05); }
-  function burst(freq, dur, vol, type) { if (!ac || muted) return; const s = ac.createBufferSource(); s.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq; const g = ac.createGain(), t0 = ac.currentTime; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(g); g.connect(master); s.start(); s.stop(t0 + dur + 0.05); }
+  function tone(type, f0, f1, dur, vol, delay, out) { if (!ac || muted) return; const t0 = ac.currentTime + (delay || 0); const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(out || sfx); o.start(t0); o.stop(t0 + dur + 0.05); }
+  function burst(freq, dur, vol, type, out) { if (!ac || muted) return; const s = ac.createBufferSource(); s.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq; const g = ac.createGain(), t0 = ac.currentTime; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(g); g.connect(out || sfx); s.start(); s.stop(t0 + dur + 0.05); }
   return {
     init, update,
     hit(power) { burst(300, 0.4 + power * 0.03, Math.min(1, 0.3 + power * 0.04)); tone('triangle', 90, 40, 0.35, Math.min(0.8, 0.2 + power * 0.03)); },
@@ -97,11 +103,15 @@ const SND = (() => {
     rope() { burst(1800, 0.12, 0.25, 'highpass'); tone('square', 220, 140, 0.12, 0.08, 0.05); },
     coin() { [988, 1319, 1568].forEach((f, i) => tone('square', f, f, 0.12, 0.08, i * 0.08)); },
     sink() { tone('sine', 220, 50, 2.5, 0.3); for (let i = 0; i < 6; i++) tone('sine', 500 + Math.random() * 600, 900, 0.1, 0.1, 0.3 + i * 0.25); },
-    radio() { burst(2500, 0.25, 0.15, 'bandpass'); tone('square', 1200, 1200, 0.06, 0.05, 0.25); },
-    radioOpen() { burst(2200, 0.18, 0.18, 'bandpass'); },
-    radioClose() { burst(3000, 0.12, 0.2, 'highpass'); tone('square', 1400, 1400, 0.05, 0.03, 0.1); },
-    toggle() { muted = !muted; try { localStorage.setItem('bunker_mute', muted ? '1' : '0'); } catch (e) {} if (master) master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.05); return muted; },
-    toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunker_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { musicGain.gain.setTargetAtTime(musicOn ? 0.55 : 0, ac.currentTime, 0.1); if (musicOn) startMusic(); else setTimeout(stopMusic, 400); } return musicOn; },
-    get muted() { return muted; },
+    radio() { burst(2500, 0.25, 0.15, 'bandpass', radioBus); tone('square', 1200, 1200, 0.06, 0.05, 0.25, radioBus); },
+    radioOpen() { burst(2200, 0.18, 0.18, 'bandpass', radioBus); },
+    radioClose() { burst(3000, 0.12, 0.2, 'highpass', radioBus); tone('square', 1400, 1400, 0.05, 0.03, 0.1, radioBus); },
+    toggle() { muted = !muted; try { localStorage.setItem('bunker_mute', muted ? '1' : '0'); } catch (e) {} applyVol(); return muted; },
+    toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunker_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { applyVol(); if (musicOn) startMusic(); else setTimeout(stopMusic, 400); } return musicOn; },
+    get muted() { return muted; }, get musicOn() { return musicOn; },
+    get vol() { return Object.assign({}, vol); },
+    setVol(k, v) { vol[k] = Math.max(0, Math.min(100, Math.round(v))); try { localStorage.setItem('bunker_vol', JSON.stringify(vol)); } catch (e) {} applyVol(); },
+    setMuted(m) { if (muted !== !!m) this.toggle(); }, setMusic(m) { if (musicOn !== !!m) this.toggleMusic(); },
+    speechVol() { return muted ? 0 : Math.min(1, (vol.master / 100) * (vol.radio / 100) * 1.1); },
   };
 })();

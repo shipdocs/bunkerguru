@@ -50,7 +50,7 @@ const EN = {
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
 function tf(s, ...a) { return tr(s).replace(/\{(\d+)\}/g, (m, i) => a[+i]); }
-function setLang(l) { lang = l; try { localStorage.setItem('bunker_lang', l); } catch (e) {} applyLangHTML(); }
+function setLang(l) { lang = l; try { localStorage.setItem('bunker_lang', l); } catch (e) {} applyLangHTML(); if (typeof running !== 'undefined' && !running) document.getElementById('msg').textContent = ''; }
 function applyLangHTML() {
   document.querySelectorAll('[data-nl]').forEach(el => { el.innerHTML = lang === 'en' ? el.dataset.en : el.dataset.nl; });
   document.querySelectorAll('.langbtn').forEach(b => b.style.opacity = b.dataset.l === lang ? 1 : 0.45);
@@ -278,9 +278,10 @@ addEventListener('keydown', e => {
   if ((e.key === 'b' || e.key === 'B') && running) toggleShop();
   if ((e.key === 'm' || e.key === 'M') && running) toggleMooring();
   if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
+  if (e.key === 'o' || e.key === 'O') toggleSound();
   if (e.key === 'v' || e.key === 'V') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2);
   if (e.key === 'p' || e.key === 'P') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); }
-  if (e.key === 'g' || e.key === 'G') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
+  if (e.key === 'g' || e.key === 'G') { SND.init(); const mu = SND.toggle(); if (mu && 'speechSynthesis' in window) speechSynthesis.cancel(); say(tr(mu ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
   if (e.key === 'l' || e.key === 'L') { setLang(lang === 'nl' ? 'en' : 'nl'); renderMapMenu(); }
   if (e.key === 'Escape' && running) openMenu();
   if (e.key === 't' || e.key === 'T') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); }
@@ -289,7 +290,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.key] = false; });
 document.querySelectorAll('.tb').forEach(b => {
   const k = b.dataset.k;
-  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'v') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2); if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
+  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'o') toggleSound(); if (k === 'v') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2); if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
   const off = e => { e.preventDefault(); keys[k] = false; };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 });
@@ -754,6 +755,26 @@ renderMapMenu(); loadMap(chosenMap()); reset(); requestAnimationFrame(frame);
 document.querySelectorAll('.langbtn').forEach(b => b.onclick = () => setLang(b.dataset.l));
 applyLangHTML();
 document.getElementById('start').onclick = startGame;
+// ---------- geluidsinstellingen ----------
+const soundEl = document.getElementById('sound');
+function renderSound() {
+  const v = SND.vol;
+  for (const k of ['master', 'sfx', 'music', 'radio']) { document.getElementById('v_' + k).value = v[k]; document.getElementById('t_' + k).textContent = v[k]; }
+  document.getElementById('s_on').checked = !SND.muted; document.getElementById('s_music').checked = SND.musicOn; document.getElementById('s_radio').checked = RADIO.on;
+}
+let soundWasPaused = false;
+function toggleSound() {
+  SND.init();
+  if (soundEl.style.display === 'flex') { soundEl.style.display = 'none'; paused = soundWasPaused; last = performance.now(); return; }
+  renderSound(); soundEl.style.display = 'flex'; soundWasPaused = paused; paused = true;
+}
+for (const k of ['master', 'sfx', 'music', 'radio']) document.getElementById('v_' + k).addEventListener('input', e => { SND.init(); SND.setVol(k, +e.target.value); document.getElementById('t_' + k).textContent = e.target.value; });
+document.getElementById('s_on').onchange = e => { SND.init(); SND.setMuted(!e.target.checked); if (!e.target.checked && 'speechSynthesis' in window) speechSynthesis.cancel(); };
+document.getElementById('s_music').onchange = e => { SND.init(); SND.setMusic(e.target.checked); };
+document.getElementById('s_radio').onchange = e => RADIO.set(e.target.checked);
+document.getElementById('soundClose').onclick = toggleSound;
+document.getElementById('sndBtn').onclick = toggleSound;
+document.getElementById('soundBtn2').onclick = () => { SND.init(); renderSound(); soundEl.style.display = 'flex'; soundWasPaused = paused; };
 // ---------- winkel ----------
 const shop = document.getElementById('shop');
 function renderShop() {
