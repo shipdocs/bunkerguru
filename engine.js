@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
+  'HIER': 'HERE', '📖 Uitleg': '📖 How to play', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
@@ -59,7 +59,8 @@ const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const hud = document.getElementById('hud'), msgEl = document.getElementById('msg');
 const overlay = document.getElementById('overlay');
 let VW = innerWidth, VH = innerHeight;
-function fit() { VW = cv.width = innerWidth; VH = cv.height = innerHeight; }
+let COMPACT = false; const COARSE = matchMedia('(pointer:coarse)').matches;
+function fit() { VW = cv.width = innerWidth; VH = cv.height = innerHeight; COMPACT = COARSE || Math.min(VW, VH) < 560 || VW < 760; document.body.classList.toggle('compact', COMPACT); const r = document.getElementById('rules'); if (r) r.open = !COMPACT; }
 addEventListener('resize', fit); fit();
 
 // ---------- wereld (kaart-onafhankelijk) ----------
@@ -645,7 +646,7 @@ function drawBoat(t) {
 }
 function drawInstruments() {
   const b = boat;
-  const cx = VW / 2, cy = VH - 28, R = 44;
+  const cx = VW / 2, cy = VH - (COMPACT ? 20 : 28), R = COMPACT ? 34 : 44;
   ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(cx, cy, R + 8, Math.PI, 0); ctx.lineTo(cx + R + 8, cy + 14); ctx.lineTo(cx - R - 8, cy + 14); ctx.closePath(); ctx.fill();
   ctx.lineWidth = 8; ctx.strokeStyle = '#d33f3f'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI, Math.PI * 1.5); ctx.stroke();
   ctx.strokeStyle = '#3cb043'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI * 1.5, Math.PI * 2); ctx.stroke();
@@ -656,6 +657,17 @@ function drawInstruments() {
   ctx.strokeStyle = '#ffd54a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ra) * (R - 10), cy + Math.sin(ra) * (R - 10)); ctx.stroke();
   ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
   ctx.fillText(`${tr('ROER')} ${Math.abs(b.rudder) < 0.03 ? '0' : tr(b.rudder < 0 ? 'BB ' : 'SB ') + Math.round(Math.abs(b.rudder) * 35)}°`, cx, cy + 10);
+  if (COMPACT) { // smalle telegraafbalk boven de ▲-knop
+    const land = VH < 500, tw = 22;
+    const th = land ? Math.max(55, Math.min(130, VH - 315)) : Math.max(70, Math.min(130, VH - 520));
+    const tx = land ? 44 - tw / 2 : VW - 44 - tw / 2, ty = land ? VH - 160 - th : VH - 170 - th;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; rrect(tx - 6, ty - 22, tw + 12, th + 30, 6); ctx.fill();
+    const zero = ty + th / 1.6; ctx.fillStyle = '#3cb043'; ctx.fillRect(tx, ty, tw, zero - ty); ctx.fillStyle = '#d33f3f'; ctx.fillRect(tx, zero, tw, ty + th - zero);
+    TELE.forEach(s => { const y = zero - s.v * (zero - ty); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(tx, y - 0.5, tw, 1); });
+    const hy = zero - b.tele * (zero - ty); ctx.fillStyle = '#ffd54a'; ctx.fillRect(tx - 4, hy - 4, tw + 8, 8);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 10px system-ui'; ctx.textAlign = 'center'; ctx.fillText('⚙', tx + tw / 2, ty - 8); ctx.textAlign = 'left';
+    return;
+  }
   const tx = VW - 185, ty = VH - 170, th = 150, tw = 38;
   ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(tx - 10, ty - 10, tw + 135, th + 30);
   ctx.fillStyle = '#333'; ctx.fillRect(tx, ty, tw, th);
@@ -669,7 +681,7 @@ function drawInstruments() {
   ctx.textAlign = 'left';
 }
 function drawMinimap() {
-  const mw = 220, mh = Math.round(mw * H / W), mx = VW - mw - 12, my = 12, k = mw / W;
+  const mw = COMPACT ? 140 : 220, mh = Math.round(mw * H / W), mx = VW - mw - (COMPACT ? 8 : 12), my = COMPACT ? 56 : 12, k = mw / W;
   ctx.fillStyle = 'rgba(0,0,0,.5)'; rrect(mx - 6, my - 6, mw + 12, mh + 12, 8); ctx.fill();
   ctx.fillStyle = '#2a7fb8'; ctx.fillRect(mx, my, mw, mh);
   ctx.save(); ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip(); ctx.translate(mx, my); ctx.scale(k, k);
@@ -687,9 +699,9 @@ function drawMinimap() {
   // doelpijl
   const tgt = state.phase === 'load' ? sn2w((terminal.s0 + terminal.s1) / 2, (terminal.n0 + terminal.n1) / 2) : sn2w((dock.s0 + dock.s1) / 2, (dock.n0 + dock.n1) / 2);
   const ang = Math.atan2(tgt.y - boat.y, tgt.x - boat.x);
-  ctx.save(); ctx.translate(mx + mw / 2, my + mh + 26); ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
-  ctx.fillText(`${state.phase === 'load' ? terminal.name : ship.name} ${Math.round(Math.hypot(tgt.x - boat.x, tgt.y - boat.y) / SCALE)} m`, 0, 4);
-  ctx.translate(-70, 0); ctx.rotate(ang); ctx.fillStyle = '#ffd54a'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -7); ctx.lineTo(-8, 7); ctx.closePath(); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(mx + mw / 2 + (COMPACT ? 8 : 0), my + mh + (COMPACT ? 18 : 26)); ctx.fillStyle = '#fff'; ctx.font = (COMPACT ? 'bold 10px' : 'bold 12px') + ' system-ui'; ctx.textAlign = 'center';
+  const dTxt = `${state.phase === 'load' ? terminal.name : ship.name} ${Math.round(Math.hypot(tgt.x - boat.x, tgt.y - boat.y) / SCALE)} m`; ctx.fillText(dTxt, 0, 4);
+  ctx.translate(-ctx.measureText(dTxt).width / 2 - 12, 0); ctx.rotate(ang); ctx.fillStyle = '#ffd54a'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -7); ctx.lineTo(-8, 7); ctx.closePath(); ctx.fill(); ctx.restore();
 }
 function drawHUD() {
   const b = boat, sp = Math.hypot(b.vx, b.vy) * 3.6;
@@ -697,6 +709,7 @@ function drawHUD() {
   const rud = Math.abs(b.rudder) < 0.05 ? tr('midscheeps') : tr(b.rudder < 0 ? 'bakboord ' : 'stuurboord ') + Math.round(Math.abs(b.rudder) * 35) + '°';
   const c = currentAt(b.x, b.y); const cs = Math.hypot(c.vx, c.vy);
   const dmgCol = b.damage < 40 ? '#5ee88a' : b.damage < 75 ? '#ffd54a' : '#ff5a5a';
+  if (COMPACT) { hud.innerHTML = `${moored ? '⚓ ' : ''}${warp === 2 ? '⏩ ' : ''}🪙 ${Math.round(career.gold)} · ${b.target} t → ${ship.name}<br>${sp.toFixed(1)} km/h · ${tr(TELE[b.teleIdx].n)} · ${tr('Roer')} ${Math.abs(b.rudder) < 0.05 ? '0' : (b.rudder < 0 ? tr('BB ') : tr('SB ')) + Math.round(Math.abs(b.rudder) * 35)}°<br>${tideInfo()} · ${tr('Lading')} ${Math.round(b.cargo)} t<br>${tr('Schade')} <span style="display:inline-block;width:60px;height:7px;background:#333;border-radius:4px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:4px"></span></span> ${Math.round(b.damage)}`; return; }
   hud.innerHTML = `${moored ? `<span style="color:#ffd54a;font-weight:700">${tr('⚓ AFGEMEERD (M = los)')}</span><br>` : ''}${warp === 2 ? `<span style="color:#5ee88a;font-weight:700">${tr('⏩ SNELVAART 2×')}</span><br>` : ''}<b>🗺️</b> ${MAP.name} · <b>🪙 ${tr('Goud')}</b> ${Math.round(career.gold)} · <b>${tr('klussen')}</b> ${career.jobs}<br>${rivals.map(r => `<span style="color:${r.col}">●</span> ${r.name} ${Math.round(r.gold)} 🪙`).join(' · ')}<br><b>${tr('Opdracht')}</b> ${missionCount + 1}: ${b.target} t → ${ship.name}<br><b>${tr('Totaal')}</b> ${totalScore} pt<br><b>${tr('Vaart')}</b> ${sp.toFixed(1)} km/h<br><b>${tr('Koers')}</b> ${hdgDeg}°<br><b>${tr('Telegraaf')}</b> ${tr(TELE[b.teleIdx].n)}<br><b>${tr('Roer')}</b> ${rud}<br><b>${tr('Stroom')}</b> ${cs.toFixed(1)} m/s · <span style="color:${Math.abs(current.speed) > 2.5 ? '#ff8a5a' : '#fff'}">${tideInfo()}</span><br><b>${tr('Lading')}</b> ${Math.round(b.cargo)} t<br><b>${tr('Schade')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:5px"></span></span> ${Math.round(b.damage)}/100<br><b>${tr('Tijd')}</b> ${Math.round(state.elapsed)} s<br><b>${tr('Beste score')}</b> ${bestScore}`;
 }
 

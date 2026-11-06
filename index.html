@@ -29,6 +29,31 @@
   .mapcard:hover{background:#eee}
   #overlay .card{max-width:560px}
   @media (pointer:coarse){#touch{display:block}#help{display:none}}
+  .tb.m{width:52px;height:52px;font-size:16px}
+  .tb.s{width:44px;height:44px;font-size:18px}
+  .tb.col{right:10px}
+  #overlay,#shop,#sound{overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+  .startbar{position:sticky;bottom:-28px;background:#fff;padding:10px 0 4px;margin-top:6px}
+  details.rules summary{cursor:pointer;font-weight:700;margin:6px 0;color:#2980b9}
+  /* compacte indeling: telefoon / klein scherm */
+  body.compact #hud{top:54px;left:6px;font-size:11px;line-height:1.35;padding:6px 9px;min-width:0;max-width:calc(100vw - 170px)}
+  body.compact #msg{top:6px;left:6px;right:6px;transform:none;white-space:normal;font-size:12px;line-height:1.3;padding:6px 12px;border-radius:10px;text-align:center;max-width:none}
+  body.compact #radio{left:8px;right:70px;bottom:170px;max-width:none;font-size:11px;padding:6px 9px}
+  body.compact #sndBtn{display:none}
+  body.compact #overlay{align-items:flex-start;padding:10px 0}
+  body.compact #overlay .card{padding:16px 16px 0;margin:0 8px;font-size:14px}
+  body.compact #overlay h1{font-size:22px}
+  body.compact #overlay p{font-size:13px;margin:4px 0}
+  body.compact .mapcard{flex:1 1 40%;padding:8px;font-size:13px}
+  body.compact .mapcard div:first-child{font-size:24px!important}
+  body.compact .mapcard div:last-child{font-size:11px!important}
+  body.compact #shop,body.compact #sound{align-items:flex-start;padding:10px 0}
+  @media (max-height:500px){ /* telefoon liggend: kleine knoppen als rij naast de minimap */
+    .tb.col{right:auto;left:auto}
+    .tb.col[data-k="b"]{top:56px!important;right:164px} .tb.col[data-k="esc"]{top:56px!important;right:214px}
+    .tb.col[data-k="o"]{top:56px!important;right:264px} .tb.col[data-k="h"]{top:56px!important;right:314px}
+    body.compact #hud{max-width:calc(100vw - 380px)}
+  }
 </style>
 </head>
 <body>
@@ -40,20 +65,18 @@
   <button id="sndBtn" title="Geluid / Sound (O)">🔊</button>
   <div id="help" data-nl="↑ / ↓ &nbsp;telegraaf, één stand per tik<br>← / → &nbsp;roer<br>Q / E &nbsp;boegschroef<br>Spatie &nbsp;roer midscheeps<br>T &nbsp;snelvaart 2× aan/uit<br>M &nbsp;vastmaken / losgooien<br>B &nbsp;winkel (aan terminal)<br>N &nbsp;volgende opdracht · R &nbsp;opnieuw<br>L &nbsp;English / Nederlands · Esc &nbsp;kaartmenu<br>+ / − / scrollwiel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;scheepshoorn · O &nbsp;geluidsinstellingen<br>G &nbsp;geluid · P &nbsp;muziek · V &nbsp;marifoon (aan/uit)" data-en="↑ / ↓ &nbsp;telegraph, one notch per press<br>← / → &nbsp;rudder<br>Q / E &nbsp;bow thruster<br>Space &nbsp;rudder amidships<br>T &nbsp;fast forward 2× on/off<br>M &nbsp;moor / cast off<br>B &nbsp;shop (at terminal)<br>N &nbsp;next job · R &nbsp;restart<br>L &nbsp;English / Nederlands · Esc &nbsp;map menu<br>+ / − / mouse wheel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;horn · O &nbsp;sound settings<br>G &nbsp;sound · P &nbsp;music · V &nbsp;VHF (on/off)"></div>
   <div id="touch">
-    <div class="tb" style="left:20px;bottom:90px" data-k="ArrowLeft">◀</div>
-    <div class="tb" style="left:100px;bottom:90px" data-k="ArrowRight">▶</div>
-    <div class="tb" style="right:20px;bottom:150px" data-k="ArrowUp">▲</div>
-    <div class="tb" style="right:20px;bottom:70px" data-k="ArrowDown">▼</div>
-    <div class="tb" style="left:60px;bottom:170px;width:52px;height:52px;font-size:16px" data-k="q">BS◀</div>
-    <div class="tb" style="right:100px;bottom:110px;width:52px;height:52px;font-size:16px" data-k="e">BS▶</div>
-    <div class="tb" style="right:100px;bottom:200px;width:52px;height:52px;font-size:18px" data-k="t">⏩</div>
-    <div class="tb" style="left:20px;bottom:250px;width:52px;height:52px;font-size:18px" data-k="b">🛠️</div>
-    <div class="tb" style="left:100px;bottom:170px;width:52px;height:52px;font-size:20px" data-k="m">⚓</div>
-    <div class="tb" style="left:100px;bottom:250px;width:52px;height:52px;font-size:20px" data-k="esc">🗺️</div>
-    <div class="tb" style="left:20px;bottom:330px;width:52px;height:52px;font-size:20px" data-k="h">📯</div>
-    <div class="tb" style="left:100px;bottom:330px;width:52px;height:52px;font-size:20px" data-k="o">🔊</div>
-    <div class="tb" style="left:20px;bottom:410px;width:52px;height:52px;font-size:20px" data-k="p">🎵</div>
-    <div class="tb" style="left:100px;bottom:410px;width:52px;height:52px;font-size:20px" data-k="v">📻</div>
+    <div class="tb" style="left:12px;bottom:16px" data-k="ArrowLeft">◀</div>
+    <div class="tb" style="left:84px;bottom:16px" data-k="ArrowRight">▶</div>
+    <div class="tb m" style="left:12px;bottom:92px" data-k="q">BS◀</div>
+    <div class="tb m" style="left:96px;bottom:92px" data-k="e">BS▶</div>
+    <div class="tb" style="right:12px;bottom:16px" data-k="ArrowDown">▼</div>
+    <div class="tb" style="right:12px;bottom:92px" data-k="ArrowUp">▲</div>
+    <div class="tb m" style="right:86px;bottom:20px;font-size:22px" data-k="m">⚓</div>
+    <div class="tb s" style="right:92px;bottom:88px" data-k="t">⏩</div>
+    <div class="tb s col" style="top:200px" data-k="b">🛠️</div>
+    <div class="tb s col" style="top:250px" data-k="esc">🗺️</div>
+    <div class="tb s col" style="top:300px" data-k="o">🔊</div>
+    <div class="tb s col" style="top:350px" data-k="h">📯</div>
   </div>
   <div id="sound" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(0,20,40,.6);z-index:20">
     <div style="background:#fff;color:#123;padding:20px 24px;border-radius:16px;width:min(420px,92vw);text-align:left">
@@ -86,16 +109,18 @@
       <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px"><button class="langbtn" data-l="nl" style="font-size:13px;padding:4px 12px;border-radius:999px;border:1px solid #999;background:#fff;color:#123;cursor:pointer">🇳🇱 Nederlands</button><button class="langbtn" data-l="en" style="font-size:13px;padding:4px 12px;border-radius:999px;border:1px solid #999;background:#fff;color:#123;cursor:pointer">🇬🇧 English</button></div>
       <h1>⛴️ Bunkerguru</h1>
       <div id="mapList" style="display:flex;gap:10px;justify-content:center;margin:8px 0 10px;flex-wrap:wrap"></div>
+      <details class="rules" id="rules"><summary data-nl="📖 Uitleg" data-en="📖 How to play">📖 Uitleg</summary>
       <div data-nl="<p>Laad bij de <b>terminal</b> van je opdracht (geel), vaar naar het zeeschip en kom netjes langszij in de <b>groene zone</b>. Zes ligplaatsen, twee terminals, Nieuwe Waterweg én Oude Maas.</p><p>Elke klus levert 🪙 goud op (vracht + tijdbonus + schadevrij). Reparatie kost goud, zinken kost de helft. In de <b>winkel</b> (B, aan een terminal) koop je motor, boegschroef, tanks, fenders en pomp. Je carrière wordt bewaard.</p><p><b>Concurrenten</b> Bunker Bert en Truus Tank werken in dezelfde haven. Gaan ze voor jouw schip, dan krijgt wie het eerst langszij ligt de klus.</p><p>Langszij: vaart eruit, koers parallel, dan <b>M</b> = trossen vast. Dan houdt de stroming je niet meer. Hard raken = schade.</p><p>Het is een getijdengebied: eb tot 4 m/s naar zee, vloed landinwaarts, en het verkeer vaart gewoon door. De minimap rechtsboven wijst de weg.</p>" data-en="<p>Load at the <b>terminal</b> of your job (yellow), sail to the seagoing ship and come neatly alongside in the <b>green zone</b>. Six berths, two terminals, Nieuwe Waterweg and Oude Maas.</p><p>Every job pays 🪙 gold (cargo + time bonus + damage-free). Repairs cost gold, sinking costs half of it. In the <b>shop</b> (B, at a terminal) you buy engine, bow thruster, tanks, fenders and pump. Your career is saved.</p><p><b>Rivals</b> Bunker Bert and Truus Tank work the same port. If they go for your ship, the first one alongside gets the job.</p><p>Alongside: kill the speed, heading parallel, then <b>M</b> = make fast. The current can't move you then. Hard contact = damage.</p><p>It's tidal: ebb up to 4 m/s seaward, flood running inland, and the traffic keeps moving. The minimap top right shows the way.</p>"></div>
-      <button id="soundBtn2" style="font-size:14px;padding:6px 14px;border:1px solid #999;border-radius:999px;background:#fff;color:#123;cursor:pointer;margin-right:6px" data-nl="🔊 Geluid" data-en="🔊 Sound">🔊 Geluid</button>
-      <button id="start" data-nl="Varen maar" data-en="Let's sail">Varen maar</button>
+      </details>
+      <div class="startbar"><button id="soundBtn2" style="font-size:14px;padding:6px 14px;border:1px solid #999;border-radius:999px;background:#fff;color:#123;cursor:pointer;margin-right:6px" data-nl="🔊 Geluid" data-en="🔊 Sound">🔊 Geluid</button>
+      <button id="start" data-nl="Varen maar" data-en="Let's sail">Varen maar</button></div>
     </div>
   </div>
 </div>
-<script src="maps/europoort.js?v=202611061558"></script>
-<script src="maps/rotterdam.js?v=202611061558"></script>
-<script src="radio.js?v=202611061558"></script>
-<script src="audio.js?v=202611061558"></script>
-<script src="engine.js?v=202611061558"></script>
+<script src="maps/europoort.js?v=202611061618"></script>
+<script src="maps/rotterdam.js?v=202611061618"></script>
+<script src="radio.js?v=202611061618"></script>
+<script src="audio.js?v=202611061618"></script>
+<script src="engine.js?v=202611061618"></script>
 </body>
 </html>
