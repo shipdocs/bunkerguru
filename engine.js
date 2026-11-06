@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', '🫧 {0} is gezonken! (−{1} 🪙)': '🫧 {0} sank! (−{1} 🪙)', '💥 Aanvaring met {0}: jij +{1}, hij +{2} schade': '💥 Collision with {0}: you +{1}, them +{2} damage', 'Tip: kop tegen de stroom in, machine bij tot je stil ligt': 'Tip: bow into the current, add engine until you hold still',
+  'HIER': 'HERE', '🫧 {0} is gezonken! (−{1} 🪙)': '🫧 {0} sank! (−{1} 🪙)', '💥 {0} sneed je af: jij +{1}, hij +{2} schade · {0} betaalt jou {3} 🪙': '💥 {0} cut you off: you +{1}, them +{2} damage · {0} pays you {3} 🪙', '💥 Jij ramde {0}: jij +{1}, hij +{2} schade · jij betaalt {3} 🪙': '💥 You rammed {0}: you +{1}, them +{2} damage · you pay {3} 🪙', '💥 Aanvaring met {0}: jij +{1}, hij +{2} schade (beide schuld)': '💥 Collision with {0}: you +{1}, them +{2} damage (both to blame)', 'Tip: kop tegen de stroom in, machine bij tot je stil ligt': 'Tip: bow into the current, add engine until you hold still',
   '→ Laden bij {0} · {1} m': '→ Load at {0} · {1} m', '→ Langszij {0}: vaart eruit, M = vast': '→ Alongside {0}: kill speed, M = moor', '→ Naar {0} · {1} m': '→ To {0} · {1} m',
   '⛽ Bunkeren… {0}%': '⛽ Bunkering… {0}%', '✅ Klus klaar! Volgende opdracht over {0} s (N = nu)': '✅ Job done! Next job in {0} s (N = now)', '🫧 Gezonken – nieuwe boot volgt': '🫧 Sunk – new boat on its way', '📖 Uitleg': '📖 How to play', 'Roer midscheeps': 'Rudder amidships', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
@@ -217,6 +217,21 @@ function rivalProbe(r, obs, finalLeg) { // wat ligt er voor de boeg?
   }
   return null;
 }
+// rol van een concurrent t.o.v. de speler volgens de basisregels: 'give' (voorrang geven), 'stand' (voorrang hebben), 'headon'
+function colregRole(r) {
+  const ang = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const rs = w2sn(r.x, r.y), ps = w2sn(boat.x, boat.y);
+  const rIn = Math.abs(rs.n) >= RIVER_HALF - 20, pIn = Math.abs(ps.n) >= RIVER_HALF - 20; // in of bij de mond van een bekken
+  if (rIn && !pIn) return 'give'; if (pIn && !rIn) return 'stand';           // uitvaren uit haven: doorgaande vaart gaat voor
+  const pSpd = Math.hypot(boat.vx, boat.vy), pHdg = pSpd > 0.3 ? Math.atan2(boat.vy, boat.vx) : boat.hdg;
+  const bearR = ang(Math.atan2(boat.y - r.y, boat.x - r.x) - r.hdg);   // waar zie ik de speler (rad, + = stuurboord)
+  const bearP = ang(Math.atan2(r.y - boat.y, r.x - boat.x) - pHdg);     // waar ziet de speler mij
+  const rel = Math.abs(ang(pHdg - r.hdg));
+  if (Math.abs(bearP) > 112.5 * Math.PI / 180 && (r.cur || 0) > pSpd) return 'give';   // ik loop de speler op
+  if (Math.abs(bearR) > 112.5 * Math.PI / 180 && pSpd > (r.cur || 0)) return 'stand';  // speler loopt mij op
+  if (rel > 160 * Math.PI / 180 && Math.abs(bearR) < 20 * Math.PI / 180) return 'headon';
+  return bearR > 0 ? 'give' : 'stand'; // kruisend: speler aan mijn stuurboord → ik geef voorrang
+}
 function rivalSink(r) {
   r.mode = 'sunk'; r.sinkT = 0; r.racing = false; r.path = []; r.cur = 0; r.rev = null; const loss = Math.round(r.gold / 2); r.gold -= loss; saveRivals();
   say(tf('🫧 {0} is gezonken! (−{1} 🪙)', r.name, loss), 4);
@@ -248,6 +263,23 @@ function updateRivals(dt) {
     const near = r.path.length === 1, finalLeg = near && d < 70;
     let target = near ? Math.min(r.spd, 0.3 + d / 45) : r.path.length === 2 ? Math.min(r.spd, 3.5) : r.spd;
     const obs = rivalObstacles(r), hit = rivalProbe(r, obs, finalLeg || r.path.length <= 2);
+    // de speler: basisregels (BPR) — kruisend: stuurboordschip heeft voorrang; oploper blijft vrij; recht op elkaar af: beide naar stuurboord; wie uit een haven komt geeft voorrang
+    r.giveWay = false; r.standOn = false;
+    if (state.phase !== 'sunk' && !(r.path.length <= 2 && Math.hypot(boat.vx, boat.vy) < 0.5)) {
+      const rx = boat.x - r.x, ry = boat.y - r.y, dist = Math.hypot(rx, ry);
+      if (dist < 360) {
+        const dvx = toPx(boat.vx - Math.cos(r.hdg) * r.cur), dvy = toPx(boat.vy - Math.sin(r.hdg) * r.cur), dv2 = dvx * dvx + dvy * dvy;
+        const tc = dv2 > 1e-3 ? Math.max(0, -(rx * dvx + ry * dvy) / dv2) : 0, cpa = Math.hypot(rx + dvx * tc, ry + dvy * tc);
+        if (cpa < 75 && tc < 18) {
+          const role = colregRole(r);
+          if (role === 'give') { r.giveWay = true; target = Math.min(target, dist < 170 ? 0 : 1); }
+          else if (role === 'headon') { r.giveWay = true; da += 0.5; target = Math.min(target, 2.5); } // stuurboord uit
+          else { r.standOn = true; // koers en vaart houden; attentiesein als de speler niets doet; laatste moment zelf ingrijpen
+            if (dist < 220 && !r.warned) { r.warned = true; SND.horn5 && SND.horn5(); RADIO.say([{ who: r.name, spk: 3, text: lang === 'en' ? `Bunkerguru, ${r.name}, you have me on your starboard side, give way!` : `Bunkerguru, ${r.name}, u heeft mij aan stuurboord, u geeft voorrang!` }], lang); }
+            if (dist < 110 && cpa < 45) target = Math.min(target, 0.5); }
+        } else if (dist > 260) r.warned = false;
+      }
+    }
     // dwarsverkeer: zie je een varend zeeschip op je af komen en moet je zijn laan nog in, wacht; zit je er al in, doorvaren
     if (!hit) { const me = w2sn(r.x, r.y); for (const t of traffic) { if (t.axis === 'n') continue; const ts = w2sn(t.cx, t.cy), towards = Math.sign(t.v) === Math.sign(me.s - ts.s), ds = Math.abs(me.s - ts.s) - t.len / 2, dn = Math.abs(me.n - t.n);
       if (towards && ds < 260 && dn < 75) { if (dn > 42) target = 0; else target = r.spd; } } }
@@ -280,6 +312,7 @@ function rivalContacts(r, dt) {
   const c = Math.cos(r.hdg), s = Math.sin(r.hdg), rad = 9, sgn = r.rev ? -1 : 1, vx = c * r.cur * sgn, vy = s * r.cur * sgn;
   const pts = [-0.45, 0, 0.45].map(f => ({ x: r.x + c * 80 * f, y: r.y + s * 80 * f }));
   for (const o of rivalObstacles(r)) for (const p of pts) {
+    if (o.k === 'player') continue; // boot-tegen-speler wordt in physics() afgehandeld (duwen + schuld + schade)
     const e = nearestEdge(p, o.p), inside = inPoly(p, o.p);
     if (!inside && e.d >= rad) continue;
     let ux = p.x - e.qx, uy = p.y - e.qy, dd = Math.hypot(ux, uy); if (dd < 0.001) { ux = 0; uy = -1; dd = 1; }
@@ -330,7 +363,7 @@ function drawRival(r, t) {
   ctx.fillStyle = '#7f8c8d'; rrect(-L / 2 + 16, -Bw / 2 + 3, L - 34, Bw - 6, 3); ctx.fill();
   ctx.fillStyle = '#fff'; rrect(-L / 2 + 4, -Bw / 2 + 2, 11, Bw - 4, 3); ctx.fill();
   ctx.restore();
-  ctx.fillStyle = r.racing ? '#ffd54a' : '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(r.name + (r.racing ? ' ⚔️' : ''), r.x, r.y - 22); ctx.textAlign = 'left';
+  ctx.fillStyle = r.racing ? '#ffd54a' : '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(r.name + (r.racing ? ' ⚔️' : '') + (r.standOn ? ' ⚠️' : r.giveWay ? ' ✋' : ''), r.x, r.y - 22); ctx.textAlign = 'left';
   if (r.damage > 0) { const dc = r.damage < 40 ? '#5ee88a' : r.damage < 75 ? '#ffd54a' : '#ff5a5a'; ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(r.x - 22, r.y - 18, 44, 5); ctx.fillStyle = dc; ctx.fillRect(r.x - 22, r.y - 18, 44 * Math.min(1, r.damage / 100), 5); }
 }
 let hitFlash = 0, shake = 0, warp = 1, paused = false;
@@ -482,12 +515,22 @@ function physics(dt) {
       b.x += ux * push; b.y += uy * push;
       const vn = b.vx * ux + b.vy * uy, impact = Math.max(0, -vn); // alleen snelheid ín de kade/het schip telt, langs schuiven niet
       const rv = wi >= nNoRival ? rivals.filter(q => q.mode !== 'sunk')[wi - nNoRival] : null;
-      const rimp = rv ? Math.max(0, -((b.vx - Math.cos(rv.hdg) * (rv.cur || 0) * (rv.rev ? -1 : 1)) * ux + (b.vy - Math.sin(rv.hdg) * (rv.cur || 0) * (rv.rev ? -1 : 1)) * uy)) : 0; // relatieve inslag, vóór terugkaatsen
+      let rimp = 0, shareR = 0.5; // relatieve inslag en wiens schuld (aandeel van de concurrent), vóór terugkaatsen
+      if (rv) { const sgn = rv.rev ? -1 : 1, rvx = Math.cos(rv.hdg) * (rv.cur || 0) * sgn, rvy = Math.sin(rv.hdg) * (rv.cur || 0) * sgn;
+        const aP = Math.max(0, -(b.vx * ux + b.vy * uy)), aR = Math.max(0, rvx * ux + rvy * uy); rimp = aP + aR; shareR = aR / Math.max(1e-6, aP + aR);
+        const role = (rv.cur || 0) > 0.3 ? colregRole(rv) : 'none'; if (role === 'give') shareR = Math.max(shareR, 0.8); else if (role === 'stand' && aR < 0.3 + aP) shareR = Math.min(shareR, 0.2); } // wie voorrang had moeten geven is schuldig
       if (vn < 0) { b.vx -= vn * ux * 1.3; b.vy -= vn * uy * 1.3; }
       b.r *= 0.5;
       if (wi >= nNoRival) { // botsing met een concurrent: relatieve snelheid, beide krijgen schade
-        if (rimp > 0.7 && !(state.hitCD > 0) && !(rv.hitCD > 0)) { state.hitCD = 0.6; rv.hitCD = 0.6; const k = (rimp - 0.4) * 9, pd = Math.max(1, Math.round(k * up('fender'))), od = Math.max(2, Math.round(k));
-          b.damage += pd; rv.damage += od; rv.cur *= 0.3; SND.hit(pd); hitFlash = 0.35; shake = Math.min(14, 4 + pd); say(tf('💥 Aanvaring met {0}: jij +{1}, hij +{2} schade', rv.name, pd, od), 1.8); }
+        if (rimp > 0.7 && !(state.hitCD > 0) && !(rv.hitCD > 0)) { state.hitCD = 0.6; rv.hitCD = 0.6;
+          // wie ramt krijgt 60 %, wie geraakt wordt 40 %; de veroorzaker betaalt de schade van de ander
+          const k = (rimp - 0.4) * 9, pd = Math.max(1, Math.round(k * (0.8 + 0.4 * (1 - shareR)) * up('fender'))), od = Math.max(1, Math.round(k * (0.8 + 0.4 * shareR)));
+          b.damage += pd; rv.damage += od; rv.cur *= 0.3; SND.hit(pd); hitFlash = 0.35; shake = Math.min(14, 4 + pd);
+          const now = performance.now() / 1000, feeOk = !(rv.feeAt > now - 5); if (feeOk && (shareR > 0.6 || shareR < 0.4)) rv.feeAt = now; // één botsing = één afrekening
+          if (shareR > 0.6 && feeOk) { const fee = pd * 5; rv.gold = Math.max(0, rv.gold - fee); career.gold += fee; saveCareer(); saveRivals(); say(tf('💥 {0} sneed je af: jij +{1}, hij +{2} schade · {0} betaalt jou {3} 🪙', rv.name, pd, od, fee), 3); }
+          else if (shareR < 0.4 && feeOk) { const fee = Math.min(Math.round(career.gold), od * 5); career.gold -= fee; rv.gold += fee; saveCareer(); saveRivals(); say(tf('💥 Jij ramde {0}: jij +{1}, hij +{2} schade · jij betaalt {3} 🪙', rv.name, pd, od, fee), 3); }
+          else if (shareR >= 0.4 && shareR <= 0.6) say(tf('💥 Aanvaring met {0}: jij +{1}, hij +{2} schade (beide schuld)', rv.name, pd, od), 2.5);
+          else say(tf('💥 Raak! +{0} schade', pd), 1.2); }
       } else if (impact > 0.8 && !(state.hitCD > 0)) { state.hitCD = 0.6; const dmg = Math.max(1, Math.round((impact - 0.5) * 9 * up('fender'))); b.damage += dmg; SND.hit(dmg); hitFlash = 0.35; shake = Math.min(14, 4 + dmg); say(tf('💥 Raak! +{0} schade', dmg), 1.2); }
     }
   }
