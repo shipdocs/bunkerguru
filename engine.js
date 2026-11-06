@@ -37,7 +37,7 @@ const EN = {
   'Goud': 'Gold', 'klussen': 'jobs', 'Opdracht': 'Job', 'Totaal': 'Total', 'Vaart': 'Speed', 'Koers': 'Heading', 'Telegraaf': 'Telegraph', 'Roer': 'Rudder', 'Stroom': 'Current', 'Lading': 'Cargo', 'Schade': 'Damage', 'Tijd': 'Time', 'Beste score': 'Best score',
   'midscheeps': 'amidships', 'bakboord ': 'port ', 'stuurboord ': 'starboard ',
   'vol achteruit': 'full astern', 'half achteruit': 'half astern', 'langzaam achteruit': 'slow astern', 'stop': 'stop', 'zeer langzaam': 'dead slow', 'langzaam': 'slow', 'half': 'half', 'vol': 'full', 'vol vooruit': 'full ahead',
-  '← NIEUWE WATERWEG · stroom 1,5 m/s naar zee': '← NIEUWE WATERWEG · current 1.5 m/s seaward',
+  'NIEUWE WATERWEG · getijdenrivier': 'NIEUWE WATERWEG · tidal river',
   'noordoever bij Maassluis': 'north bank near Maassluis', 'Perniskade aan de rivier': 'Pernis quay on the river', 'westwand Geulhaven': 'west wall of Geulhaven', 'Europoortkade, ver stroomafwaarts': 'Europoort quay, far downstream', 'Haven Maassluis (noordoever)': 'Maassluis harbour (north bank)', 'westwand Oude Maas': 'west wall of the Oude Maas',
   'Motor': 'Engine', 'Boegschroef': 'Bow thruster', 'Tanks': 'Tanks', 'Fenders': 'Fenders', 'Pomp': 'Pump',
   'Standaard 1200 pk (31 km/h)': 'Standard 1200 hp (31 km/h)', 'Zwaardere motor: 38 km/h': 'Heavier engine: 38 km/h', 'Racemotor: 46 km/h': 'Racing engine: 46 km/h',
@@ -45,7 +45,8 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE',
+  'HIER': 'HERE', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
+  '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
 function tf(s, ...a) { return tr(s).replace(/\{(\d+)\}/g, (m, i) => a[+i]); }
@@ -66,7 +67,10 @@ addEventListener('resize', fit); fit();
 const SCALE = 2, toPx = m => m * SCALE, TIME = 3, SH = 52;
 let MAP = null, TH = 0, CT = 1, ST = 0, ORG = { x: 0, y: 0 }, W = 1000, H = 1000, RIVER_HALF = 160, S_MIN = -800, S_MAX = 5000;
 let land = [], shore = [], basins = [], terminals = [], terminal = null, berths = [], traffic = [], channels = [], bridges = [], labels = [], roads = [], decor = [], riverPoly = [], startPos = { s: 0, n: 0, hdgOff: 0 };
-const current = { speed: 1.5 }; let dirSea = { x: -1, y: 0 };
+const current = { speed: 1.5, base: 1.5 }; let dirSea = { x: -1, y: 0 };
+let tideT = 0, tidePhase = Math.random() * Math.PI * 2, lastTideSign = 0;
+function tideUpdate(dt) { const td = MAP.tide; if (!td) { current.speed = current.base; return; } tideT += dt; const f = Math.sin(tideT * Math.PI * 2 / td.period + tidePhase); current.speed = f >= 0 ? td.ebbMax * Math.pow(f, 0.8) : -td.floodMax * Math.pow(-f, 0.8); const sg = Math.sign(current.speed); if (sg !== lastTideSign) { if (lastTideSign !== 0) say(tr(sg > 0 ? '🌊 Kentering: het wordt eb, stroom naar zee neemt toe' : '🌊 Kentering: het wordt vloed, stroom landinwaarts'), 4); lastTideSign = sg; } }
+function tideInfo() { const td = MAP.tide; const v = Math.abs(current.speed); if (!td) return tf('stroom {0} m/s naar zee', v.toFixed(1)); const f = Math.sin(tideT * Math.PI * 2 / td.period + tidePhase), rising = Math.cos(tideT * Math.PI * 2 / td.period + tidePhase) > 0; return (current.speed >= 0 ? tr('EB') : tr('VLOED')) + ` ${v.toFixed(1)} m/s ` + ((f >= 0) === rising ? '▲' : '▼'); }
 const sn2w = (s, n) => ({ x: ORG.x + s * CT - n * ST, y: ORG.y + s * ST + n * CT });
 const w2sn = (x, y) => { const dx = x - ORG.x, dy = y - ORG.y; return { s: dx * CT + dy * ST, n: -dx * ST + dy * CT }; };
 function quad(s0, s1, n0, n1) { return [sn2w(s0, n0), sn2w(s1, n0), sn2w(s1, n1), sn2w(s0, n1)]; }
@@ -76,7 +80,7 @@ const cols = ['#e67e22', '#27ae60', '#2980b9', '#e74c3c', '#f1c40f'];
 
 function loadMap(def) {
   MAP = def; Object.assign(EN, def.i18n || {}); TH = def.TH; CT = Math.cos(TH); ST = Math.sin(TH); ORG = def.ORG; W = def.W; H = def.H; RIVER_HALF = def.RIVER_HALF; S_MIN = def.S_MIN; S_MAX = def.S_MAX;
-  current.speed = def.currentSpeed; dirSea = { x: -CT, y: -ST };
+  current.base = def.currentSpeed; current.speed = def.currentSpeed; dirSea = { x: -CT, y: -ST }; tideT = 0; tidePhase = Math.random() * Math.PI * 2; lastTideSign = 0;
   const h = { quad, sn2w, RIVER_HALF, TH, SH, S_MIN, S_MAX, cols };
   const m = def.build(h);
   land = m.land; basins = m.basins || []; terminals = m.terminals; berths = m.berths; traffic = m.traffic || []; channels = m.channels || []; bridges = m.bridges || []; labels = m.labels || []; roads = m.roads || []; startPos = m.start;
@@ -98,7 +102,7 @@ function loadMap(def) {
   const add = (type, s, n, extra) => { const p = sn2w(s, n); decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); };
   if (m.decor) m.decor(add, rndD, h);
   (m.rivals || []).forEach((rp, i) => { const r = rivals[i]; if (!r) return; const p = sn2w(rp.s, rp.n); r.x = p.x; r.y = p.y; r.hdg = TH + rp.hdgOff; r.mode = 'idle'; r.path = []; r.wait = 2 + i * 4; r.racing = false; });
-  terminal = terminals[0]; ship = berths[0]; dock = ship.dock; mission = -1;
+  terminal = terminals[0]; ship = berths[0]; dock = ship.dock; mission = -1; trails.clear();
   updateTraffic(0);
 }
 function updateTraffic(dt) {
@@ -182,10 +186,10 @@ function rivalQuads() { return rivals.map(r => { const c = Math.cos(r.hdg), s = 
 function maybeRace() { if (Math.random() < 0.55) { const idle = rivals.filter(r => r.mode === 'idle'); if (idle.length) { const r = idle[Math.floor(Math.random() * idle.length)]; setTimeout(() => { if (r.mode === 'idle') rivalStartJob(r, ship, true); }, 3000 + Math.random() * 6000); } } }
 function drawRival(r, t) {
   const L = toPx(40), Bw = toPx(9), moving = r.mode === 'toTerminal' || r.mode === 'toShip';
-  if (moving) { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; for (let i = 1; i <= 5; i++) { ctx.beginPath(); ctx.arc(r.x - Math.cos(r.hdg) * (L / 2 + i * 13), r.y - Math.sin(r.hdg) * (L / 2 + i * 13), i * 2.2, 0, 7); ctx.stroke(); } }
+  { const sx = r.x - Math.cos(r.hdg) * L / 2, sy = r.y - Math.sin(r.hdg) * L / 2; const kk = moving ? Math.min(1, r.spd / 6) : 0; const trl = pushTrail(r, sx, sy, t, moving); drawTrailWake(trl, t, Bw, kk); drawKelvin(sx, sy, r.hdg, L, kk); }
   ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.hdg);
   const hull = () => { ctx.beginPath(); ctx.moveTo(-L / 2 + 4, -Bw / 2); ctx.lineTo(L / 2 - 16, -Bw / 2); ctx.quadraticCurveTo(L / 2 + 6, 0, L / 2 - 16, Bw / 2); ctx.lineTo(-L / 2 + 4, Bw / 2); ctx.quadraticCurveTo(-L / 2 - 3, 0, -L / 2 + 4, -Bw / 2); ctx.closePath(); };
-  if (moving) { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 4; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(L / 2 + 2, 0); ctx.quadraticCurveTo(L / 2 - 10, s * (Bw / 2 + 6), L / 2 - 50, s * (Bw / 2 + 22)); ctx.stroke(); } }
+  if (moving) drawBowWave(L, Bw, Math.min(1, r.spd / 6), t);
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.fillStyle = r.col; hull(); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3.5; ctx.stroke();
   ctx.fillStyle = '#7f8c8d'; rrect(-L / 2 + 16, -Bw / 2 + 3, L - 34, Bw - 6, 3); ctx.fill();
@@ -287,7 +291,7 @@ function inRiver(x, y) { const { s, n } = w2sn(x, y); return Math.abs(n) < RIVER
 function currentAt(x, y) {
   const { s, n } = w2sn(x, y);
   if (Math.abs(n) < RIVER_HALF && s > S_MIN && s < S_MAX) { const f = 1 - Math.pow(Math.abs(n) / RIVER_HALF, 3) * 0.6; return { vx: dirSea.x * current.speed * f, vy: dirSea.y * current.speed * f }; }
-  for (const c of channels) if (s > c.s0 && s < c.s1 && n > c.n0 && n < c.n1) return { vx: c.cs * CT - c.cn * ST, vy: c.cs * ST + c.cn * CT };
+  for (const c of channels) if (s > c.s0 && s < c.s1 && n > c.n0 && n < c.n1) { const k = MAP.tide ? current.speed / MAP.tide.ebbMax : 1; return { vx: (c.cs * CT - c.cn * ST) * k, vy: (c.cs * ST + c.cn * CT) * k }; }
   return { vx: 0, vy: 0 };
 }
 
@@ -306,12 +310,13 @@ function physics(dt) {
   const c = currentAt(b.x, b.y);
   const rvx = b.vx - c.vx, rvy = b.vy - c.vy;
   let u = rvx * cos + rvy * sin, v = -rvx * sin + rvy * cos;
-  const maxThrust = up('motor'), thrust = Math.sign(b.tele) * Math.pow(Math.abs(b.tele), 1.6) * maxThrust * (b.tele < 0 ? 0.7 : 1); // niet-lineair: lage standen blijven traag, vol gas ~31 km/h
+  const massK = 1 / (1 + 0.45 * (b.cargo / Math.max(1, b.target))); // geladen = trager optrekken en afstoppen
+  const maxThrust = up('motor') * massK, thrust = Math.sign(b.tele) * Math.pow(Math.abs(b.tele), 1.6) * maxThrust * (b.tele < 0 ? 0.7 : 1); // niet-lineair: lage standen blijven traag, vol gas ~31 km/h
   const du = thrust - 0.08 * u * Math.abs(u) - 0.05 * u;
   const dv = -1.2 * v * Math.abs(v) - 0.9 * v;
   const flow = Math.max(-4, Math.min(6, u + (b.tele > 0 ? b.tele * 2.0 : 0))); // plafond: geen tolboot op volle vaart
   const rudForce = b.rudder * flow * Math.abs(flow) * 0.09;
-  const bowF = 0.04 * up('boeg'); const dr = rudForce * 0.06 + b.bow * bowF - b.r * 0.9 - b.r * Math.abs(b.r) * 2.0;
+  const bowF = 0.04 * up('boeg') * Math.max(0, 1 - Math.abs(u) / 3.5); // boegschroef verliest kracht boven ~2 m/s vaart door het water const dr = rudForce * 0.06 + b.bow * bowF - b.r * 0.9 - b.r * Math.abs(b.r) * 2.0;
   u += du * dt; v += (dv - rudForce * 0.3 + b.bow * bowF * 4.5) * dt; b.r += dr * dt;
   b.vx = u * cos - v * sin + c.vx; b.vy = u * sin + v * cos + c.vy;
   b.hdg += b.r * dt; b.x += toPx(b.vx) * dt; b.y += toPx(b.vy) * dt;
@@ -403,6 +408,7 @@ function drawWater(t) {
   ctx.fillStyle = 'rgba(10,50,110,.26)'; path(riverPoly); ctx.fill();
   ctx.lineCap = 'round'; for (const [w, a] of [[46, .10], [30, .14], [16, .2]]) { ctx.strokeStyle = `rgba(120,230,220,${a})`; ctx.lineWidth = w; ctx.beginPath(); for (const e of shore) { if (Math.max(e.p.x, e.q.x) < cam.x - 60 || Math.min(e.p.x, e.q.x) > cam.x + VW + 60 || Math.max(e.p.y, e.q.y) < cam.y - 60 || Math.min(e.p.y, e.q.y) > cam.y + VH + 60) continue; ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke(); }
   const flow = toPx(current.speed) * TIME;
+  const arrowAlpha = Math.min(0.7, 0.15 + Math.abs(current.speed) * 0.15);
   // haven: langzaam; rivier: mee met stroom (richting zee)
   waveLayer(patA, (t * 10) % 256, Math.sin(t * 0.5) * 4, riverPoly, true);
   waveLayer(patB, (-t * 6) % 192, Math.cos(t * 0.4) * 3, riverPoly, true);
@@ -413,9 +419,9 @@ function drawWater(t) {
   for (let i = 0; i < 400; i++) { const x = (i * 97.3) % W, y = (i * 61.7 + 30) % H; if (x < cam.x || x > cam.x + VW || y < cam.y || y > cam.y + VH) continue; const tw = Math.sin(t * 3 + i * 1.3) * 0.5 + 0.5; if (tw < 0.75) continue; ctx.globalAlpha = (tw - 0.75) * 3.2; ctx.fillRect(x, y, 6 + tw * 6, 2); }
   ctx.globalAlpha = 1;
   // stroompijlen
-  ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(255,255,255,${arrowAlpha})`; ctx.lineWidth = 2 + Math.abs(current.speed) * 0.6; ctx.lineCap = 'round';
   for (let n = -RIVER_HALF + 40; n <= RIVER_HALF - 40; n += 60) for (let s = S_MIN + ((-t * flow + n * 2) % 240 + 240) % 240; s < S_MAX; s += 240) {
-    const a = sn2w(s, n), b = sn2w(s - 26, n), c1 = sn2w(s - 19, n - 6), c2 = sn2w(s - 19, n + 6);
+    const dsg = current.speed >= 0 ? 1 : -1; const a = sn2w(s, n), b = sn2w(s - 26 * dsg, n), c1 = sn2w(s - 19 * dsg, n - 6), c2 = sn2w(s - 19 * dsg, n + 6);
     if (a.x < cam.x - 50 || a.x > cam.x + VW + 50 || a.y < cam.y - 50 || a.y > cam.y + VH + 50) continue;
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(c1.x, c1.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c2.x, c2.y); ctx.stroke();
   }
@@ -479,14 +485,63 @@ function drawLand(t) {
   ctx.fillStyle = state.phase === 'sail' ? 'rgba(80,220,120,.42)' : 'rgba(80,220,120,.14)'; path(quad(dock.s0, dock.s1, dock.n0, dock.n1)); ctx.fill();
   ctx.strokeStyle = '#5ee88a'; ctx.lineWidth = 3; ctx.setLineDash([10, 7]); ctx.stroke(); ctx.setLineDash([]);
 }
+// ---------- golven ----------
+const trails = new Map(); // object -> [{x,y,t}]
+function pushTrail(key, x, y, t, moving) {
+  let tr = trails.get(key); if (!tr) { tr = []; trails.set(key, tr); }
+  const last = tr[tr.length - 1];
+  if (moving && (!last || Math.hypot(last.x - x, last.y - y) > 6)) tr.push({ x, y, t });
+  while (tr.length && t - tr[0].t > 7) tr.shift();
+  if (tr.length > 90) tr.shift();
+  return tr;
+}
+function drawTrailWake(tr, t, beam, speedK) { // schuimbaan die de gevaren koers volgt
+  if (tr.length < 2) return;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (let i = 1; i < tr.length; i++) {
+    const age = t - tr[i].t, k = Math.max(0, 1 - age / 7);
+    ctx.strokeStyle = `rgba(255,255,255,${0.06 + 0.3 * k * speedK})`; ctx.lineWidth = beam * (0.6 + (1 - k) * 2.2);
+    ctx.beginPath(); ctx.moveTo(tr[i - 1].x, tr[i - 1].y); ctx.lineTo(tr[i].x, tr[i].y); ctx.stroke();
+  }
+  // lichte kern
+  ctx.strokeStyle = `rgba(255,255,255,${0.25 * speedK})`; ctx.lineWidth = beam * 0.35; ctx.beginPath();
+  for (let i = Math.max(0, tr.length - 25); i < tr.length; i++) { const p = tr[i]; i === 0 || i === Math.max(0, tr.length - 25) ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y); } ctx.stroke();
+}
+function drawKelvin(x, y, hdg, len, speedK) { // twee uitwaaierende golflijnen vanaf het hek
+  if (speedK <= 0.05) return;
+  const a = 19.5 * Math.PI / 180, L = len * (0.8 + speedK * 1.6);
+  for (const s of [-1, 1]) {
+    const dir = hdg + Math.PI + s * a; const ex = x + Math.cos(dir) * L, ey = y + Math.sin(dir) * L;
+    const g = ctx.createLinearGradient(x, y, ex, ey); g.addColorStop(0, `rgba(255,255,255,${0.55 * speedK})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = g; ctx.lineWidth = 2.5; ctx.setLineDash([6, 9]); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+function drawBowWave(L, Bw, speedK, t) { // in lichaamsframe: schuimkraag aan de boeg
+  if (speedK <= 0.05) return;
+  const k = speedK;
+  ctx.lineCap = 'round';
+  for (const s of [-1, 1]) {
+    // buitenste golf (dun, lang) en binnenste schuim (dik, kort)
+    ctx.strokeStyle = `rgba(255,255,255,${0.35 + 0.35 * k})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(L / 2 + 4, 0); ctx.quadraticCurveTo(L / 2 - 6, s * (Bw / 2 + 4), L / 2 - 36 - 50 * k, s * (Bw / 2 + 14 + 26 * k)); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${0.5 + 0.4 * k})`; ctx.lineWidth = 3 + 5 * k;
+    ctx.beginPath(); ctx.moveTo(L / 2 + 1, s * 1); ctx.quadraticCurveTo(L / 2 - 8, s * (Bw / 2 + 2), L / 2 - 22 - 14 * k, s * (Bw / 2 + 5 + 6 * k)); ctx.stroke();
+    // spatjes
+    ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.4 * k})`;
+    for (let i = 0; i < 4; i++) { const ph = (t * 2.5 + i * 0.25) % 1; ctx.beginPath(); ctx.arc(L / 2 - 2 - ph * (24 + 30 * k), s * (Bw / 2 + 3 + ph * (6 + 14 * k)), 1 + (1 - ph) * 2.5 * k + 0.5, 0, 7); ctx.fill(); }
+  }
+  // witte neus
+  ctx.fillStyle = `rgba(255,255,255,${0.5 * k})`; ctx.beginPath(); ctx.ellipse(L / 2 + 4, 0, 5 + 4 * k, 3 + 3 * k, 0, 0, 7); ctx.fill();
+}
 function drawShip(sh, t, active) {
   const w = sh.len, h = SH;
   ctx.save(); ctx.translate(sh.cx, sh.cy); ctx.rotate(sh.hdg);
   const hull = () => { ctx.beginPath(); ctx.moveTo(-w / 2 + 6, -h / 2); ctx.lineTo(w / 2 - 50, -h / 2); ctx.quadraticCurveTo(w / 2 + 14, 0, w / 2 - 50, h / 2); ctx.lineTo(-w / 2 + 6, h / 2); ctx.quadraticCurveTo(-w / 2 - 4, 0, -w / 2 + 6, -h / 2); ctx.closePath(); };
-  if (sh.v) { // boeggolf + kielzog voor varende schepen
-    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(w / 2 + 8, 0); ctx.quadraticCurveTo(w / 2 - 20, s * (h / 2 + 10), w / 2 - 110, s * (h / 2 + 40)); ctx.stroke(); }
-    ctx.lineWidth = 3; for (let i = 1; i <= 6; i++) { ctx.beginPath(); ctx.arc(-w / 2 - i * 20, 0, i * 4, 0, 7); ctx.stroke(); }
+  if (sh.v) { // boeggolf + kielzog voor varende schepen (rechte baan)
+    const k = Math.min(1, Math.abs(sh.v) / 6);
+    const g = ctx.createLinearGradient(-w / 2, 0, -w / 2 - 160 - 200 * k, 0); g.addColorStop(0, `rgba(255,255,255,${0.35 + 0.3 * k})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-w / 2 + 10, -h * 0.3); ctx.lineTo(-w / 2 - 160 - 200 * k, -h * 1.1); ctx.lineTo(-w / 2 - 160 - 200 * k, h * 1.1); ctx.lineTo(-w / 2 + 10, h * 0.3); ctx.closePath(); ctx.fill();
+    drawBowWave(w, h, k, t);
   }
   ctx.save(); ctx.translate(5, 7); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.fillStyle = sh.col; hull(); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.stroke();
@@ -496,12 +551,12 @@ function drawShip(sh, t, active) {
   ctx.fillStyle = '#fff'; rrect(-w / 2 + 14, -h / 2 + 5, 42, h - 10, 4); ctx.fill(); ctx.strokeStyle = '#8a95a3'; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = '#9fd6ff'; for (let i = 0; i < 3; i++) ctx.fillRect(-w / 2 + 20 + i * 11, -h / 2 + 10, 7, 7);
   ctx.fillStyle = '#ffcc33'; ctx.beginPath(); ctx.arc(-w / 2 + 35, h / 2 - 12, 6, 0, 7); ctx.fill();
-  const blink = Math.sin(t * 2 + sh.cx) > 0.95;
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(w / 2 - 34, -9, 8, blink ? 1 : 8, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(w / 2 - 34, 9, 8, blink ? 1 : 8, 0, 0, 7); ctx.fill();
-  if (!blink) { ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(w / 2 - 31, -9, 3.5, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(w / 2 - 31, 9, 3.5, 0, 7); ctx.fill(); }
-  ctx.strokeStyle = '#222'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(w / 2 - 16, 0, 7, -1.2, 1.2); ctx.stroke();
+  // voordek: ankerlier en luik
+  ctx.fillStyle = '#f7f1dc'; rrect(w / 2 - 44, -h / 2 + 8, 30, h - 16, 6); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#555'; ctx.beginPath(); ctx.arc(w / 2 - 30, -7, 3, 0, 7); ctx.arc(w / 2 - 30, 7, 3, 0, 7); ctx.fill();
   ctx.fillStyle = active ? '#ffd54a' : '#fff'; ctx.font = (active ? 'bold 14px' : 'bold 12px') + ' system-ui'; ctx.textAlign = 'left'; ctx.fillText(sh.name + (active ? '  ◀ ' + tr('HIER') : ''), -w / 2 + 66, h / 2 + 16);
   ctx.restore();
+  if (sh.v) { const k = Math.min(1, Math.abs(sh.v) / 6); drawKelvin(sh.cx - Math.cos(sh.hdg) * w / 2, sh.cy - Math.sin(sh.hdg) * w / 2, sh.hdg, w * 0.8, k); }
 }
 function drawDockHelper() {
   if (state.phase !== 'sail' || !state.inZone) return;
@@ -523,7 +578,9 @@ function drawMooring() {
 function drawBoat(t) {
   const b = boat, L = toPx(b.L), Bw = toPx(b.B);
   const sp = Math.hypot(b.vx, b.vy);
-  if (sp > 0.3) { ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; for (let i = 1; i <= 7; i++) { const k = i * 13; const ax = b.x - Math.cos(b.hdg) * (L / 2 + k), ay = b.y - Math.sin(b.hdg) * (L / 2 + k); ctx.beginPath(); ctx.arc(ax, ay, i * 2.4 * Math.min(1, sp / 3), 0, 7); ctx.stroke(); } }
+  { const c0 = currentAt(b.x, b.y); const uw = Math.hypot(b.vx - c0.vx, b.vy - c0.vy); const kk = Math.min(1, uw / 6);
+    const sx = b.x - Math.cos(b.hdg) * L / 2, sy = b.y - Math.sin(b.hdg) * L / 2;
+    const trl = pushTrail('boat', sx, sy, t, uw > 0.3 && state.phase !== 'sunk'); drawTrailWake(trl, t, Bw, kk); drawKelvin(sx, sy, b.hdg, L, kk); }
   ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.hdg);
   if (state.phase === 'sunk') { const k = Math.min(1, state.sinkT / 4); ctx.rotate(k * 0.5); ctx.scale(1 - k * 0.6, 1 - k * 0.6); ctx.globalAlpha = 1 - k * 0.85;
     ctx.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < 10; i++) { const ph = (t * 0.8 + i * 0.1) % 1; ctx.beginPath(); ctx.arc((i - 5) * 9, -ph * 50, 2 + ph * 5, 0, 7); ctx.fill(); } }
@@ -531,9 +588,7 @@ function drawBoat(t) {
   if (Math.abs(b.tele) > 0.05) { ctx.fillStyle = 'rgba(255,255,255,.5)'; const dir = b.tele > 0 ? -1 : 1; for (let i = 0; i < 4; i++) { const ph = (t * 6 + i) % 1; ctx.beginPath(); ctx.arc(-L / 2 + dir * (6 + ph * 40 * Math.abs(b.tele)), Math.sin(i * 2.1) * 4, 2 + ph * 3, 0, 7); ctx.fill(); } }
   const cos = Math.cos(b.hdg), sin = Math.sin(b.hdg); const c = currentAt(b.x, b.y);
   const u = (b.vx - c.vx) * cos + (b.vy - c.vy) * sin;
-  if (u > 0.4) { const k = Math.min(1, u / 5); ctx.strokeStyle = `rgba(255,255,255,${0.35 + 0.5 * k})`; ctx.lineWidth = 3 + 4 * k; ctx.lineCap = 'round';
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(L / 2 + 2, 0); ctx.quadraticCurveTo(L / 2 - 10, s * (Bw / 2 + 6 * k), L / 2 - 30 - 40 * k, s * (Bw / 2 + 10 + 22 * k)); ctx.stroke();
-      ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.4 * k})`; for (let i = 0; i < 5; i++) { const ph = (t * 3 + i * 0.2) % 1; ctx.beginPath(); ctx.arc(L / 2 - 4 - ph * (30 + 40 * k), s * (Bw / 2 + 2 + ph * (8 + 20 * k)), 2.5 + ph * 3 * k, 0, 7); ctx.fill(); } } }
+  if (u > 0.4) drawBowWave(L, Bw, Math.min(1, u / 6), t);
   if (b.bow !== 0) { const s = -b.bow; ctx.fillStyle = 'rgba(255,255,255,.75)'; for (let i = 0; i < 7; i++) { const ph = (t * 5 + i * 0.14) % 1; ctx.beginPath(); ctx.arc(L / 2 - 14 + Math.sin(i * 1.7) * 3, s * (Bw / 2 + 3 + ph * 26), 2 + ph * 4, 0, 7); ctx.fill(); } ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L / 2 - 14, s * Bw / 2); ctx.lineTo(L / 2 - 14, s * (Bw / 2 + 28)); ctx.stroke(); }
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.save(); ctx.translate(-L / 2 + 2, 0); ctx.rotate(-b.rudder * 0.6); ctx.fillStyle = '#ff8a2a'; rrect(-16, -3.5, 16, 7, 3); ctx.fill(); ctx.strokeStyle = '#8a3d00'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
@@ -602,7 +657,7 @@ function drawHUD() {
   const rud = Math.abs(b.rudder) < 0.05 ? tr('midscheeps') : tr(b.rudder < 0 ? 'bakboord ' : 'stuurboord ') + Math.round(Math.abs(b.rudder) * 35) + '°';
   const c = currentAt(b.x, b.y); const cs = Math.hypot(c.vx, c.vy);
   const dmgCol = b.damage < 40 ? '#5ee88a' : b.damage < 75 ? '#ffd54a' : '#ff5a5a';
-  hud.innerHTML = `${moored ? `<span style="color:#ffd54a;font-weight:700">${tr('⚓ AFGEMEERD (M = los)')}</span><br>` : ''}${warp === 2 ? `<span style="color:#5ee88a;font-weight:700">${tr('⏩ SNELVAART 2×')}</span><br>` : ''}<b>🗺️</b> ${MAP.name} · <b>🪙 ${tr('Goud')}</b> ${Math.round(career.gold)} · <b>${tr('klussen')}</b> ${career.jobs}<br>${rivals.map(r => `<span style="color:${r.col}">●</span> ${r.name} ${Math.round(r.gold)} 🪙`).join(' · ')}<br><b>${tr('Opdracht')}</b> ${missionCount + 1}: ${b.target} t → ${ship.name}<br><b>${tr('Totaal')}</b> ${totalScore} pt<br><b>${tr('Vaart')}</b> ${sp.toFixed(1)} km/h<br><b>${tr('Koers')}</b> ${hdgDeg}°<br><b>${tr('Telegraaf')}</b> ${tr(TELE[b.teleIdx].n)}<br><b>${tr('Roer')}</b> ${rud}<br><b>${tr('Stroom')}</b> ${cs.toFixed(1)} m/s<br><b>${tr('Lading')}</b> ${Math.round(b.cargo)} t<br><b>${tr('Schade')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:5px"></span></span> ${Math.round(b.damage)}/100<br><b>${tr('Tijd')}</b> ${Math.round(state.elapsed)} s<br><b>${tr('Beste score')}</b> ${bestScore}`;
+  hud.innerHTML = `${moored ? `<span style="color:#ffd54a;font-weight:700">${tr('⚓ AFGEMEERD (M = los)')}</span><br>` : ''}${warp === 2 ? `<span style="color:#5ee88a;font-weight:700">${tr('⏩ SNELVAART 2×')}</span><br>` : ''}<b>🗺️</b> ${MAP.name} · <b>🪙 ${tr('Goud')}</b> ${Math.round(career.gold)} · <b>${tr('klussen')}</b> ${career.jobs}<br>${rivals.map(r => `<span style="color:${r.col}">●</span> ${r.name} ${Math.round(r.gold)} 🪙`).join(' · ')}<br><b>${tr('Opdracht')}</b> ${missionCount + 1}: ${b.target} t → ${ship.name}<br><b>${tr('Totaal')}</b> ${totalScore} pt<br><b>${tr('Vaart')}</b> ${sp.toFixed(1)} km/h<br><b>${tr('Koers')}</b> ${hdgDeg}°<br><b>${tr('Telegraaf')}</b> ${tr(TELE[b.teleIdx].n)}<br><b>${tr('Roer')}</b> ${rud}<br><b>${tr('Stroom')}</b> ${cs.toFixed(1)} m/s · <span style="color:${Math.abs(current.speed) > 2.5 ? '#ff8a5a' : '#fff'}">${tideInfo()}</span><br><b>${tr('Lading')}</b> ${Math.round(b.cargo)} t<br><b>${tr('Schade')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:5px"></span></span> ${Math.round(b.damage)}/100<br><b>${tr('Tijd')}</b> ${Math.round(state.elapsed)} s<br><b>${tr('Beste score')}</b> ${bestScore}`;
 }
 
 let last = performance.now(), running = false;
@@ -614,7 +669,7 @@ function frame(now) {
     const slowHere = (state.phase === 'sail' && state.inZone) || (state.phase === 'load' && inSN(boat, terminal)) || hitFlash > 0;
     if (slowHere && !state.slowWas && warp === 2) { warp = 1; say(tr('Snelvaart uit'), 1); }
     state.slowWas = slowHere;
-    const sdt = dt * warp;
+    const sdt = dt * warp; tideUpdate(sdt);
     if (state.phase !== 'sunk') input(dt); updateTraffic(sdt); updateRivals(sdt); for (let i = 0; i < TIME * warp; i++) physics(dt); if (state.phase !== 'done') logic(sdt);
   }
   shake = Math.max(0, shake - dt * 30); const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake;

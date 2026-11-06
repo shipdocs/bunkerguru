@@ -5,6 +5,7 @@ MAPS.push({
   desc: { nl: 'Nieuwe Waterweg, Botlek, Pernis en de Oude Maas. Tankparken, brede rivier, stevige stroming.', en: 'Nieuwe Waterweg, Botlek, Pernis and the Oude Maas. Tank farms, wide river, strong current.' },
   TH: Math.atan2(1000, 2400), ORG: { x: 0, y: 330 }, W: 4300, H: 2750, RIVER_HALF: 160, S_MIN: -800, S_MAX: 5200,
   currentSpeed: 1.5,
+  tide: { ebbMax: 4.0, floodMax: 2.5, period: 540 },
   lanes: { down: -40, up: 40, mouth: 95 },
   build({ quad, RIVER_HALF, TH }) {
     const S_MAX = 5200, CH0 = 2900, CH1 = 3150;
@@ -58,7 +59,7 @@ MAPS.push({
       ],
       labels: [
         { s: 3300, n: -200, text: 'MAASSLUIS', size: 20, col: 'rgba(30,60,30,.8)' },
-        { s: 600, n: 0, text: '← NIEUWE WATERWEG · stroom 1,5 m/s naar zee', size: 16, col: 'rgba(255,255,255,.75)' },
+        { s: 600, n: 0, text: 'NIEUWE WATERWEG · getijdenrivier', size: 16, col: 'rgba(255,255,255,.75)' },
       ],
       decor(add, rnd, { cols }) {
         for (let s = -500; s < 440; s += 70) for (let n = RIVER_HALF + 90; n < 1100; n += 70) if (rnd() > 0.25) add('tank', s + rnd() * 10, n + rnd() * 10, { r: 18 + rnd() * 8 });

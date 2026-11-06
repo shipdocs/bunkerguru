@@ -5,11 +5,12 @@ MAPS.push({
   desc: { nl: 'Nieuwe Maas door de stad: Erasmusbrug, Noordereiland, Rijn-, Maas- en Waalhaven, Euromast, De Kuip. Krap en druk.', en: 'Nieuwe Maas through the city: Erasmus bridge, Noordereiland, Rijn-, Maas- and Waalhaven, Euromast, De Kuip. Tight and busy.' },
   TH: Math.atan2(-150, 2400), ORG: { x: 150, y: 1250 }, W: 4800, H: 2450, RIVER_HALF: 260, S_MIN: -300, S_MAX: 4700,
   currentSpeed: 1.0,
+  tide: { ebbMax: 3.0, floodMax: 2.0, period: 540 },
   lanes: { down: -120, up: -50, mouth: 200 },
   i18n: {
     'oostwand Rijnhaven': 'east wall of the Rijnhaven', 'westwand Waalhaven': 'west wall of the Waalhaven', 'Parkkade onder de Euromast': 'Parkkade below the Euromast',
     'oostwand Merwehaven': 'east wall of the Merwehaven', 'Maasboulevard, voorbij de Willemsbrug': 'Maasboulevard, past the Willems bridge', 'Feijenoordkade bij De Kuip': 'Feijenoord quay near De Kuip',
-    '← NIEUWE MAAS · stroom 1,0 m/s naar zee': '← NIEUWE MAAS · current 1.0 m/s seaward',
+    'NIEUWE MAAS · getijdenrivier': '← NIEUWE MAAS · current 1.0 m/s seaward',
   },
   build({ quad, RIVER_HALF: RH, TH, cols }) {
     const S0 = -300, S1 = 4700;
@@ -86,7 +87,7 @@ MAPS.push({
         { s: 1800, n: 1000, text: 'KATENDRECHT', size: 16, col: 'rgba(60,40,20,.7)' },
         { s: 3050, n: 1000, text: 'FEIJENOORD', size: 16, col: 'rgba(60,40,20,.7)' },
         { s: 2900, n: 212, text: 'Koningshaven', size: 11, col: 'rgba(255,255,255,.8)' },
-        { s: 1000, n: 0, text: '← NIEUWE MAAS · stroom 1,0 m/s naar zee', size: 16, col: 'rgba(255,255,255,.75)' },
+        { s: 1000, n: 0, text: 'NIEUWE MAAS · getijdenrivier', size: 16, col: 'rgba(255,255,255,.75)' },
         { s: 1530, n: -300, text: 'EUROMAST', size: 11, col: 'rgba(60,40,20,.8)' },
         { s: 3900, n: 1000, text: 'DE KUIP', size: 12, col: 'rgba(60,40,20,.8)' },
       ],
