@@ -6,7 +6,7 @@
 <title>Bunkerguru – bunkerboot ARA</title>
 <style>
   html,body{margin:0;height:100%;background:#0b2a4a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;overflow:hidden;touch-action:none}
-  #wrap{position:relative;width:100vw;height:100vh}
+  #wrap{position:fixed;left:0;top:0;width:100vw;height:100vh;height:100dvh;overflow:hidden}
   canvas{display:block;position:absolute;inset:0}
   #hud{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.45);padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.5;min-width:210px;pointer-events:none}
   #hud b{color:#ffd54a}
@@ -29,6 +29,8 @@
   .mapcard:hover{background:#eee}
   #overlay .card{max-width:560px}
   @media (pointer:coarse){#touch{display:block}#help{display:none}}
+  .tb{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none}
+  #touch{padding-bottom:env(safe-area-inset-bottom)}
   .tb.m{width:52px;height:52px;font-size:16px}
   .tb.s{width:44px;height:44px;font-size:18px}
   .tb.col{right:10px}
@@ -73,10 +75,11 @@
     <div class="tb" style="right:12px;bottom:92px" data-k="ArrowUp">▲</div>
     <div class="tb m" style="right:86px;bottom:20px;font-size:22px" data-k="m">⚓</div>
     <div class="tb s" style="right:92px;bottom:88px" data-k="t">⏩</div>
-    <div class="tb s col" style="top:200px" data-k="b">🛠️</div>
-    <div class="tb s col" style="top:250px" data-k="esc">🗺️</div>
-    <div class="tb s col" style="top:300px" data-k="o">🔊</div>
-    <div class="tb s col" style="top:350px" data-k="h">📯</div>
+    <div class="tb" style="left:50%;transform:translateX(-50%);bottom:2px;width:96px;height:58px;border-radius:14px;background:transparent;border:0" data-k="mid"></div>
+    <div class="tb s col" style="top:180px" data-k="b">🛠️</div>
+    <div class="tb s col" style="top:230px" data-k="esc">🗺️</div>
+    <div class="tb s col" style="top:280px" data-k="o">🔊</div>
+    <div class="tb s col" style="top:330px" data-k="h">📯</div>
   </div>
   <div id="sound" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(0,20,40,.6);z-index:20">
     <div style="background:#fff;color:#123;padding:20px 24px;border-radius:16px;width:min(420px,92vw);text-align:left">
@@ -117,10 +120,10 @@
     </div>
   </div>
 </div>
-<script src="maps/europoort.js?v=202611061618"></script>
-<script src="maps/rotterdam.js?v=202611061618"></script>
-<script src="radio.js?v=202611061618"></script>
-<script src="audio.js?v=202611061618"></script>
-<script src="engine.js?v=202611061618"></script>
+<script src="maps/europoort.js?v=202611061649"></script>
+<script src="maps/rotterdam.js?v=202611061649"></script>
+<script src="radio.js?v=202611061649"></script>
+<script src="audio.js?v=202611061649"></script>
+<script src="engine.js?v=202611061649"></script>
 </body>
 </html>

@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', '📖 Uitleg': '📖 How to play', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
+  'HIER': 'HERE', '📖 Uitleg': '📖 How to play', 'Roer midscheeps': 'Rudder amidships', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
@@ -60,8 +60,8 @@ const hud = document.getElementById('hud'), msgEl = document.getElementById('msg
 const overlay = document.getElementById('overlay');
 let VW = innerWidth, VH = innerHeight;
 let COMPACT = false; const COARSE = matchMedia('(pointer:coarse)').matches;
-function fit() { VW = cv.width = innerWidth; VH = cv.height = innerHeight; COMPACT = COARSE || Math.min(VW, VH) < 560 || VW < 760; document.body.classList.toggle('compact', COMPACT); const r = document.getElementById('rules'); if (r) r.open = !COMPACT; }
-addEventListener('resize', fit); fit();
+function fit() { const vv = window.visualViewport; VW = cv.width = Math.round(vv ? vv.width : innerWidth); VH = cv.height = Math.round(vv ? vv.height : innerHeight); const wr = document.getElementById('wrap'); if (wr) wr.style.height = VH + 'px'; COMPACT = COARSE || Math.min(VW, VH) < 560 || VW < 760; document.body.classList.toggle('compact', COMPACT); const r = document.getElementById('rules'); if (r) r.open = !COMPACT; }
+addEventListener('resize', fit); if (window.visualViewport) visualViewport.addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 300)); fit();
 
 // ---------- wereld (kaart-onafhankelijk) ----------
 // px-coördinaten; 1 px = 0,5 m. Rivierframe (s,n): s langs de rivier (zee = s klein), n dwars (n>0 = zuidoever)
@@ -289,9 +289,10 @@ addEventListener('keydown', e => {
   if (e.key.startsWith('Arrow')) e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.key] = false; });
+document.getElementById('touch').addEventListener('contextmenu', e => e.preventDefault());
 document.querySelectorAll('.tb').forEach(b => {
   const k = b.dataset.k;
-  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'o') toggleSound(); if (k === 'v') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2); if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
+  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'mid') { boat.rudderCmd = 0; say(tr('Roer midscheeps'), 0.8); } if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'o') toggleSound(); if (k === 'v') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2); if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
   const off = e => { e.preventDefault(); keys[k] = false; };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 });
@@ -659,7 +660,7 @@ function drawInstruments() {
   ctx.fillText(`${tr('ROER')} ${Math.abs(b.rudder) < 0.03 ? '0' : tr(b.rudder < 0 ? 'BB ' : 'SB ') + Math.round(Math.abs(b.rudder) * 35)}°`, cx, cy + 10);
   if (COMPACT) { // smalle telegraafbalk boven de ▲-knop
     const land = VH < 500, tw = 22;
-    const th = land ? Math.max(55, Math.min(130, VH - 315)) : Math.max(70, Math.min(130, VH - 520));
+    const th = land ? Math.max(55, Math.min(130, VH - 315)) : Math.max(50, Math.min(130, VH - 580));
     const tx = land ? 44 - tw / 2 : VW - 44 - tw / 2, ty = land ? VH - 160 - th : VH - 170 - th;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; rrect(tx - 6, ty - 22, tw + 12, th + 30, 6); ctx.fill();
     const zero = ty + th / 1.6; ctx.fillStyle = '#3cb043'; ctx.fillRect(tx, ty, tw, zero - ty); ctx.fillStyle = '#d33f3f'; ctx.fillRect(tx, zero, tw, ty + th - zero);
