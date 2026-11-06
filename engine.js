@@ -760,7 +760,14 @@ const soundEl = document.getElementById('sound');
 function renderSound() {
   const v = SND.vol;
   for (const k of ['master', 'sfx', 'music', 'radio']) { document.getElementById('v_' + k).value = v[k]; document.getElementById('t_' + k).textContent = v[k]; }
+  document.getElementById('s_rmode').value = RADIO.mode; renderRadioStatus();
   document.getElementById('s_on').checked = !SND.muted; document.getElementById('s_music').checked = SND.musicOn; document.getElementById('s_radio').checked = RADIO.on;
+}
+function renderRadioStatus() {
+  const s = RADIO.status(lang), en = lang === 'en';
+  const txt = !s.speech ? (en ? 'Browser has no speech engine → radio babble' : 'Browser heeft geen spraak → radio-gebrabbel')
+    : (en ? `Speech voices: ${s.voices} (Dutch ${s.nl}, English ${s.en})` : `Spraakstemmen: ${s.voices} (Nederlands ${s.nl}, Engels ${s.en})`) + (s.lastHow ? (en ? ` · last: ${s.lastHow}` : ` · laatst: ${s.lastHow}`) : '') + (s.lastErr ? (en ? ` · error: ${s.lastErr}` : ` · fout: ${s.lastErr}`) : '');
+  document.getElementById('s_rstatus').textContent = txt;
 }
 let soundWasPaused = false;
 function toggleSound() {
@@ -772,6 +779,8 @@ for (const k of ['master', 'sfx', 'music', 'radio']) document.getElementById('v_
 document.getElementById('s_on').onchange = e => { SND.init(); SND.setMuted(!e.target.checked); if (!e.target.checked && 'speechSynthesis' in window) speechSynthesis.cancel(); };
 document.getElementById('s_music').onchange = e => { SND.init(); SND.setMusic(e.target.checked); };
 document.getElementById('s_radio').onchange = e => RADIO.set(e.target.checked);
+document.getElementById('s_rmode').onchange = e => { RADIO.setMode(e.target.value); renderRadioStatus(); };
+document.getElementById('s_rtest').onclick = () => { SND.init(); RADIO.test(lang); setTimeout(renderRadioStatus, 1800); setTimeout(renderRadioStatus, 4000); };
 document.getElementById('soundClose').onclick = toggleSound;
 document.getElementById('sndBtn').onclick = toggleSound;
 document.getElementById('soundBtn2').onclick = () => { SND.init(); renderSound(); soundEl.style.display = 'flex'; soundWasPaused = paused; };

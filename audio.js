@@ -105,6 +105,29 @@ const SND = (() => {
     sink() { tone('sine', 220, 50, 2.5, 0.3); for (let i = 0; i < 6; i++) tone('sine', 500 + Math.random() * 600, 900, 0.1, 0.1, 0.3 + i * 0.25); },
     radio() { burst(2500, 0.25, 0.15, 'bandpass', radioBus); tone('square', 1200, 1200, 0.06, 0.05, 0.25, radioBus); },
     radioOpen() { burst(2200, 0.18, 0.18, 'bandpass', radioBus); },
+    // marifoon-gebrabbel: lettergrepen met formanten door een radiofilter, als er geen spraak beschikbaar is
+    babble(text, spk, done) {
+      if (!ac || muted) { setTimeout(done, 900 + text.length * 50); return; }
+      const t0 = ac.currentTime + 0.05, base = [105, 175, 130, 210][spk % 4], rate = [0.11, 0.095, 0.125, 0.09][spk % 4];
+      const words = text.split(/\s+/).filter(Boolean); let t = t0;
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.6;
+      const sh = ac.createWaveShaper(); const c = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; c[i] = Math.tanh(x * 2.5); } sh.curve = c;
+      const out = ac.createGain(); out.gain.value = 0.9; bp.connect(sh); sh.connect(out); out.connect(radioBus);
+      const V = [[730, 1090], [530, 1840], [270, 2290], [570, 840], [300, 870], [660, 1720], [440, 1020]];
+      for (const w of words) {
+        const syl = Math.max(1, Math.round(w.replace(/[^a-zA-Zàáäëéèïöüú]/g, '').length / 3));
+        for (let s = 0; s < syl; s++) {
+          const d = rate * (0.8 + Math.random() * 0.6), f = base * (0.9 + Math.random() * 0.25) * (s === syl - 1 && /[?]/.test(w) ? 1.25 : 1);
+          const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * (0.92 + Math.random() * 0.12), t + d);
+          const [f1, f2] = V[Math.floor(Math.random() * V.length)], g = ac.createGain();
+          g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.015); g.gain.setValueAtTime(0.5, t + d * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+          for (const [ff, q] of [[f1, 6], [f2, 9]]) { const bf = ac.createBiquadFilter(); bf.type = 'bandpass'; bf.frequency.value = ff; bf.Q.value = q; o.connect(bf); bf.connect(g); }
+          g.connect(bp); o.start(t); o.stop(t + d + 0.02); t += d + 0.012;
+        }
+        t += rate * (/[,.]/.test(w) ? 2.2 : 0.6);
+      }
+      const ms = (t - ac.currentTime) * 1000; setTimeout(() => { out.disconnect(); done(); }, ms + 100);
+    },
     radioClose() { burst(3000, 0.12, 0.2, 'highpass', radioBus); tone('square', 1400, 1400, 0.05, 0.03, 0.1, radioBus); },
     toggle() { muted = !muted; try { localStorage.setItem('bunker_mute', muted ? '1' : '0'); } catch (e) {} applyVol(); return muted; },
     toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunker_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { applyVol(); if (musicOn) startMusic(); else setTimeout(stopMusic, 400); } return musicOn; },
