@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', '🔇 Geluid uit': '🔇 Sound off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
+  'HIER': 'HERE', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
@@ -68,7 +68,7 @@ const SCALE = 2, toPx = m => m * SCALE, TIME = 3, SH = 52;
 let MAP = null, TH = 0, CT = 1, ST = 0, ORG = { x: 0, y: 0 }, W = 1000, H = 1000, RIVER_HALF = 160, S_MIN = -800, S_MAX = 5000;
 let land = [], shore = [], basins = [], terminals = [], terminal = null, berths = [], traffic = [], channels = [], bridges = [], labels = [], roads = [], decor = [], riverPoly = [], startPos = { s: 0, n: 0, hdgOff: 0 };
 const current = { speed: 1.5, base: 1.5 }; let dirSea = { x: -1, y: 0 };
-let tideT = 0, tidePhase = Math.random() * Math.PI * 2, lastTideSign = 0;
+let simClock = 0, tideT = 0, tidePhase = Math.random() * Math.PI * 2, lastTideSign = 0;
 function tideUpdate(dt) { const td = MAP.tide; if (!td) { current.speed = current.base; return; } tideT += dt; const f = Math.sin(tideT * Math.PI * 2 / td.period + tidePhase); current.speed = f >= 0 ? td.ebbMax * Math.pow(f, 0.8) : -td.floodMax * Math.pow(-f, 0.8); const sg = Math.sign(current.speed); if (sg !== lastTideSign) { if (lastTideSign !== 0) say(tr(sg > 0 ? '🌊 Kentering: het wordt eb, stroom naar zee neemt toe' : '🌊 Kentering: het wordt vloed, stroom landinwaarts'), 4); lastTideSign = sg; } }
 function tideInfo() { const td = MAP.tide; const v = Math.abs(current.speed); if (!td) return tf('stroom {0} m/s naar zee', v.toFixed(1)); const f = Math.sin(tideT * Math.PI * 2 / td.period + tidePhase), rising = Math.cos(tideT * Math.PI * 2 / td.period + tidePhase) > 0; return (current.speed >= 0 ? tr('EB') : tr('VLOED')) + ` ${v.toFixed(1)} m/s ` + ((f >= 0) === rising ? '▲' : '▼'); }
 const sn2w = (s, n) => ({ x: ORG.x + s * CT - n * ST, y: ORG.y + s * ST + n * CT });
@@ -251,6 +251,7 @@ addEventListener('keydown', e => {
   if ((e.key === 'b' || e.key === 'B') && running) toggleShop();
   if ((e.key === 'm' || e.key === 'M') && running) toggleMooring();
   if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
+  if (e.key === 'p' || e.key === 'P') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); }
   if (e.key === 'g' || e.key === 'G') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
   if (e.key === 'l' || e.key === 'L') { setLang(lang === 'nl' ? 'en' : 'nl'); renderMapMenu(); }
   if (e.key === 'Escape' && running) openMenu();
@@ -260,7 +261,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.key] = false; });
 document.querySelectorAll('.tb').forEach(b => {
   const k = b.dataset.k;
-  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
+  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
   const off = e => { e.preventDefault(); keys[k] = false; };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 });
@@ -409,7 +410,9 @@ function waveLayer(pat, ox, oy, clipPoly, invert) {
 // voorgerenderde ondiepgloed (wereldgrootte)
 const clouds = [{ x: 100, y: 150, s: 1.2 }, { x: 900, y: 620, s: 1.6 }, { x: 1800, y: 300, s: 1 }, { x: 1400, y: 1200, s: 1.4 }, { x: 2300, y: 900, s: 1.1 }, { x: 3200, y: 1700, s: 1.5 }, { x: 3900, y: 500, s: 1.2 }, { x: 2800, y: 2300, s: 1.3 }];
 
-function drawWater(t) {
+const wrap = (v, m) => ((v % m) + m) % m;
+function drawWater(tReal) {
+  const t = simClock; // golven lopen op de spelklok, zodat ze bij snelvaart gelijk blijven met de stroom
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2f8fd0'); g.addColorStop(0.5, '#1f6fae'); g.addColorStop(1, '#2a86c4');
   ctx.fillStyle = g; ctx.fillRect(cam.x, cam.y, VW, VH);
   // rivier donkerder
@@ -420,8 +423,8 @@ function drawWater(t) {
   // haven: langzaam; rivier: mee met stroom (richting zee)
   waveLayer(patA, (t * 10) % 256, Math.sin(t * 0.5) * 4, riverPoly, true);
   waveLayer(patB, (-t * 6) % 192, Math.cos(t * 0.4) * 3, riverPoly, true);
-  waveLayer(patA, ((t * flow) % 256) * dirSea.x, ((t * flow) % 256) * dirSea.y + Math.sin(t * 0.7) * 3, riverPoly, false);
-  waveLayer(patB, ((t * flow * 0.6) % 192) * dirSea.x, ((t * flow * 0.6) % 192) * dirSea.y, riverPoly, false);
+  waveLayer(patA, wrap(t * flow * dirSea.x, 256), wrap(t * flow * dirSea.y, 256) + Math.sin(t * 0.7) * 3, riverPoly, false);
+  waveLayer(patB, wrap(t * flow * 0.6 * dirSea.x, 192), wrap(t * flow * 0.6 * dirSea.y, 192), riverPoly, false);
   // glinsters
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 400; i++) { const x = (i * 97.3) % W, y = (i * 61.7 + 30) % H; if (x < cam.x || x > cam.x + VW || y < cam.y || y > cam.y + VH) continue; const tw = Math.sin(t * 3 + i * 1.3) * 0.5 + 0.5; if (tw < 0.75) continue; ctx.globalAlpha = (tw - 0.75) * 3.2; ctx.fillRect(x, y, 6 + tw * 6, 2); }
@@ -688,7 +691,7 @@ function frame(now) {
     const slowHere = (state.phase === 'sail' && state.inZone) || (state.phase === 'load' && inSN(boat, terminal)) || hitFlash > 0;
     if (slowHere && !state.slowWas && warp === 2) { warp = 1; say(tr('Snelvaart uit'), 1); }
     state.slowWas = slowHere;
-    const sdt = dt * warp; tideUpdate(sdt);
+    const sdt = dt * warp; tideUpdate(sdt); simClock += sdt;
     if (state.phase !== 'sunk') input(dt); updateTraffic(sdt); updateRivals(sdt); for (let i = 0; i < TIME * warp; i++) physics(dt); if (state.phase !== 'done') logic(sdt);
   }
   shake = Math.max(0, shake - dt * 30); const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake;

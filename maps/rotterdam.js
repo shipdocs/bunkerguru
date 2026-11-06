@@ -10,7 +10,7 @@ MAPS.push({
   i18n: {
     'oostwand Rijnhaven': 'east wall of the Rijnhaven', 'westwand Waalhaven': 'west wall of the Waalhaven', 'Parkkade onder de Euromast': 'Parkkade below the Euromast',
     'oostwand Merwehaven': 'east wall of the Merwehaven', 'Maasboulevard, voorbij de Willemsbrug': 'Maasboulevard, past the Willems bridge', 'Feijenoordkade bij De Kuip': 'Feijenoord quay near De Kuip',
-    'NIEUWE MAAS · getijdenrivier': '← NIEUWE MAAS · current 1.0 m/s seaward',
+    'NIEUWE MAAS · getijdenrivier': 'NIEUWE MAAS · tidal river',
   },
   build({ quad, RIVER_HALF: RH, TH, cols }) {
     const S0 = -300, S1 = 4700;
