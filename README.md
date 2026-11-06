@@ -4,6 +4,6 @@ Cartoon arcade game: run a bunker barge on the Nieuwe Waterweg and Oude Maas. Lo
 
 **Play:** https://shipdocs.github.io/bunkerguru/
 
-No dependencies: plain canvas + JS. `engine.js` is the game, `maps/*.js` are the maps (Europoort Calland, Rotterdam Stad). NL/EN. Esc opens the map menu.
+No dependencies: plain canvas + JS. `engine.js` is the game, `maps/*.js` are the maps (Europoort Calland, Rotterdam Stad). NL/EN. Esc opens the map menu. Procedural sound via Web Audio (`audio.js`): engine, bow thruster, wash, horn (H), mute (G). Zoom with +/−/mouse wheel/pinch.
 
 Controls: ↑/↓ telegraph · ←/→ rudder · Q/E bow thruster · Space rudder amidships · M moor/cast off · T fast forward · B shop · N next job · R restart · L language

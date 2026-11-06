@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
+  'HIER': 'HERE', '🔇 Geluid uit': '🔇 Sound off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
@@ -161,6 +161,7 @@ function rivalStartJob(r, berth, racing) {
   const here = w2sn(r.x, r.y);
   const tm = terminals.reduce((a, b) => Math.hypot(termCenter(b).s - here.s, termCenter(b).n - here.n) < Math.hypot(termCenter(a).s - here.s, termCenter(a).n - here.n) ? b : a);
   r.target = berth; r.racing = racing; r.mode = 'toTerminal'; r.path = planRoute(here, termCenter(tm));
+  if (racing) SND.radio();
   if (racing) say(tf('📻 {0}: "Ik ga ook voor {1}!" – wie het eerst langszij ligt krijgt de klus', r.name, berth.name), 5);
 }
 function updateRivals(dt) {
@@ -209,12 +210,12 @@ function mooringCandidates() {
 }
 function toggleMooring() {
   const b = boat;
-  if (moored) { moored = null; say(tr('Trossen los'), 1.5); return; }
+  if (moored) { moored = null; SND.rope(); say(tr('Trossen los'), 1.5); return; }
   const c = mooringCandidates(); if (!c.ok) { say(tf('Kan niet vastmaken: {0}', c.why), 2); return; }
   const L = toPx(b.L), cos = Math.cos(b.hdg), sin = Math.sin(b.hdg);
   const pts = [0.42, -0.42].map(f => ({ x: b.x + cos * L * f, y: b.y + sin * L * f }));
   const lines = pts.map(p => { let best = null; for (const poly of c.polys) { const e = nearestEdge(p, poly); if (!best || e.d < best.d) best = e; } return { a: p, b: { x: best.qx, y: best.qy } }; });
-  moored = { to: c.to, lines }; b.vx = b.vy = b.r = 0; b.tele = 0; b.teleIdx = 3; b.bow = 0;
+  moored = { to: c.to, lines }; SND.rope(); b.vx = b.vy = b.r = 0; b.tele = 0; b.teleIdx = 3; b.bow = 0;
   say(tr(c.to === 'ship' ? '⚓ Vast langszij. Slangen aan!' : '⚓ Vast aan de terminal'), 2);
 }
 // carrière: goud + upgrades (bewaard in de browser)
@@ -249,6 +250,8 @@ addEventListener('keydown', e => {
   if ((e.key === 'n' || e.key === 'N') && state.phase === 'done') nextMission();
   if ((e.key === 'b' || e.key === 'B') && running) toggleShop();
   if ((e.key === 'm' || e.key === 'M') && running) toggleMooring();
+  if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
+  if (e.key === 'g' || e.key === 'G') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
   if (e.key === 'l' || e.key === 'L') { setLang(lang === 'nl' ? 'en' : 'nl'); renderMapMenu(); }
   if (e.key === 'Escape' && running) openMenu();
   if (e.key === 't' || e.key === 'T') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); }
@@ -257,7 +260,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.key] = false; });
 document.querySelectorAll('.tb').forEach(b => {
   const k = b.dataset.k;
-  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
+  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
   const off = e => { e.preventDefault(); keys[k] = false; };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 });
@@ -316,7 +319,8 @@ function physics(dt) {
   const dv = -1.2 * v * Math.abs(v) - 0.9 * v;
   const flow = Math.max(-4, Math.min(6, u + (b.tele > 0 ? b.tele * 2.0 : 0))); // plafond: geen tolboot op volle vaart
   const rudForce = b.rudder * flow * Math.abs(flow) * 0.09;
-  const bowF = 0.04 * up('boeg') * Math.max(0, 1 - Math.abs(u) / 3.5); // boegschroef verliest kracht boven ~2 m/s vaart door het water const dr = rudForce * 0.06 + b.bow * bowF - b.r * 0.9 - b.r * Math.abs(b.r) * 2.0;
+  const bowF = 0.04 * up('boeg') * Math.max(0, 1 - Math.abs(u) / 3.5); // boegschroef verliest kracht boven ~2 m/s vaart door het water
+  const dr = rudForce * 0.06 + b.bow * bowF - b.r * 0.9 - b.r * Math.abs(b.r) * 2.0;
   u += du * dt; v += (dv - rudForce * 0.3 + b.bow * bowF * 4.5) * dt; b.r += dr * dt;
   // stroomschering: kop en hek in verschillende stroom (bekkenmond, oever) geeft een draaimoment
   const Lp = toPx(b.L) * 0.45, cb = currentAt(b.x + cos * Lp, b.y + sin * Lp), cst = currentAt(b.x - cos * Lp, b.y - sin * Lp);
@@ -339,7 +343,7 @@ function physics(dt) {
       b.x += ux * push; b.y += uy * push;
       const vn = b.vx * ux + b.vy * uy; if (vn < 0) { b.vx -= vn * ux * 1.3; b.vy -= vn * uy * 1.3; }
       b.r *= 0.5;
-      if (speed > 0.8) { const dmg = Math.max(1, Math.round((speed - 0.5) * 9 * up('fender'))); b.damage += dmg; hitFlash = 0.35; shake = Math.min(14, 4 + dmg); say(tf('💥 Raak! +{0} schade', dmg), 1.2); }
+      if (speed > 0.8) { const dmg = Math.max(1, Math.round((speed - 0.5) * 9 * up('fender'))); b.damage += dmg; SND.hit(dmg); hitFlash = 0.35; shake = Math.min(14, 4 + dmg); say(tf('💥 Raak! +{0} schade', dmg), 1.2); }
     }
   }
   b.x = Math.max(0, Math.min(W, b.x)); b.y = Math.max(0, Math.min(H, b.y));
@@ -349,7 +353,7 @@ function physics(dt) {
 function inSN(b, z) { const { s, n } = w2sn(b.x, b.y); return s > z.s0 && s < z.s1 && n > z.n0 && n < z.n1; }
 function logic(dt) {
   const b = boat; state.elapsed += dt;
-  if (b.damage >= 100 && state.phase !== 'sunk') { moored = null; state.phase = 'sunk'; state.sinkT = 0; b.tele = 0; b.teleIdx = 3; const loss = Math.round(career.gold / 2); career.gold -= loss; saveCareer(); say(tf('🫧 Gezonken! Verzekering betaalt de helft: −{0} goud. Nieuwe boot volgt…', loss)); }
+  if (b.damage >= 100 && state.phase !== 'sunk') { moored = null; state.phase = 'sunk'; state.sinkT = 0; b.tele = 0; b.teleIdx = 3; const loss = Math.round(career.gold / 2); career.gold -= loss; SND.sink(); saveCareer(); say(tf('🫧 Gezonken! Verzekering betaalt de helft: −{0} goud. Nieuwe boot volgt…', loss)); }
   if (state.phase === 'sunk') { state.sinkT += dt; b.vx *= 0.9; b.vy *= 0.9; b.r *= 0.9; if (state.sinkT > 5) { const p = sn2w(startPos.s, startPos.n); b.x = p.x; b.y = p.y; b.hdg = TH + startPos.hdgOff; b.vx = b.vy = b.r = 0; b.damage = 0; b.rudderCmd = b.rudder = 0; pickMission(); } return; }
   const speedKmh = Math.hypot(b.vx, b.vy) * 3.6;
   if (state.phase === 'load') {
@@ -375,7 +379,7 @@ function logic(dt) {
       score = Math.max(0, 1000 + timeScore - Math.round(b.damage) * 10); totalScore += score;
       if (totalScore > bestScore) { bestScore = totalScore; try { localStorage.setItem('bunker_best', bestScore); } catch (e) {} }
       const pay = Math.round(b.target * 0.6), bonus = Math.round(Math.max(0, 400 - state.elapsed * 1.5)), clean = b.damage < 0.5 ? 150 : 0;
-      career.gold += pay + bonus + clean; career.jobs++; saveCareer();
+      career.gold += pay + bonus + clean; career.jobs++; saveCareer(); SND.coin();
       for (const r of rivals) if (r.racing && r.target === ship) { r.racing = false; r.mode = 'idle'; r.wait = 10; r.path = []; }
       say(tf('✅ Klaar!{0} 🪙 +{1} vracht +{2} tijd{3} = {4} goud. N = volgende, B = winkel', moored ? tr(' M = los,') : '', pay, bonus, clean ? tr(' +150 schadevrij') : '', pay + bonus + clean));
     }
@@ -646,7 +650,7 @@ function drawMinimap() {
   // boot
   ctx.fillStyle = '#fff'; ctx.save(); ctx.translate(boat.x, boat.y); ctx.rotate(boat.hdg); ctx.beginPath(); ctx.moveTo(60, 0); ctx.lineTo(-40, -30); ctx.lineTo(-40, 30); ctx.closePath(); ctx.fill(); ctx.restore();
   // beeldkader
-  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2 / k; ctx.strokeRect(cam.x, cam.y, VW, VH);
+  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2 / k; ctx.strokeRect(cam.x, cam.y, VW / zoom, VH / zoom);
   ctx.restore();
   // doelpijl
   const tgt = state.phase === 'load' ? sn2w((terminal.s0 + terminal.s1) / 2, (terminal.n0 + terminal.n1) / 2) : sn2w((dock.s0 + dock.s1) / 2, (dock.n0 + dock.n1) / 2);
@@ -665,6 +669,17 @@ function drawHUD() {
 }
 
 let last = performance.now(), running = false;
+// ---------- zoom ----------
+let zoom = 1, zoomTarget = 1;
+try { zoomTarget = zoom = Math.max(0.4, Math.min(2, +(localStorage.getItem('bunker_zoom') || 1) || 1)); } catch (e) {}
+function zoomMin() { return Math.max(0.4, VW / W, VH / H); }
+function setZoom(z) { zoomTarget = Math.max(zoomMin(), Math.min(2, z)); try { localStorage.setItem('bunker_zoom', zoomTarget.toFixed(2)); } catch (e) {} }
+addEventListener('keydown', e => { if (e.key === '+' || e.key === '=') setZoom(zoomTarget * 1.15); if (e.key === '-' || e.key === '_') setZoom(zoomTarget / 1.15); if (e.key === '0') setZoom(1); });
+cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(zoomTarget * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+let pinch = null;
+cv.addEventListener('touchstart', e => { if (e.touches.length === 2) { const [a, b] = e.touches; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), z: zoomTarget }; } }, { passive: true });
+cv.addEventListener('touchmove', e => { if (pinch && e.touches.length === 2) { const [a, b] = e.touches; setZoom(pinch.z * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / pinch.d); } }, { passive: true });
+cv.addEventListener('touchend', e => { if (e.touches.length < 2) pinch = null; }, { passive: true });
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
   if (running && !paused) {
@@ -677,14 +692,18 @@ function frame(now) {
     if (state.phase !== 'sunk') input(dt); updateTraffic(sdt); updateRivals(sdt); for (let i = 0; i < TIME * warp; i++) physics(dt); if (state.phase !== 'done') logic(sdt);
   }
   shake = Math.max(0, shake - dt * 30); const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake;
-  // camera: boot + beetje vooruitkijken in vaarrichting
+  // camera: boot + beetje vooruitkijken in vaarrichting; zoom = wereld-viewport VW/zoom × VH/zoom
+  zoomTarget = Math.max(zoomMin(), zoomTarget); zoom += (zoomTarget - zoom) * Math.min(1, dt * 8);
+  const SVW = VW, SVH = VH; VW = SVW / zoom; VH = SVH / zoom;
   const la = Math.min(60 + Math.hypot(boat.vx, boat.vy) * 14, Math.min(VW, VH) * 0.22); const lookX = boat.x + Math.cos(boat.hdg) * la, lookY = boat.y + Math.sin(boat.hdg) * la;
   const tx = Math.max(0, Math.min(W - VW, lookX - VW / 2)), ty = Math.max(0, Math.min(H - VH, lookY - VH / 2));
   cam.x += (tx - cam.x) * Math.min(1, dt * 6); cam.y += (ty - cam.y) * Math.min(1, dt * 6);
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, VW, VH);
-  ctx.save(); ctx.translate(-Math.round(cam.x + sx), -Math.round(cam.y + sy));
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, SVW, SVH);
+  ctx.save(); ctx.setTransform(zoom, 0, 0, zoom, -Math.round((cam.x + sx) * zoom), -Math.round((cam.y + sy) * zoom));
   drawWater(t); drawLand(t); for (const b of berths) drawShip(b, t, b === ship); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawMooring(); drawBoat(t); drawBridges();
   ctx.restore();
+  VW = SVW; VH = SVH;
+  { const c0 = currentAt(boat.x, boat.y); SND.update({ tele: boat.tele, speed: Math.hypot(boat.vx - c0.vx, boat.vy - c0.vy), bow: boat.bow, running: running && !paused && state.phase !== 'sunk' }); }
   if (hitFlash > 0) { ctx.fillStyle = `rgba(255,40,40,${hitFlash * 0.9})`; ctx.fillRect(0, 0, VW, VH); hitFlash -= dt; }
   drawInstruments(); drawMinimap(); drawDockHelper(); drawHUD();
   requestAnimationFrame(frame);
@@ -697,7 +716,7 @@ function renderMapMenu() {
   box.querySelectorAll('.mapcard').forEach(c => c.onclick = () => { try { localStorage.setItem('bunker_map', c.dataset.id); } catch (e) {} renderMapMenu(); });
 }
 function chosenMap() { let id = null; try { id = localStorage.getItem('bunker_map'); } catch (e) {} return MAPS.find(m => m.id === id) || MAPS[0]; }
-function startGame() { loadMap(chosenMap()); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); maybeRace(); }
+function startGame() { SND.init(); loadMap(chosenMap()); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); maybeRace(); }
 function openMenu() { running = false; renderMapMenu(); overlay.style.display = 'flex'; }
 renderMapMenu(); loadMap(chosenMap()); reset(); requestAnimationFrame(frame);
 document.querySelectorAll('.langbtn').forEach(b => b.onclick = () => setLang(b.dataset.l));
