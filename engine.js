@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
+  'HIER': 'HERE', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
@@ -161,7 +161,7 @@ function rivalStartJob(r, berth, racing) {
   const here = w2sn(r.x, r.y);
   const tm = terminals.reduce((a, b) => Math.hypot(termCenter(b).s - here.s, termCenter(b).n - here.n) < Math.hypot(termCenter(a).s - here.s, termCenter(a).n - here.n) ? b : a);
   r.target = berth; r.racing = racing; r.mode = 'toTerminal'; r.path = planRoute(here, termCenter(tm));
-  if (racing) SND.radio();
+  if (racing) { SND.radio(); radioRival(r, berth); }
   if (racing) say(tf('📻 {0}: "Ik ga ook voor {1}!" – wie het eerst langszij ligt krijgt de klus', r.name, berth.name), 5);
 }
 function updateRivals(dt) {
@@ -184,6 +184,33 @@ function updateRivals(dt) {
   }
 }
 function rivalQuads() { return rivals.map(r => { const c = Math.cos(r.hdg), s = Math.sin(r.hdg), L = 40, B = 9; return [[-L, -B], [L, -B], [L, B], [-L, B]].map(([a, b]) => ({ x: r.x + a * c - b * s, y: r.y + a * s + b * c })); }); }
+// ---------- marifoonpraat ----------
+function radioChatter() {
+  const en = lang === 'en', pick = a => a[Math.floor(Math.random() * a.length)];
+  const R = MAP.radio || {}; const sector = pick(R.sectors || ['Verkeerspost']);
+  const havens = basins.map(b => b.name).filter(Boolean); const placeNL = pick(R.places || havens.map(h => 'de ' + h)), place = en ? placeNL.replace(/^(de|het) /, '') : placeNL, haven = pick(havens);
+  const movers = traffic.filter(t => !t.axis); const sh = movers.length ? pick(movers) : null;
+  const tug = traffic.find(t => t.axis === 'n'); const riv = pick(rivals);
+  const nm = s => s.split(' ').map((w, i) => i === 0 && w.length <= 3 ? w : w[0] + w.slice(1).toLowerCase()).join(' ');
+  const up = sh && sh.v > 0, v = Math.abs(current.speed).toFixed(1).replace('.', en ? '.' : ' komma ');
+  const eb = current.speed >= 0;
+  const T = [];
+  if (sh) T.push(() => [
+    { who: nm(sh.name), spk: 0, text: en ? `${sector}, ${nm(sh.name)}, ${up ? 'upbound' : 'downbound'} passing ${place}, over.` : `${sector}, ${nm(sh.name)}, ${up ? 'opvarend' : 'afvarend'} ter hoogte van ${place}, over.` },
+    { who: sector, spk: 1, text: en ? `${nm(sh.name)}, ${sector}, roger, traffic is light, keep to starboard, out.` : `${nm(sh.name)}, ${sector}, begrepen, weinig verkeer, houdt u stuurboordwal aan, uit.` }]);
+  T.push(() => [{ who: sector, spk: 1, text: en ? `All stations, all stations, this is ${sector}. ${eb ? 'Ebb' : 'Flood'} current ${v} metres per second. Out.` : `Alle schepen, alle schepen, hier ${sector}. ${eb ? 'Ebstroom' : 'Vloedstroom'} ${v} meter per seconde. Uit.` }]);
+  if (Math.abs(current.speed) > 2.8) T.push(() => [{ who: sector, spk: 1, text: en ? `Attention small craft, strong ${eb ? 'ebb' : 'flood'} current on the fairway, navigate with caution.` : `Let op kleine vaartuigen, sterke ${eb ? 'eb' : 'vloed'}stroom op de vaarweg, vaar voorzichtig.` }]);
+  if (tug) T.push(() => [
+    { who: nm(tug.name), spk: 2, text: en ? `${sector}, ${nm(tug.name)}, entering the ${R.tugBasin || haven} with a push tow, over.` : `${sector}, ${nm(tug.name)}, ik draai de ${R.tugBasin || haven} in met een duwbak, over.` },
+    { who: sector, spk: 1, text: en ? `${nm(tug.name)}, roger.` : `${nm(tug.name)}, prima, dank u.` }]);
+  if (riv) T.push(() => [{ who: riv.name, spk: 3, text: pick(en ? [`Bunkerguru, ${riv.name}. Saw you at the terminal, nice parking. Not.`, `${riv.name} here. Coffee is on at the terminal, if you ever get there.`, `Bunkerguru, mind your wash, you nearly put me on the quay!`] : [`Bunkerguru, ${riv.name}. Mooi aangelegd daarnet. Niet dus.`, `Hier ${riv.name}. Koffie staat klaar aan de terminal, als je er ooit komt.`, `Bunkerguru, let een beetje op je hekgolf, ik lag bijna op de kant!`]) }]);
+  T.push(() => [{ who: sector, spk: 1, text: pick(en ? [`All stations, wind south-west four, visibility good. Out.`, `All stations, a rowing club is training near ${place}, keep your speed down.`, `All stations, the ${haven} is temporarily closed for a survey vessel.`] : [`Alle schepen, wind zuidwest vier, zicht goed. Uit.`, `Alle schepen, ter hoogte van ${place} is een roeivereniging aan het trainen, matig uw vaart.`, `Alle schepen, de ${haven} is tijdelijk gestremd voor een peilvaartuig.`]) }]);
+  return pick(T)();
+}
+function radioRival(r, berth) {
+  const en = lang === 'en';
+  RADIO.say([{ who: r.name, spk: 3, text: en ? `All bunker boats, ${r.name}, I'm taking ${berth.name} too. First alongside gets it!` : `Alle bunkerboten, hier ${r.name}, ik ga ook voor de ${berth.name}. Wie het eerst langszij ligt!` }], lang, true);
+}
 function maybeRace() { if (Math.random() < 0.55) { const idle = rivals.filter(r => r.mode === 'idle'); if (idle.length) { const r = idle[Math.floor(Math.random() * idle.length)]; setTimeout(() => { if (r.mode === 'idle') rivalStartJob(r, ship, true); }, 3000 + Math.random() * 6000); } } }
 function drawRival(r, t) {
   const L = toPx(40), Bw = toPx(9), moving = r.mode === 'toTerminal' || r.mode === 'toShip';
@@ -251,6 +278,7 @@ addEventListener('keydown', e => {
   if ((e.key === 'b' || e.key === 'B') && running) toggleShop();
   if ((e.key === 'm' || e.key === 'M') && running) toggleMooring();
   if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
+  if (e.key === 'v' || e.key === 'V') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2);
   if (e.key === 'p' || e.key === 'P') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); }
   if (e.key === 'g' || e.key === 'G') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
   if (e.key === 'l' || e.key === 'L') { setLang(lang === 'nl' ? 'en' : 'nl'); renderMapMenu(); }
@@ -261,7 +289,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.key] = false; });
 document.querySelectorAll('.tb').forEach(b => {
   const k = b.dataset.k;
-  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
+  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'v') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2); if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
   const off = e => { e.preventDefault(); keys[k] = false; };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 });
@@ -706,6 +734,7 @@ function frame(now) {
   drawWater(t); drawLand(t); for (const b of berths) drawShip(b, t, b === ship); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawMooring(); drawBoat(t); drawBridges();
   ctx.restore();
   VW = SVW; VH = SVH;
+  if (running && !paused) RADIO.tick(now / 1000, radioChatter, lang);
   { const c0 = currentAt(boat.x, boat.y); SND.update({ tele: boat.tele, speed: Math.hypot(boat.vx - c0.vx, boat.vy - c0.vy), bow: boat.bow, running: running && !paused && state.phase !== 'sunk' }); }
   if (hitFlash > 0) { ctx.fillStyle = `rgba(255,40,40,${hitFlash * 0.9})`; ctx.fillRect(0, 0, VW, VH); hitFlash -= dt; }
   drawInstruments(); drawMinimap(); drawDockHelper(); drawHUD();
@@ -719,7 +748,7 @@ function renderMapMenu() {
   box.querySelectorAll('.mapcard').forEach(c => c.onclick = () => { try { localStorage.setItem('bunker_map', c.dataset.id); } catch (e) {} renderMapMenu(); });
 }
 function chosenMap() { let id = null; try { id = localStorage.getItem('bunker_map'); } catch (e) {} return MAPS.find(m => m.id === id) || MAPS[0]; }
-function startGame() { SND.init(); loadMap(chosenMap()); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); maybeRace(); }
+function startGame() { SND.init(); RADIO.reset(); loadMap(chosenMap()); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); maybeRace(); }
 function openMenu() { running = false; renderMapMenu(); overlay.style.display = 'flex'; }
 renderMapMenu(); loadMap(chosenMap()); reset(); requestAnimationFrame(frame);
 document.querySelectorAll('.langbtn').forEach(b => b.onclick = () => setLang(b.dataset.l));

@@ -98,6 +98,8 @@ const SND = (() => {
     coin() { [988, 1319, 1568].forEach((f, i) => tone('square', f, f, 0.12, 0.08, i * 0.08)); },
     sink() { tone('sine', 220, 50, 2.5, 0.3); for (let i = 0; i < 6; i++) tone('sine', 500 + Math.random() * 600, 900, 0.1, 0.1, 0.3 + i * 0.25); },
     radio() { burst(2500, 0.25, 0.15, 'bandpass'); tone('square', 1200, 1200, 0.06, 0.05, 0.25); },
+    radioOpen() { burst(2200, 0.18, 0.18, 'bandpass'); },
+    radioClose() { burst(3000, 0.12, 0.2, 'highpass'); tone('square', 1400, 1400, 0.05, 0.03, 0.1); },
     toggle() { muted = !muted; try { localStorage.setItem('bunker_mute', muted ? '1' : '0'); } catch (e) {} if (master) master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.05); return muted; },
     toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunker_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { musicGain.gain.setTargetAtTime(musicOn ? 0.55 : 0, ac.currentTime, 0.1); if (musicOn) startMusic(); else setTimeout(stopMusic, 400); } return musicOn; },
     get muted() { return muted; },

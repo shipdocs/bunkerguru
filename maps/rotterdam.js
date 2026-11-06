@@ -4,6 +4,7 @@ MAPS.push({
   id: 'rotterdam', name: 'Rotterdam Stad', icon: '🌉',
   desc: { nl: 'Nieuwe Maas door de stad: Erasmusbrug, Noordereiland, Rijn-, Maas- en Waalhaven, Euromast, De Kuip. Krap en druk.', en: 'Nieuwe Maas through the city: Erasmus bridge, Noordereiland, Rijn-, Maas- and Waalhaven, Euromast, De Kuip. Tight and busy.' },
   TH: Math.atan2(-150, 2400), ORG: { x: 150, y: 1250 }, W: 4800, H: 2450, RIVER_HALF: 260, S_MIN: -300, S_MAX: 4700,
+  radio: { sectors: ['Sector Waalhaven', 'Sector Maasbruggen'], places: ['de Erasmusbrug', 'de Willemsbrug', 'de Rijnhaven', 'de Maashaven', 'de Waalhaven', 'de Parkhaven', 'het Noordereiland', 'de Van Brienenoordbrug'], tugBasin: 'Waalhaven' },
   currentSpeed: 1.0,
   tide: { ebbMax: 3.0, floodMax: 2.0, period: 540 },
   lanes: { down: -120, up: -50, mouth: 200 },

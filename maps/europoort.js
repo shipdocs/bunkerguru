@@ -4,6 +4,7 @@ MAPS.push({
   id: 'europoort', name: 'Europoort Calland', icon: '🛢️',
   desc: { nl: 'Nieuwe Waterweg, Botlek, Pernis en de Oude Maas. Tankparken, brede rivier, stevige stroming.', en: 'Nieuwe Waterweg, Botlek, Pernis and the Oude Maas. Tank farms, wide river, strong current.' },
   TH: Math.atan2(1000, 2400), ORG: { x: 0, y: 330 }, W: 4300, H: 2750, RIVER_HALF: 160, S_MIN: -800, S_MAX: 5200,
+  radio: { sectors: ['Sector Maassluis', 'Sector Botlek', 'Sector Oude Maas'], places: ['de Botlek', 'de Geulhaven', 'de Oude Maas', 'de 2e Petroleumhaven', 'Maassluis', 'de Vondelingenplaat', 'Pernis'], tugBasin: 'Oude Maas' },
   currentSpeed: 1.5,
   tide: { ebbMax: 4.0, floodMax: 2.5, period: 540 },
   lanes: { down: -40, up: 40, mouth: 95 },

@@ -12,6 +12,8 @@
   #hud b{color:#ffd54a}
   #msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.55);padding:8px 16px;border-radius:999px;font-size:16px;font-weight:600;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
   #help{position:absolute;right:12px;top:215px;background:rgba(0,0,0,.45);padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5;pointer-events:none}
+  #radio{position:absolute;left:12px;bottom:110px;max-width:min(420px,60vw);background:rgba(20,30,20,.85);border:2px solid #5ee88a;color:#d8ffe0;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px 12px;border-radius:10px;pointer-events:none;opacity:0;transition:opacity .4s}
+  #radio b{color:#5ee88a}
   #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,20,40,.7)}
   #overlay .card{background:#fff;color:#123;padding:28px 32px;border-radius:16px;max-width:460px;text-align:center}
   #overlay h1{margin:0 0 8px;font-size:26px}
@@ -30,7 +32,8 @@
   <canvas id="c"></canvas>
   <div id="hud"></div>
   <div id="msg"></div>
-  <div id="help" data-nl="↑ / ↓ &nbsp;telegraaf, één stand per tik<br>← / → &nbsp;roer<br>Q / E &nbsp;boegschroef<br>Spatie &nbsp;roer midscheeps<br>T &nbsp;snelvaart 2× aan/uit<br>M &nbsp;vastmaken / losgooien<br>B &nbsp;winkel (aan terminal)<br>N &nbsp;volgende opdracht · R &nbsp;opnieuw<br>L &nbsp;English / Nederlands · Esc &nbsp;kaartmenu<br>+ / − / scrollwiel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;scheepshoorn · G &nbsp;geluid · P &nbsp;muziek" data-en="↑ / ↓ &nbsp;telegraph, one notch per press<br>← / → &nbsp;rudder<br>Q / E &nbsp;bow thruster<br>Space &nbsp;rudder amidships<br>T &nbsp;fast forward 2× on/off<br>M &nbsp;moor / cast off<br>B &nbsp;shop (at terminal)<br>N &nbsp;next job · R &nbsp;restart<br>L &nbsp;English / Nederlands · Esc &nbsp;map menu<br>+ / − / mouse wheel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;horn · G &nbsp;sound · P &nbsp;music"></div>
+  <div id="radio"></div>
+  <div id="help" data-nl="↑ / ↓ &nbsp;telegraaf, één stand per tik<br>← / → &nbsp;roer<br>Q / E &nbsp;boegschroef<br>Spatie &nbsp;roer midscheeps<br>T &nbsp;snelvaart 2× aan/uit<br>M &nbsp;vastmaken / losgooien<br>B &nbsp;winkel (aan terminal)<br>N &nbsp;volgende opdracht · R &nbsp;opnieuw<br>L &nbsp;English / Nederlands · Esc &nbsp;kaartmenu<br>+ / − / scrollwiel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;scheepshoorn · G &nbsp;geluid · P &nbsp;muziek · V &nbsp;marifoon" data-en="↑ / ↓ &nbsp;telegraph, one notch per press<br>← / → &nbsp;rudder<br>Q / E &nbsp;bow thruster<br>Space &nbsp;rudder amidships<br>T &nbsp;fast forward 2× on/off<br>M &nbsp;moor / cast off<br>B &nbsp;shop (at terminal)<br>N &nbsp;next job · R &nbsp;restart<br>L &nbsp;English / Nederlands · Esc &nbsp;map menu<br>+ / − / mouse wheel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;horn · G &nbsp;sound · P &nbsp;music · V &nbsp;VHF"></div>
   <div id="touch">
     <div class="tb" style="left:20px;bottom:90px" data-k="ArrowLeft">◀</div>
     <div class="tb" style="left:100px;bottom:90px" data-k="ArrowRight">▶</div>
@@ -45,6 +48,7 @@
     <div class="tb" style="left:20px;bottom:330px;width:52px;height:52px;font-size:20px" data-k="h">📯</div>
     <div class="tb" style="left:100px;bottom:330px;width:52px;height:52px;font-size:20px" data-k="g">🔊</div>
     <div class="tb" style="left:20px;bottom:410px;width:52px;height:52px;font-size:20px" data-k="p">🎵</div>
+    <div class="tb" style="left:100px;bottom:410px;width:52px;height:52px;font-size:20px" data-k="v">📻</div>
   </div>
   <div id="shop" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(0,20,40,.7)">
     <div class="card" style="text-align:left;background:#fff;color:#123;padding:22px 26px;border-radius:16px;width:min(560px,92vw);max-height:90vh;overflow:auto">
@@ -67,9 +71,10 @@
     </div>
   </div>
 </div>
-<script src="maps/europoort.js?v=202611061516"></script>
-<script src="maps/rotterdam.js?v=202611061516"></script>
-<script src="audio.js?v=202611061516"></script>
-<script src="engine.js?v=202611061516"></script>
+<script src="maps/europoort.js?v=202611061531"></script>
+<script src="maps/rotterdam.js?v=202611061531"></script>
+<script src="radio.js?v=202611061531"></script>
+<script src="audio.js?v=202611061531"></script>
+<script src="engine.js?v=202611061531"></script>
 </body>
 </html>
