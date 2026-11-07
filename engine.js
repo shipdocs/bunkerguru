@@ -45,7 +45,7 @@ const EN = {
   '1200 t': '1200 t', '1600 t: grotere klussen': '1600 t: bigger jobs', '2000 t: de grote jongens': '2000 t: the big boys',
   'Dikke fenders: schade −30 %': 'Thick fenders: damage −30 %', 'Stootkussens: schade −55 %': 'Yokohama fenders: damage −55 %',
   'Bunkeren 6 s': 'Bunkering 6 s', 'Snelle pomp: 4 s': 'Fast pump: 4 s', 'Turbo-pomp: 2,5 s': 'Turbo pump: 2.5 s',
-  'HIER': 'HERE', '🫧 {0} is gezonken! (−{1} 🪙)': '🫧 {0} sank! (−{1} 🪙)', '💥 {0} sneed je af: jij +{1}, hij +{2} schade · {0} betaalt jou {3} 🪙': '💥 {0} cut you off: you +{1}, them +{2} damage · {0} pays you {3} 🪙', '💥 Jij ramde {0}: jij +{1}, hij +{2} schade · jij betaalt {3} 🪙': '💥 You rammed {0}: you +{1}, them +{2} damage · you pay {3} 🪙', '💥 Aanvaring met {0}: jij +{1}, hij +{2} schade (beide schuld)': '💥 Collision with {0}: you +{1}, them +{2} damage (both to blame)', 'Tip: kop tegen de stroom in, machine bij tot je stil ligt': 'Tip: bow into the current, add engine until you hold still',
+  'HIER': 'HERE', 'Tik / K om te sluiten': 'Tap / K to close', '🫧 {0} is gezonken! (−{1} 🪙)': '🫧 {0} sank! (−{1} 🪙)', '💥 {0} sneed je af: jij +{1}, hij +{2} schade · {0} betaalt jou {3} 🪙': '💥 {0} cut you off: you +{1}, them +{2} damage · {0} pays you {3} 🪙', '💥 Jij ramde {0}: jij +{1}, hij +{2} schade · jij betaalt {3} 🪙': '💥 You rammed {0}: you +{1}, them +{2} damage · you pay {3} 🪙', '💥 Aanvaring met {0}: jij +{1}, hij +{2} schade (beide schuld)': '💥 Collision with {0}: you +{1}, them +{2} damage (both to blame)', 'Tip: kop tegen de stroom in, machine bij tot je stil ligt': 'Tip: bow into the current, add engine until you hold still',
   '→ Laden bij {0} · {1} m': '→ Load at {0} · {1} m', '→ Langszij {0}: vaart eruit, M = vast': '→ Alongside {0}: kill speed, M = moor', '→ Naar {0} · {1} m': '→ To {0} · {1} m',
   '⛽ Bunkeren… {0}%': '⛽ Bunkering… {0}%', '✅ Klus klaar! Volgende opdracht over {0} s (N = nu)': '✅ Job done! Next job in {0} s (N = now)', '🫧 Gezonken – nieuwe boot volgt': '🫧 Sunk – new boat on its way', '📖 Uitleg': '📖 How to play', 'Roer midscheeps': 'Rudder amidships', '🔇 Geluid uit': '🔇 Sound off', '🎵 Muziek aan': '🎵 Music on', '📻 Marifoon aan': '📻 VHF radio on', '📻 Marifoon uit': '📻 VHF radio off', '🎵 Muziek uit': '🎵 Music off', '🔊 Geluid aan': '🔊 Sound on', 'EB': 'EBB', 'VLOED': 'FLOOD', 'stroom {0} m/s naar zee': 'current {0} m/s seaward',
   '🌊 Kentering: het wordt eb, stroom naar zee neemt toe': '🌊 Slack water: ebb setting in, seaward current building', '🌊 Kentering: het wordt vloed, stroom landinwaarts': '🌊 Slack water: flood setting in, current runs inland',
@@ -421,6 +421,7 @@ addEventListener('keydown', e => {
   if ((e.key === 'm' || e.key === 'M') && running) toggleMooring();
   if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
   if (e.key === 'o' || e.key === 'O') toggleSound();
+  if ((e.key === 'k' || e.key === 'K') && running) toggleBigMap();
   if (e.key === 'v' || e.key === 'V') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2);
   if (e.key === 'p' || e.key === 'P') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); }
   if (e.key === 'g' || e.key === 'G') { SND.init(); const mu = SND.toggle(); if (mu && 'speechSynthesis' in window) speechSynthesis.cancel(); say(tr(mu ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
@@ -840,22 +841,43 @@ function drawInstruments() {
   ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.fillText(tr('TELEGRAAF'), tx - 4, ty - 2);
   ctx.textAlign = 'left';
 }
+let mapBig = false, miniRect = { x: 0, y: 0, w: 0, h: 0 };
+function toggleBigMap() { mapBig = !mapBig; document.body.classList.toggle('bigmap', mapBig); }
+cv.addEventListener('pointerdown', e => { const r = miniRect, x = e.clientX, y = e.clientY; if (mapBig || (x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 8 && y <= r.y + r.h + 8)) { toggleBigMap(); e.preventDefault(); } });
 function drawMinimap() {
-  const mw = COMPACT ? 140 : 220, mh = Math.round(mw * H / W), mx = VW - mw - (COMPACT ? 8 : 12), my = COMPACT ? 56 : 12, k = mw / W;
+  let mw = COMPACT ? 140 : 220, mh = Math.round(mw * H / W), mx = VW - mw - (COMPACT ? 8 : 12), my = COMPACT ? 56 : 12;
+  if (mapBig) { mw = Math.min(VW * 0.94, (VH * 0.82) * W / H); mh = Math.round(mw * H / W); mx = (VW - mw) / 2; my = Math.max(COMPACT ? 54 : 20, (VH - mh) / 2 - 10); ctx.fillStyle = 'rgba(0,10,25,.55)'; ctx.fillRect(0, 0, VW, VH); }
+  const k = mw / W; miniRect = { x: mx, y: my, w: mw, h: mh };
   ctx.fillStyle = 'rgba(0,0,0,.5)'; rrect(mx - 6, my - 6, mw + 12, mh + 12, 8); ctx.fill();
   ctx.fillStyle = '#2a7fb8'; ctx.fillRect(mx, my, mw, mh);
   ctx.save(); ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip(); ctx.translate(mx, my); ctx.scale(k, k);
-  for (const l of land) { path(l.poly); ctx.fillStyle = l.kind === 'north' ? '#9fd27a' : l.kind === 'dam' ? '#ccc' : '#f0a24a'; ctx.fill(); }
+  for (const l of land) { path(l.poly); ctx.fillStyle = l.col || (l.kind === 'north' || l.kind === 'park' ? '#9fd27a' : l.kind === 'city' || l.kind === 'island' ? '#e9dcc3' : l.kind === 'dam' || l.kind === 'pillar' ? '#ccc' : '#f0a24a'); ctx.fill(); }
   for (const tm of terminals) { ctx.fillStyle = tm === terminal ? '#ffd54a' : 'rgba(255,213,74,.4)'; path(quad(tm.s0 - 40, tm.s1 + 40, tm.n0 - 40, tm.n1 + 40)); ctx.fill(); }
   ctx.fillStyle = state.phase === 'load' ? '#5ee88a' : '#1bd35a'; path(quad(dock.s0 - 60, dock.s1 + 60, dock.n0 - 80, dock.n1 + 60)); ctx.fill();
   for (const b of berths) { ctx.fillStyle = b.col; path(b.quad); ctx.fill(); }
   for (const tr of traffic) { ctx.fillStyle = tr.col; path(tr.quad); ctx.fill(); }
-  for (const r of rivals) { ctx.fillStyle = r.col; ctx.beginPath(); ctx.arc(r.x, r.y, 22, 0, 7); ctx.fill(); }
+  for (const r of rivals) if (r.mode !== 'sunk') { ctx.fillStyle = r.col; ctx.beginPath(); ctx.arc(r.x, r.y, mapBig ? 6 / k : 22, 0, 7); ctx.fill(); }
   // boot
-  ctx.fillStyle = '#fff'; ctx.save(); ctx.translate(boat.x, boat.y); ctx.rotate(boat.hdg); ctx.beginPath(); ctx.moveTo(60, 0); ctx.lineTo(-40, -30); ctx.lineTo(-40, 30); ctx.closePath(); ctx.fill(); ctx.restore();
+  for (const br of bridges) { const a = sn2w(br.s, br.n0), c = sn2w(br.s, br.n1); ctx.strokeStyle = 'rgba(80,80,80,.9)'; ctx.lineWidth = 3 / k; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke(); }
+  ctx.fillStyle = '#fff'; ctx.save(); ctx.translate(boat.x, boat.y); ctx.rotate(boat.hdg); if (mapBig) ctx.scale(0.16 / k, 0.16 / k); ctx.beginPath(); ctx.moveTo(60, 0); ctx.lineTo(-40, -30); ctx.lineTo(-40, 30); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 8; ctx.stroke(); ctx.restore();
   // beeldkader
   ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2 / k; ctx.strokeRect(cam.x, cam.y, VW / zoom, VH / zoom);
   ctx.restore();
+  if (mapBig) { // namen op de grote kaart
+    const P = (x, y) => ({ x: mx + x * k, y: my + y * k });
+    const lab = (t, x, y, col, size, bold) => { const p = P(x, y); ctx.font = `${bold ? 'bold ' : ''}${size}px system-ui`; const hw = ctx.measureText(t).width / 2 + 3; p.x = Math.max(mx + hw, Math.min(mx + mw - hw, p.x)); p.y = Math.max(my + size + 2, Math.min(my + mh - 4, p.y)); ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.strokeText(t, p.x, p.y); ctx.fillStyle = col; ctx.fillText(t, p.x, p.y); };
+    const fs = Math.max(10, Math.min(14, mw / 70));
+    const small = mw < 600; // op een smal (staand) scherm alleen de belangrijkste namen
+    if (!small) for (const b of basins) if (b.name) { const c = sn2w((b.s0 + b.s1) / 2, (b.n0 + b.n1) / 2); lab(b.name, c.x, c.y, 'rgba(255,255,255,.75)', fs - 1); }
+    if (!small) for (const l of land) if (l.label && l.kind !== 'dam') { const c = l.poly.reduce((a, p) => ({ x: a.x + p.x / 4, y: a.y + p.y / 4 }), { x: 0, y: 0 }); lab(l.label, c.x, c.y, 'rgba(60,40,20,.9)', fs, true); }
+    for (const tm of terminals) { if (small && !(tm === terminal && state.phase === 'load')) continue; const c = sn2w((tm.s0 + tm.s1) / 2, (tm.n0 + tm.n1) / 2); lab('⛽ ' + tm.name + (tm === terminal && state.phase === 'load' ? ' ◀' : ''), c.x, c.y, '#ffd54a', fs, true); }
+    for (const b of berths) if (!small || (b === ship && state.phase !== 'done')) lab(b.name + (b === ship && state.phase !== 'done' ? ' ◀' : ''), b.cx, b.cy - 30, b === ship && state.phase !== 'done' ? '#5ee88a' : '#fff', fs - 1, b === ship);
+    for (const r of rivals) if (r.mode !== 'sunk') lab(r.name, r.x, r.y - 40, r.col === '#8e44ad' ? '#d7a8f0' : '#ff9a8a', fs - 1, true);
+    lab(lang === 'en' ? 'YOU' : 'JIJ', boat.x, boat.y - 45, '#fff', fs + 1, true);
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = `${fs}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(tr('Tik / K om te sluiten'), mx + mw / 2, my + mh + 22); ctx.textAlign = 'left';
+    return;
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'right'; ctx.fillText('⤢', mx + mw - 3, my + 13); ctx.textAlign = 'left';
   // doelpijl
   const tgt = state.phase === 'load' ? sn2w((terminal.s0 + terminal.s1) / 2, (terminal.n0 + terminal.n1) / 2) : sn2w((dock.s0 + dock.s1) / 2, (dock.n0 + dock.n1) / 2);
   const ang = Math.atan2(tgt.y - boat.y, tgt.x - boat.x);
@@ -923,7 +945,7 @@ function frame(now) {
   if (running && !paused) RADIO.tick(now / 1000, radioChatter, lang);
   { const c0 = currentAt(boat.x, boat.y); SND.update({ tele: boat.tele, speed: Math.hypot(boat.vx - c0.vx, boat.vy - c0.vy), bow: boat.bow, running: running && !paused && state.phase !== 'sunk' }); }
   if (hitFlash > 0) { ctx.fillStyle = `rgba(255,40,40,${hitFlash * 0.9})`; ctx.fillRect(0, 0, VW, VH); hitFlash -= dt; }
-  drawInstruments(); drawMinimap(); drawDockHelper(); drawHUD();
+  drawInstruments(); if (!mapBig) drawMinimap(); drawDockHelper(); if (mapBig) drawMinimap(); drawHUD();
   requestAnimationFrame(frame);
 }
 // ---------- kaartkeuze ----------

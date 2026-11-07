@@ -18,6 +18,9 @@
   .srow input[type=range]{width:100%}
   .srow span[id^=t_]{text-align:right;font-size:13px;color:#555}
   #sndBtn{position:absolute;right:12px;bottom:200px;background:rgba(0,0,0,.45);border:0;color:#fff;font-size:20px;border-radius:10px;padding:6px 10px;cursor:pointer}
+  body.bigmap #help,body.bigmap #radio,body.bigmap #sndBtn{display:none}
+  body.bigmap #hud{opacity:.35}
+  body.bigmap .tb.col{display:none}
   #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,20,40,.7)}
   #overlay .card{background:#fff;color:#123;padding:28px 32px;border-radius:16px;max-width:460px;text-align:center}
   #overlay h1{margin:0 0 8px;font-size:26px}
@@ -65,7 +68,7 @@
   <div id="msg"></div>
   <div id="radio"></div>
   <button id="sndBtn" title="Geluid / Sound (O)">🔊</button>
-  <div id="help" data-nl="↑ / ↓ &nbsp;telegraaf, één stand per tik<br>← / → &nbsp;roer<br>Q / E &nbsp;boegschroef<br>Spatie &nbsp;roer midscheeps<br>T &nbsp;snelvaart 2× aan/uit<br>M &nbsp;vastmaken / losgooien<br>B &nbsp;winkel (aan terminal)<br>N &nbsp;volgende opdracht · R &nbsp;opnieuw<br>L &nbsp;English / Nederlands · Esc &nbsp;kaartmenu<br>+ / − / scrollwiel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;scheepshoorn · O &nbsp;geluidsinstellingen<br>G &nbsp;geluid · P &nbsp;muziek · V &nbsp;marifoon (aan/uit)" data-en="↑ / ↓ &nbsp;telegraph, one notch per press<br>← / → &nbsp;rudder<br>Q / E &nbsp;bow thruster<br>Space &nbsp;rudder amidships<br>T &nbsp;fast forward 2× on/off<br>M &nbsp;moor / cast off<br>B &nbsp;shop (at terminal)<br>N &nbsp;next job · R &nbsp;restart<br>L &nbsp;English / Nederlands · Esc &nbsp;map menu<br>+ / − / mouse wheel &nbsp;zoom · 0 &nbsp;reset<br>H &nbsp;horn · O &nbsp;sound settings<br>G &nbsp;sound · P &nbsp;music · V &nbsp;VHF (on/off)"></div>
+  <div id="help" data-nl="↑ / ↓ &nbsp;telegraaf, één stand per tik<br>← / → &nbsp;roer<br>Q / E &nbsp;boegschroef<br>Spatie &nbsp;roer midscheeps<br>T &nbsp;snelvaart 2× aan/uit<br>M &nbsp;vastmaken / losgooien<br>B &nbsp;winkel (aan terminal)<br>N &nbsp;volgende opdracht · R &nbsp;opnieuw<br>L &nbsp;English / Nederlands · Esc &nbsp;kaartmenu<br>+ / − / scrollwiel &nbsp;zoom · 0 &nbsp;reset · K &nbsp;grote kaart<br>H &nbsp;scheepshoorn · O &nbsp;geluidsinstellingen<br>G &nbsp;geluid · P &nbsp;muziek · V &nbsp;marifoon (aan/uit)" data-en="↑ / ↓ &nbsp;telegraph, one notch per press<br>← / → &nbsp;rudder<br>Q / E &nbsp;bow thruster<br>Space &nbsp;rudder amidships<br>T &nbsp;fast forward 2× on/off<br>M &nbsp;moor / cast off<br>B &nbsp;shop (at terminal)<br>N &nbsp;next job · R &nbsp;restart<br>L &nbsp;English / Nederlands · Esc &nbsp;map menu<br>+ / − / mouse wheel &nbsp;zoom · 0 &nbsp;reset · K &nbsp;big map<br>H &nbsp;horn · O &nbsp;sound settings<br>G &nbsp;sound · P &nbsp;music · V &nbsp;VHF (on/off)"></div>
   <div id="touch">
     <div class="tb" style="left:12px;bottom:16px" data-k="ArrowLeft">◀</div>
     <div class="tb" style="left:84px;bottom:16px" data-k="ArrowRight">▶</div>
@@ -120,10 +123,10 @@
     </div>
   </div>
 </div>
-<script src="maps/europoort.js?v=202611061937"></script>
-<script src="maps/rotterdam.js?v=202611061937"></script>
-<script src="radio.js?v=202611061937"></script>
-<script src="audio.js?v=202611061937"></script>
-<script src="engine.js?v=202611061937"></script>
+<script src="maps/europoort.js?v=202611070757"></script>
+<script src="maps/rotterdam.js?v=202611070757"></script>
+<script src="radio.js?v=202611070757"></script>
+<script src="audio.js?v=202611070757"></script>
+<script src="engine.js?v=202611070757"></script>
 </body>
 </html>
