@@ -120,7 +120,7 @@ const SND = (() => {
     const pw = Math.abs(st.rpm !== undefined ? st.rpm : st.tele); engRpm = pw; engOn = on;
     engGain.gain.setTargetAtTime(on * (0.55 + pw * 0.4), now, 0.3);
     if (rumGain) rumGain.gain.setTargetAtTime(0.25 + pw * 0.5, now, 0.5);
-    if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.011; turboGain.gain.setTargetAtTime(on * ta, now, 0.4); }
+    if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.0055; turboGain.gain.setTargetAtTime(on * ta, now, 0.4); }
     bowGain.gain.setTargetAtTime(on * (st.bow ? 0.35 : 0), now, 0.15);
     washGain.gain.setTargetAtTime(on * Math.min(0.5, st.speed * 0.07), now, 0.4);
   }
