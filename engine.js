@@ -887,19 +887,20 @@ function drawMooring() {
   for (const ln of moored.lines) { const mx = (ln.a.x + ln.b.x) / 2, my = (ln.a.y + ln.b.y) / 2 + 6; ctx.beginPath(); ctx.moveTo(ln.a.x, ln.a.y); ctx.quadraticCurveTo(mx, my, ln.b.x, ln.b.y); ctx.stroke(); ctx.fillStyle = '#2b2f3a'; ctx.beginPath(); ctx.arc(ln.b.x, ln.b.y, 4, 0, 7); ctx.fill(); }
 }
 // tankbunkerschip van bovenaf: fenders, ladingtanks met domes, manifold midscheeps, stuurhuis en accommodatie achter
-function drawTankerBody(L, Bw, hullCol, fill, bowActive) {
-  ctx.fillStyle = '#ff8a2a'; for (let x = -L / 2 + 14; x < L / 2 - 22; x += 15) { ctx.beginPath(); ctx.arc(x, -Bw / 2, 3, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x, Bw / 2, 3, 0, 7); ctx.fill(); }
+function drawTankerBody(L, Bw, hullCol, fill, bowActive, st) {
+  st = st || {}; const deckCol = st.deck || '#c0392b', accTrim = st.accTrim || '#8a95a3', whTrim = st.whTrim || '#556';
+  ctx.fillStyle = st.rail || '#ff8a2a'; for (let x = -L / 2 + 14; x < L / 2 - 22; x += 15) { ctx.beginPath(); ctx.arc(x, -Bw / 2, 3, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x, Bw / 2, 3, 0, 7); ctx.fill(); }
   ctx.strokeStyle = bowActive ? '#fff' : 'rgba(255,255,255,.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(L / 2 - 18, -Bw / 2 + 1); ctx.lineTo(L / 2 - 18, Bw / 2 - 1); ctx.stroke();
   const d0 = -L / 2 + 34, d1 = L / 2 - 26; // ladingdek tussen accommodatie en voorpiek
-  ctx.fillStyle = '#c0392b'; rrect(d0, -Bw / 2 + 3, d1 - d0, Bw - 6, 3); ctx.fill(); // rood dek
+  ctx.fillStyle = deckCol; rrect(d0, -Bw / 2 + 3, d1 - d0, Bw - 6, 3); ctx.fill(); // dek
   ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(d0 + 4, 0); ctx.lineTo(d1 - 4, 0); ctx.stroke(); // loopbrug / leidingen
   const nT = Math.max(2, Math.floor((d1 - d0 - 8) / 26)), tw = (d1 - d0 - 8) / nT;
   for (let i = 0; i < nT; i++) { const x = d0 + 4 + i * tw + tw / 2, r = Math.min(Bw / 2 - 4, tw / 2 - 3); // tankdomes, gevuld naar lading
     ctx.fillStyle = '#ecf0f1'; ctx.beginPath(); ctx.arc(x, 0, r, 0, 7); ctx.fill(); ctx.strokeStyle = '#7f8c8d'; ctx.lineWidth = 1.2; ctx.stroke();
     if (fill > 0.01) { ctx.save(); ctx.beginPath(); ctx.arc(x, 0, r - 1.5, 0, 7); ctx.clip(); ctx.fillStyle = '#e67e22'; ctx.fillRect(x - r, r - 2 * r * fill, 2 * r, 2 * r * fill); ctx.restore(); } }
   const mx = (d0 + d1) / 2; ctx.fillStyle = '#f1c40f'; ctx.fillRect(mx - 3, -Bw / 2 + 2, 6, Bw - 4); // manifold (bunkeraansluiting)
-  ctx.fillStyle = '#fff'; rrect(-L / 2 + 6, -Bw / 2 + 2, 26, Bw - 4, 3); ctx.fill(); ctx.strokeStyle = '#8a95a3'; ctx.lineWidth = 1.5; ctx.stroke(); // accommodatie
-  ctx.fillStyle = '#fff'; rrect(-L / 2 + 18, -Bw / 2 - 1, 11, Bw + 2, 2); ctx.fill(); ctx.strokeStyle = '#556'; ctx.lineWidth = 1.2; ctx.stroke(); // stuurhuis (breed)
+  ctx.fillStyle = '#fff'; rrect(-L / 2 + 6, -Bw / 2 + 2, 26, Bw - 4, 3); ctx.fill(); ctx.strokeStyle = accTrim; ctx.lineWidth = st.accTrim ? 2.2 : 1.5; ctx.stroke(); // accommodatie
+  ctx.fillStyle = '#fff'; rrect(-L / 2 + 18, -Bw / 2 - 1, 11, Bw + 2, 2); ctx.fill(); ctx.strokeStyle = whTrim; ctx.lineWidth = st.whTrim ? 2 : 1.2; ctx.stroke(); // stuurhuis (breed)
   ctx.fillStyle = '#7dd3fc'; ctx.fillRect(-L / 2 + 26, -Bw / 2, 2.5, Bw);
   ctx.fillStyle = '#ffcc33'; ctx.beginPath(); ctx.arc(-L / 2 + 11, 0, 2.5, 0, 7); ctx.fill();
 }
@@ -943,8 +944,9 @@ function drawBoat(t) {
   if (b.bow !== 0) { const s = -b.bow; ctx.fillStyle = 'rgba(255,255,255,.75)'; for (let i = 0; i < 7; i++) { const ph = (t * 5 + i * 0.14) % 1; ctx.beginPath(); ctx.arc(L / 2 - 18 + Math.sin(i * 1.7) * 3, s * (Bw / 2 + 3 + ph * 26), 2 + ph * 4, 0, 7); ctx.fill(); } ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L / 2 - 18, s * Bw / 2); ctx.lineTo(L / 2 - 18, s * (Bw / 2 + 28)); ctx.stroke(); }
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.save(); ctx.translate(-L / 2 + 2, 0); ctx.rotate(-b.rudder * 0.6); ctx.fillStyle = '#ff8a2a'; rrect(-16, -3.5, 16, 7, 3); ctx.fill(); ctx.strokeStyle = '#8a3d00'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-  ctx.fillStyle = '#34495e'; hull(); ctx.fill(); ctx.strokeStyle = '#1b2631'; ctx.lineWidth = 3.5; ctx.stroke();
-  drawTankerBody(L, Bw, '#34495e', b.cargo / Math.max(1, b.target), b.bow !== 0);
+  ctx.fillStyle = '#6b7680'; hull(); ctx.fill(); ctx.strokeStyle = '#2f3840'; ctx.lineWidth = 3.5; ctx.stroke(); // grijze romp
+  ctx.save(); hull(); ctx.clip(); ctx.fillStyle = '#1f5fbf'; ctx.fillRect(-L / 2, -Bw / 2, L, 3); ctx.fillRect(-L / 2, Bw / 2 - 3, L, 3); ctx.restore(); // blauwe band
+  drawTankerBody(L, Bw, '#6b7680', b.cargo / Math.max(1, b.target), b.bow !== 0, { deck: '#9aa5ad', accTrim: '#f39c12', whTrim: '#f39c12', rail: '#f4f6f7' });
   ctx.restore();
 }
 function drawInstruments() {
