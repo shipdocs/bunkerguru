@@ -11,7 +11,7 @@ MAPS.push({
   build({ quad, RIVER_HALF, TH }) {
     const S_MAX = 5200, CH0 = 2900, CH1 = 3150;
     const land = [
-      { poly: quad(-800, 2500, -RIVER_HALF, -500), kind: 'north' },
+      { poly: quad(-800, 2440, -RIVER_HALF, -500), kind: 'north' },
       { poly: quad(2620, S_MAX, -RIVER_HALF, -500), kind: 'north' },
       { poly: quad(-800, S_MAX, -500, -2200), kind: 'north' },
       { poly: quad(-800, 520, RIVER_HALF, 720), kind: 'tanks', label: 'Europoort' },
@@ -28,32 +28,36 @@ MAPS.push({
       { s0: 1120, s1: 1280, n0: RIVER_HALF, n1: 720, name: '2e Petroleumhaven', labelN: 420 },
       { s0: 1720, s1: 1900, n0: RIVER_HALF, n1: 720, name: 'Geulhaven', labelN: 420 },
       { s0: CH0, s1: CH1, n0: RIVER_HALF, n1: 2600, name: 'Oude Maas', labelN: 1600 },
-      { s0: 2500, s1: 2620, n0: -500, n1: -RIVER_HALF, name: 'Haven Maassluis', labelN: -330 },
+      { s0: 2440, s1: 2620, n0: -500, n1: -RIVER_HALF, name: 'Haven Maassluis', labelN: -330 },
     ];
     const nb = basins[4];
     return {
       land, basins,
       terminals: [
-        { s0: 540, s1: 700, n0: 620, n1: 720, name: 'Terminal Botlek' },
-        { s0: CH1 - 110, s1: CH1 - 10, n0: 1150, n1: 1400, name: 'Terminal Oude Maas' },
+        { s0: 520, s1: 584, n0: 330, n1: 700, name: 'Terminal Botlek' },
+        { s0: CH1 - 64, s1: CH1, n0: 420, n1: 900, name: 'Terminal Oude Maas' },
       ],
       berths: [
-        { name: 'MV CARTOON STAR', col: '#e74c3c', axis: 's', a0: 2050, a1: 2330, c: -RIVER_HALF + 28, side: +1, where: 'noordoever bij Maassluis' },
-        { name: 'MT OLIEBOL', col: '#2c7fb8', axis: 's', a0: 1320, a1: 1600, c: RIVER_HALF - 28, side: -1, where: 'Perniskade aan de rivier' },
-        { name: 'MV KAASKOP', col: '#8e44ad', axis: 'n', a0: 300, a1: 560, c: 1720 + 28, side: +1, where: 'westwand Geulhaven' },
-        { name: 'MV EUROPOORT', col: '#27ae60', axis: 's', a0: -300, a1: -20, c: RIVER_HALF - 28, side: -1, where: 'Europoortkade, ver stroomafwaarts' },
-        { name: 'MT MAASSLUIS', col: '#c0392b', axis: 'n', a0: -460, a1: -220, c: 2500 + 28, side: +1, where: 'Haven Maassluis (noordoever)' },
-        { name: 'MV OUDE MAAS', col: '#f39c12', axis: 'n', a0: 700, a1: 980, c: CH0 + 28, side: +1, where: 'westwand Oude Maas' },
+        { name: 'MV CARTOON STAR', col: '#e74c3c', axis: 's', a0: 1990, a1: 2420, c: -RIVER_HALF + 28, side: +1, where: 'noordoever bij Maassluis' },
+        { name: 'MT OLIEBOL', col: '#2c7fb8', axis: 's', a0: 1290, a1: 1700, c: RIVER_HALF - 28, side: -1, where: 'Perniskade aan de rivier' },
+        { name: 'MV KAASKOP', col: '#8e44ad', axis: 'n', a0: 220, a1: 640, c: 1720 + 28, side: +1, where: 'westwand Geulhaven' },
+        { name: 'MV EUROPOORT', col: '#27ae60', axis: 's', a0: 140, a1: 500, c: RIVER_HALF - 28, side: -1, where: 'Europoortkade, ver stroomafwaarts' },
+        { name: 'MT MAASSLUIS', col: '#c0392b', axis: 'n', a0: -480, a1: -210, c: 2440 + 28, side: +1, where: 'Haven Maassluis (noordoever)' },
+        { name: 'MV OUDE MAAS', col: '#f39c12', axis: 'n', a0: 600, a1: 1040, c: CH0 + 28, side: +1, where: 'westwand Oude Maas' },
       ],
       traffic: [
         { name: 'MV TRAAG', col: '#16a085', s: 3200, n: -65, v: -4.0, len: 300 },
         { name: 'MT HAAST', col: '#d35400', s: -400, n: 55, v: 3.2, len: 240 },
         { name: 'MV DRUK', col: '#7f8c8d', s: 1200, n: -65, v: -3.0, len: 200 },
-        { name: 'SLB BUTS', col: '#2c3e50', s: CH0 + 200, n: 900, v: -5.0, len: 90, axis: 'n', nMin: RIVER_HALF + 100, nMax: 1060 },
+        { name: 'SLB BUTS', col: '#2c3e50', s: CH0 + 140, n: 700, v: -5.0, len: 90, axis: 'n', nMin: RIVER_HALF + 100, nMax: 950 },
       ],
       channels: [{ s0: CH0, s1: CH1, n0: RIVER_HALF, n1: 2600, cs: 0, cn: -0.8 }], // Oude Maas stroomt naar de hoofdrivier
+      waits: [
+        { name: 'Wachtplaats Botlek', s0: 1216, s1: 1278, n0: 300, n1: 700 },
+        { name: 'Wachtplaats Maassluis', s0: 2700, s1: 3150, n0: -158, n1: -118 },
+      ],
       rivals: [{ s: 610, n: 500, hdgOff: -Math.PI / 2 }, { s: CH1 - 60, n: 900, hdgOff: Math.PI / 2 }],
-      start: { s: 1200, n: 450, hdgOff: -Math.PI / 2 },
+      start: { s: 1247, n: 520, hdgOff: -Math.PI / 2 },
       roads: [
         { pts: [[-800, -620], [S_MAX, -620]], col: '#e74c3c', w: 6 },
         { pts: [[-800, -560], [S_MAX, -560]], col: '#f1c40f', w: 4 },

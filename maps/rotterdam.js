@@ -49,16 +49,16 @@ MAPS.push({
     return {
       land, basins: nBasins.concat(sBasins),
       terminals: [
-        { s0: 1270, s1: 1370, n0: 650, n1: 880, name: 'Terminal Maashaven' },
-        { s0: 780, s1: 880, n0: 900, n1: 1150, name: 'Terminal Waalhaven' },
+        { s0: 1250, s1: 1314, n0: 420, n1: 860, name: 'Terminal Maashaven' },
+        { s0: 836, s1: 900, n0: 700, n1: 1220, name: 'Terminal Waalhaven' },
       ],
       berths: [
-        { name: 'MV RIJNHAVEN', col: '#e74c3c', axis: 'n', a0: 380, a1: 660, c: 2350 - 28, side: -1, where: 'oostwand Rijnhaven' },
-        { name: 'MT WAALHAVEN', col: '#2c7fb8', axis: 'n', a0: 500, a1: 780, c: 150 + 28, side: +1, where: 'westwand Waalhaven' },
-        { name: 'MS EUROMAST', col: '#27ae60', axis: 's', a0: 1420, a1: 1640, c: -RH + 28, side: +1, where: 'Parkkade onder de Euromast' },
-        { name: 'MV MERWEHAVEN', col: '#f39c12', axis: 'n', a0: -700, a1: -420, c: 260 - 28, side: -1, where: 'oostwand Merwehaven' },
-        { name: 'MV KRALINGEN', col: '#8e44ad', axis: 's', a0: 3450, a1: 3700, c: -RH + 28, side: +1, where: 'Maasboulevard, voorbij de Willemsbrug' },
-        { name: 'MT FEIJENOORD', col: '#c0392b', axis: 's', a0: 3500, a1: 3750, c: RH - 28, side: -1, where: 'Feijenoordkade bij De Kuip' },
+        { name: 'MV RIJNHAVEN', col: '#e74c3c', axis: 'n', a0: 300, a1: 720, c: 2350 - 28, side: -1, where: 'oostwand Rijnhaven' },
+        { name: 'MT WAALHAVEN', col: '#2c7fb8', axis: 'n', a0: 380, a1: 900, c: 150 + 28, side: +1, where: 'westwand Waalhaven' },
+        { name: 'MS EUROMAST', col: '#27ae60', axis: 's', a0: 1405, a1: 1645, c: -RH + 28, side: +1, where: 'Parkkade onder de Euromast' },
+        { name: 'MV MERWEHAVEN', col: '#f39c12', axis: 'n', a0: -940, a1: -440, c: 260 - 28, side: -1, where: 'oostwand Merwehaven' },
+        { name: 'MV KRALINGEN', col: '#8e44ad', axis: 's', a0: 3290, a1: 3740, c: -RH + 28, side: +1, where: 'Maasboulevard, voorbij de Willemsbrug' },
+        { name: 'MT FEIJENOORD', col: '#c0392b', axis: 's', a0: 3450, a1: 3745, c: RH - 28, side: -1, where: 'Feijenoordkade bij De Kuip' },
       ],
       traffic: [
         { name: 'MV TRAAG', col: '#16a085', s: 4500, n: -120, v: -3.5, len: 260 },
@@ -73,6 +73,10 @@ MAPS.push({
         { s: 2980, n0: 150, n1: RH, name: 'De Hef', towers: [150, RH], col: '#555' },
         { s: 3220, n0: 150, n1: RH, name: 'Koninginnebrug', col: '#888' },
         { s: 4150, n0: -RH, n1: RH, name: 'Van Brienenoordbrug', pillars: [-190, 190], col: '#2c7fb8' },
+      ],
+      waits: [
+        { name: 'Wachtplaats Maashaven', s0: 1536, s1: 1598, n0: 400, n1: 860 },
+        { name: 'Wachtplaats Boompjes', s0: 2470, s1: 2700, n0: -250, n1: -216 },
       ],
       rivals: [{ s: 1420, n: 500, hdgOff: -Math.PI / 2 }, { s: 600, n: 700, hdgOff: -Math.PI / 2 }],
       start: { s: 2170, n: 450, hdgOff: -Math.PI / 2 },

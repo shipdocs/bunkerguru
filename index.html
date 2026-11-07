@@ -68,7 +68,7 @@
   <div id="msg"></div>
   <div id="radio"></div>
   <button id="sndBtn" title="Geluid / Sound (O)">🔊</button>
-  <div id="help" data-nl="↑ / ↓ &nbsp;telegraaf, één stand per tik<br>← / → &nbsp;roer<br>Q / E &nbsp;boegschroef<br>Spatie &nbsp;roer midscheeps<br>T &nbsp;snelvaart 2× aan/uit<br>M &nbsp;vastmaken / losgooien<br>B &nbsp;winkel (aan terminal)<br>N &nbsp;volgende opdracht · R &nbsp;opnieuw<br>L &nbsp;English / Nederlands · Esc &nbsp;kaartmenu<br>+ / − / scrollwiel &nbsp;zoom · 0 &nbsp;reset · K &nbsp;grote kaart<br>H &nbsp;scheepshoorn · O &nbsp;geluidsinstellingen<br>G &nbsp;geluid · P &nbsp;muziek · V &nbsp;marifoon (aan/uit)" data-en="↑ / ↓ &nbsp;telegraph, one notch per press<br>← / → &nbsp;rudder<br>Q / E &nbsp;bow thruster<br>Space &nbsp;rudder amidships<br>T &nbsp;fast forward 2× on/off<br>M &nbsp;moor / cast off<br>B &nbsp;shop (at terminal)<br>N &nbsp;next job · R &nbsp;restart<br>L &nbsp;English / Nederlands · Esc &nbsp;map menu<br>+ / − / mouse wheel &nbsp;zoom · 0 &nbsp;reset · K &nbsp;big map<br>H &nbsp;horn · O &nbsp;sound settings<br>G &nbsp;sound · P &nbsp;music · V &nbsp;VHF (on/off)"></div>
+  <div id="help" data-nl="↑ / ↓ &nbsp;telegraaf, één stand per tik<br>← / → &nbsp;roer<br>Q / E &nbsp;boegschroef<br>Spatie &nbsp;roer midscheeps<br>T &nbsp;snelvaart 2× aan/uit<br>M &nbsp;vastmaken / losgooien (blauwe P = wachtplaats: opslaan + rusten)<br>B &nbsp;winkel (aan terminal)<br>N &nbsp;volgende opdracht · R &nbsp;opnieuw<br>L &nbsp;English / Nederlands · Esc &nbsp;kaartmenu<br>+ / − / scrollwiel &nbsp;zoom · 0 &nbsp;reset · K &nbsp;grote kaart<br>H &nbsp;scheepshoorn · O &nbsp;geluidsinstellingen<br>G &nbsp;geluid · P &nbsp;muziek · V &nbsp;marifoon (aan/uit)" data-en="↑ / ↓ &nbsp;telegraph, one notch per press<br>← / → &nbsp;rudder<br>Q / E &nbsp;bow thruster<br>Space &nbsp;rudder amidships<br>T &nbsp;fast forward 2× on/off<br>M &nbsp;moor / cast off (blue P = waiting berth: save + rest)<br>B &nbsp;shop (at terminal)<br>N &nbsp;next job · R &nbsp;restart<br>L &nbsp;English / Nederlands · Esc &nbsp;map menu<br>+ / − / mouse wheel &nbsp;zoom · 0 &nbsp;reset · K &nbsp;big map<br>H &nbsp;horn · O &nbsp;sound settings<br>G &nbsp;sound · P &nbsp;music · V &nbsp;VHF (on/off)"></div>
   <div id="touch">
     <div class="tb" style="left:12px;bottom:16px" data-k="ArrowLeft">◀</div>
     <div class="tb" style="left:84px;bottom:16px" data-k="ArrowRight">▶</div>
@@ -118,15 +118,15 @@
       <details class="rules" id="rules"><summary data-nl="📖 Uitleg" data-en="📖 How to play">📖 Uitleg</summary>
       <div data-nl="<p>Laad bij de <b>terminal</b> van je opdracht (geel), vaar naar het zeeschip en kom netjes langszij in de <b>groene zone</b>. Zes ligplaatsen, twee terminals, Nieuwe Waterweg én Oude Maas.</p><p>Elke klus levert 🪙 goud op (vracht + tijdbonus + schadevrij). Reparatie kost goud, zinken kost de helft. In de <b>winkel</b> (B, aan een terminal) koop je motor, boegschroef, tanks, fenders en pomp. Je carrière wordt bewaard.</p><p><b>Concurrenten</b> Bunker Bert en Truus Tank werken in dezelfde haven. Gaan ze voor jouw schip, dan krijgt wie het eerst langszij ligt de klus.</p><p>Langszij: vaart eruit, koers parallel, dan <b>M</b> = trossen vast. Dan houdt de stroming je niet meer. Hard raken = schade.</p><p>Het is een getijdengebied: eb tot 4 m/s naar zee, vloed landinwaarts, en het verkeer vaart gewoon door. De minimap rechtsboven wijst de weg.</p>" data-en="<p>Load at the <b>terminal</b> of your job (yellow), sail to the seagoing ship and come neatly alongside in the <b>green zone</b>. Six berths, two terminals, Nieuwe Waterweg and Oude Maas.</p><p>Every job pays 🪙 gold (cargo + time bonus + damage-free). Repairs cost gold, sinking costs half of it. In the <b>shop</b> (B, at a terminal) you buy engine, bow thruster, tanks, fenders and pump. Your career is saved.</p><p><b>Rivals</b> Bunker Bert and Truus Tank work the same port. If they go for your ship, the first one alongside gets the job.</p><p>Alongside: kill the speed, heading parallel, then <b>M</b> = make fast. The current can't move you then. Hard contact = damage.</p><p>It's tidal: ebb up to 4 m/s seaward, flood running inland, and the traffic keeps moving. The minimap top right shows the way.</p>"></div>
       </details>
-      <div class="startbar"><button id="soundBtn2" style="font-size:14px;padding:6px 14px;border:1px solid #999;border-radius:999px;background:#fff;color:#123;cursor:pointer;margin-right:6px" data-nl="🔊 Geluid" data-en="🔊 Sound">🔊 Geluid</button>
+      <div class="startbar"><button id="cont" style="display:none;font-size:15px;padding:8px 18px;border:0;border-radius:14px;background:#2980b9;color:#fff;font-weight:700;cursor:pointer;margin-right:6px;line-height:1.2"></button><button id="soundBtn2" style="font-size:14px;padding:6px 14px;border:1px solid #999;border-radius:999px;background:#fff;color:#123;cursor:pointer;margin-right:6px" data-nl="🔊 Geluid" data-en="🔊 Sound">🔊 Geluid</button>
       <button id="start" data-nl="Varen maar" data-en="Let's sail">Varen maar</button></div>
     </div>
   </div>
 </div>
-<script src="maps/europoort.js?v=202611070757"></script>
-<script src="maps/rotterdam.js?v=202611070757"></script>
-<script src="radio.js?v=202611070757"></script>
-<script src="audio.js?v=202611070757"></script>
-<script src="engine.js?v=202611070757"></script>
+<script src="maps/europoort.js?v=202611070822"></script>
+<script src="maps/rotterdam.js?v=202611070822"></script>
+<script src="radio.js?v=202611070822"></script>
+<script src="audio.js?v=202611070822"></script>
+<script src="engine.js?v=202611070822"></script>
 </body>
 </html>
