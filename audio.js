@@ -94,10 +94,11 @@ const SND = (() => {
     const amp = 0.5 + 0.5 * st, out = engBus;
     const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(54, t0); o.frequency.exponentialRampToValueAtTime(30, t0 + 0.1);
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.9 * amp, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32); o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.34);
-    const k = ac.createOscillator(), kf = ac.createBiquadFilter(), kg = ac.createGain(); k.type = 'sawtooth'; k.frequency.value = 85; kf.type = 'lowpass'; kf.frequency.value = 260 + st * 220;
-    kg.gain.setValueAtTime(0.0001, t0); kg.gain.exponentialRampToValueAtTime(0.55 * amp, t0 + 0.002); kg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15); k.connect(kf); kf.connect(kg); kg.connect(out); k.start(t0); k.stop(t0 + 0.16);
+    const o2 = ac.createOscillator(), g2 = ac.createGain(); o2.type = 'triangle'; o2.frequency.setValueAtTime(110, t0); o2.frequency.exponentialRampToValueAtTime(62, t0 + 0.1); g2.gain.setValueAtTime(0.0001, t0); g2.gain.exponentialRampToValueAtTime(0.5 * amp, t0 + 0.004); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22); o2.connect(g2); g2.connect(out); o2.start(t0); o2.stop(t0 + 0.24); // boventoon van de dreun, zodat hij ook op kleine speakers doorkomt
+    const k = ac.createOscillator(), kf = ac.createBiquadFilter(), kg = ac.createGain(); k.type = 'sawtooth'; k.frequency.value = 85; kf.type = 'lowpass'; kf.frequency.value = 420 + st * 300;
+    kg.gain.setValueAtTime(0.0001, t0); kg.gain.exponentialRampToValueAtTime(0.8 * amp, t0 + 0.002); kg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15); k.connect(kf); kf.connect(kg); kg.connect(out); k.start(t0); k.stop(t0 + 0.16);
     const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; const hi = 420 + st * 380; f.frequency.value = Math.sqrt(90 * hi); f.Q.value = 0.5; const ng = ac.createGain();
-    ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(1.1 * amp, t0 + 0.005); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2); n.connect(f); f.connect(ng); ng.connect(out); n.start(t0); n.stop(t0 + 0.22);
+    ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(1.3 * amp, t0 + 0.005); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2); n.connect(f); f.connect(ng); ng.connect(out); n.start(t0); n.stop(t0 + 0.22);
     const tk = ac.createBufferSource(); tk.buffer = noiseBuf(); const tf = ac.createBiquadFilter(); tf.type = 'bandpass'; tf.frequency.value = 2100; tf.Q.value = 1.2; const tg = ac.createGain();
     tg.gain.setValueAtTime(0.0001, t0); tg.gain.exponentialRampToValueAtTime(0.10 * amp, t0 + 0.001); tg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.03); tk.connect(tf); tf.connect(tg); tg.connect(out); tk.start(t0); tk.stop(t0 + 0.04);
   }
@@ -117,7 +118,7 @@ const SND = (() => {
   function update(st) { // st: {tele, rpm (werkelijk motorvermogen 0..1), speed (m/s door water), bow, moored, running}
     if (!ac || muted) return; const now = ac.currentTime, on = st.running ? 1 : 0;
     const pw = Math.abs(st.rpm !== undefined ? st.rpm : st.tele); engRpm = pw; engOn = on;
-    engGain.gain.setTargetAtTime(on * (0.18 + pw * 0.2), now, 0.3);
+    engGain.gain.setTargetAtTime(on * (0.55 + pw * 0.4), now, 0.3);
     if (rumGain) rumGain.gain.setTargetAtTime(0.25 + pw * 0.5, now, 0.5);
     if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.011; turboGain.gain.setTargetAtTime(on * ta, now, 0.4); }
     bowGain.gain.setTargetAtTime(on * (st.bow ? 0.35 : 0), now, 0.15);
