@@ -123,13 +123,13 @@ const SND = (() => {
     thud(t + 0.22, 90, 45, 0.45, 0.25); nz(t + 0.22, 0.12, 300, 200, 1.5, 0.3, 0.005); // klonk: koppeling pakt
     engLoadUntil = t + 1.2; // motor zakt even in onder de last
   }
-  // scheepshoorn: zware tyfoon. Grondtoon 98 Hz met boventonen en een licht zwevende tweede toon, trage aanzet, luchtruis van de hoorn
+  // scheepshoorn: zware tyfoon. Grondtoon 80 Hz met boventonen en een licht zwevende tweede toon, trage aanzet, luchtruis van de hoorn
   function tyfoon(dur, delay) {
     if (!ac || muted) return; const t0 = ac.currentTime + 0.02 + (delay || 0), out = ac.createGain(); out.gain.value = 1;
     const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 1.2; const sh = ac.createWaveShaper(); { const c = new Float32Array(512); for (let i = 0; i < 512; i++) { const x = (i / 256 - 1) * 2.2; c[i] = Math.tanh(x) * 0.85; } sh.curve = c; }
     out.connect(sh); sh.connect(lp); lp.connect(sfx);
     const att = Math.min(0.25, dur * 0.3), rel = Math.min(0.35, dur * 0.4);
-    for (const [f, type, v] of [[98, 'sawtooth', 0.5], [98.6, 'square', 0.18], [196, 'sawtooth', 0.22], [49, 'sine', 0.35]]) {
+    for (const [f, type, v] of [[80, 'sawtooth', 0.5], [80.5, 'square', 0.18], [160, 'sawtooth', 0.22], [40, 'sine', 0.35]]) {
       const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f * 0.97, t0); o.frequency.exponentialRampToValueAtTime(f, t0 + att);
       g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + att); g.gain.setValueAtTime(v, t0 + dur - rel); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + dur + 0.05);
     }
