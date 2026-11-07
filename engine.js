@@ -71,6 +71,7 @@ addEventListener('resize', fit); if (window.visualViewport) visualViewport.addEv
 // ---------- wereld (kaart-onafhankelijk) ----------
 // px-coördinaten; 1 px = 0,5 m. Rivierframe (s,n): s langs de rivier (zee = s klein), n dwars (n>0 = zuidoever)
 const SCALE = 2, toPx = m => m * SCALE, TIME = 3, SH = 52;
+const RUD_MAX = 60; // max roerhoek in graden
 let MAP = null, TH = 0, CT = 1, ST = 0, ORG = { x: 0, y: 0 }, W = 1000, H = 1000, RIVER_HALF = 160, S_MIN = -800, S_MAX = 5000;
 let waits = [], land = [], shore = [], basins = [], terminals = [], terminal = null, berths = [], traffic = [], channels = [], bridges = [], labels = [], roads = [], decor = [], riverPoly = [], startPos = { s: 0, n: 0, hdgOff: 0 };
 const current = { speed: 1.5, base: 1.5 }; let dirSea = { x: -1, y: 0 };
@@ -575,8 +576,8 @@ function currentAt(x, y) {
 // ---------- fysica ----------
 function input(dt) {
   const b = boat;
-  if (keys.ArrowLeft) b.rudderCmd = Math.max(-1, b.rudderCmd - dt * 1.4);
-  if (keys.ArrowRight) b.rudderCmd = Math.min(1, b.rudderCmd + dt * 1.4);
+  if (keys.ArrowLeft) b.rudderCmd = Math.max(-1, b.rudderCmd - dt * 1.0);
+  if (keys.ArrowRight) b.rudderCmd = Math.min(1, b.rudderCmd + dt * 1.0);
   b.bow = moored ? 0 : (keys.q ? -1 : 0) + (keys.e ? 1 : 0);
 }
 function physics(dt) {
@@ -592,11 +593,13 @@ function physics(dt) {
   const du = thrust - 0.08 * u * Math.abs(u) - 0.05 * u;
   const dv = -1.2 * v * Math.abs(v) - 0.9 * v;
   const flow = Math.max(-4, Math.min(6, u + (b.tele > 0 ? b.tele * 2.0 : 0))); // plafond: geen tolboot op volle vaart
-  const rudForce = b.rudder * flow * Math.abs(flow) * 0.09;
+  // roer tot 60°: roerkracht ~ sin(hoek), genormeerd zodat 35° gelijk blijft aan vroeger; bij grote hoeken extra weerstand (vaartverlies)
+  const rudDeg = b.rudder * RUD_MAX, rudEff = Math.sin(rudDeg * Math.PI / 180) / Math.sin(35 * Math.PI / 180), rudDrag = Math.pow(Math.abs(b.rudder), 2) * 0.35;
+  const rudForce = rudEff * flow * Math.abs(flow) * 0.09;
   const bowF = 0.04 * up('boeg') * Math.max(0, 1 - Math.abs(u) / 3.5); // boegschroef verliest kracht boven ~2 m/s vaart door het water
   const yawK = Math.pow(40 / b.L, 0.7); // langer schip: meer traagheid om de as, draait trager
   const dr = (rudForce * 0.06 + b.bow * bowF) * yawK - b.r * 0.9 - b.r * Math.abs(b.r) * 2.0;
-  u += du * dt; v += (dv - rudForce * 0.3 + b.bow * bowF * 4.5) * dt; b.r += dr * dt;
+  u += (du - rudDrag * u * Math.abs(u) * 0.06) * dt; v += (dv - rudForce * 0.3 + b.bow * bowF * 4.5) * dt; b.r += dr * dt;
   // stroomschering: kop en hek in verschillende stroom (bekkenmond, oever) geeft een draaimoment
   const Lp = toPx(b.L) * 0.45, cb = currentAt(b.x + cos * Lp, b.y + sin * Lp), cst = currentAt(b.x - cos * Lp, b.y - sin * Lp);
   const shear = (-(cb.vx - cst.vx) * sin + (cb.vy - cst.vy) * cos); // dwarscomponent verschil, m/s
@@ -943,7 +946,7 @@ function drawBoat(t) {
   }
   if (b.bow !== 0) { const s = -b.bow; ctx.fillStyle = 'rgba(255,255,255,.75)'; for (let i = 0; i < 7; i++) { const ph = (t * 5 + i * 0.14) % 1; ctx.beginPath(); ctx.arc(L / 2 - 18 + Math.sin(i * 1.7) * 3, s * (Bw / 2 + 3 + ph * 26), 2 + ph * 4, 0, 7); ctx.fill(); } ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L / 2 - 18, s * Bw / 2); ctx.lineTo(L / 2 - 18, s * (Bw / 2 + 28)); ctx.stroke(); }
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
-  ctx.save(); ctx.translate(-L / 2 + 2, 0); ctx.rotate(-b.rudder * 0.6); ctx.fillStyle = '#ff8a2a'; rrect(-16, -3.5, 16, 7, 3); ctx.fill(); ctx.strokeStyle = '#8a3d00'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(-L / 2 + 2, 0); ctx.rotate(-b.rudder * RUD_MAX * Math.PI / 180); ctx.fillStyle = '#ff8a2a'; rrect(-16, -3.5, 16, 7, 3); ctx.fill(); ctx.strokeStyle = '#8a3d00'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
   ctx.fillStyle = '#6b7680'; hull(); ctx.fill(); ctx.strokeStyle = '#2f3840'; ctx.lineWidth = 3.5; ctx.stroke(); // grijze romp
   ctx.save(); hull(); ctx.clip(); ctx.fillStyle = '#1f5fbf'; ctx.fillRect(-L / 2, -Bw / 2, L, 3); ctx.fillRect(-L / 2, Bw / 2 - 3, L, 3); ctx.restore(); // blauwe band
   drawTankerBody(L, Bw, '#6b7680', b.cargo / Math.max(1, b.target), b.bow !== 0, { deck: '#9aa5ad', accTrim: '#f39c12', whTrim: '#f39c12', rail: '#f4f6f7' });
@@ -956,12 +959,12 @@ function drawInstruments() {
   ctx.lineWidth = 8; ctx.strokeStyle = '#d33f3f'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI, Math.PI * 1.5); ctx.stroke();
   ctx.strokeStyle = '#3cb043'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI * 1.5, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-  for (let a = -35; a <= 35; a += 5) { const ang = -Math.PI / 2 + a / 35 * Math.PI / 2; const l = a % 35 === 0 ? 12 : a % 10 === 0 ? 8 : 4; ctx.beginPath(); ctx.moveTo(cx + Math.cos(ang) * (R - 6), cy + Math.sin(ang) * (R - 6)); ctx.lineTo(cx + Math.cos(ang) * (R - 6 - l), cy + Math.sin(ang) * (R - 6 - l)); ctx.stroke(); }
+  for (let a = -RUD_MAX; a <= RUD_MAX; a += 5) { const ang = -Math.PI / 2 + a / RUD_MAX * Math.PI / 2; const l = a % RUD_MAX === 0 ? 12 : a % 20 === 0 ? 8 : 4; ctx.beginPath(); ctx.moveTo(cx + Math.cos(ang) * (R - 6), cy + Math.sin(ang) * (R - 6)); ctx.lineTo(cx + Math.cos(ang) * (R - 6 - l), cy + Math.sin(ang) * (R - 6 - l)); ctx.stroke(); }
   const na = -Math.PI / 2 + b.rudderCmd * Math.PI / 2, ra = -Math.PI / 2 + b.rudder * Math.PI / 2;
   ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(na) * (R - 4), cy + Math.sin(na) * (R - 4)); ctx.stroke();
   ctx.strokeStyle = '#ffd54a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ra) * (R - 10), cy + Math.sin(ra) * (R - 10)); ctx.stroke();
   ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
-  ctx.fillText(`${tr('ROER')} ${Math.abs(b.rudder) < 0.03 ? '0' : tr(b.rudder < 0 ? 'BB ' : 'SB ') + Math.round(Math.abs(b.rudder) * 35)}°`, cx, cy + 10);
+  ctx.fillText(`${tr('ROER')} ${Math.abs(b.rudder) < 0.03 ? '0' : tr(b.rudder < 0 ? 'BB ' : 'SB ') + Math.round(Math.abs(b.rudder) * RUD_MAX)}°`, cx, cy + 10);
   if (COMPACT) { // smalle telegraafbalk boven de ▲-knop
     const land = VH < 500, tw = 22;
     const th = land ? Math.max(55, Math.min(130, VH - 315)) : Math.max(50, Math.min(130, VH - 580));
@@ -1046,7 +1049,7 @@ function objective() {
 function drawHUD() {
   const b = boat, sp = Math.hypot(b.vx, b.vy) * 3.6;
   const hdgDeg = Math.round(((((b.hdg * 180 / Math.PI) + 90) % 360) + 360) % 360);
-  const rud = Math.abs(b.rudder) < 0.05 ? tr('midscheeps') : tr(b.rudder < 0 ? 'bakboord ' : 'stuurboord ') + Math.round(Math.abs(b.rudder) * 35) + '°';
+  const rud = Math.abs(b.rudder) < 0.05 ? tr('midscheeps') : tr(b.rudder < 0 ? 'bakboord ' : 'stuurboord ') + Math.round(Math.abs(b.rudder) * RUD_MAX) + '°';
   const c = currentAt(b.x, b.y); const cs = Math.hypot(c.vx, c.vy);
   const dmgCol = b.damage < 40 ? '#5ee88a' : b.damage < 75 ? '#ffd54a' : '#ff5a5a';
   const obj = `<div style="color:#ffd54a;font-weight:700;margin-bottom:2px">${objective()}</div>`;
