@@ -85,10 +85,34 @@ let seedD = 3; const rndD = () => (seedD = (seedD * 16807) % 2147483647) / 21474
 const cols = ['#e67e22', '#27ae60', '#2980b9', '#e74c3c', '#f1c40f'];
 
 function loadMap(def) {
-  MAP = def; Object.assign(EN, def.i18n || {}); TH = def.TH; CT = Math.cos(TH); ST = Math.sin(TH); ORG = def.ORG; W = def.W; H = def.H; RIVER_HALF = def.RIVER_HALF; S_MIN = def.S_MIN; S_MAX = def.S_MAX;
+  // K = ruimtefactor: de wereld (rivier, bekkens, afstanden) wordt K× zo groot, schepen houden hun maat en ligplaatsen blijven tegen hun kade
+  const K = def.K || 1;
+  MAP = Object.assign({}, def, { lanes: def.lanes ? { down: def.lanes.down * K, up: def.lanes.up * K, mouth: (def.RIVER_HALF - (def.RIVER_HALF - def.lanes.mouth)) * K } : null });
+  Object.assign(EN, def.i18n || {}); TH = def.TH; CT = Math.cos(TH); ST = Math.sin(TH); ORG = { x: def.ORG.x * K, y: def.ORG.y * K }; W = def.W * K; H = def.H * K; RIVER_HALF = def.RIVER_HALF * K; S_MIN = def.S_MIN * K; S_MAX = def.S_MAX * K;
   current.base = def.currentSpeed; current.speed = def.currentSpeed; dirSea = { x: -CT, y: -ST }; tideT = 0; tidePhase = Math.random() * Math.PI * 2; lastTideSign = 0;
-  const h = { quad, sn2w, RIVER_HALF, TH, SH, S_MIN, S_MAX, cols };
+  // eerst onschaalde opbouw in (s,n) om te zien welke randen tegen een kade liggen
+  const h0 = { quad: (s0, s1, n0, n1) => [{ x: s0, y: n0 }, { x: s1, y: n0 }, { x: s1, y: n1 }, { x: s0, y: n1 }], sn2w: (s, n) => ({ x: s, y: n }), RIVER_HALF: def.RIVER_HALF, TH, SH, S_MIN: def.S_MIN, S_MAX: def.S_MAX, cols };
+  const m0 = def.build(h0), onLand = (s, n) => m0.land.some(l => inPoly({ x: s, y: n }, l.poly));
+  const h = { quad: (s0, s1, n0, n1) => quad(s0 * K, s1 * K, n0 * K, n1 * K), sn2w: (s, n) => sn2w(s * K, n * K), RIVER_HALF: def.RIVER_HALF, TH, SH, S_MIN: def.S_MIN, S_MAX: def.S_MAX, cols };
   const m = def.build(h);
+  if (K !== 1) {
+    // gap = afstand tot de kade (null = geen kade binnen 14 px); de kade schaalt mee, de ligplaats blijft er even dicht tegenaan
+    const gap = f => { for (let d = 1; d <= 14; d++) if (f(d)) return d; return null; };
+    const ax = (a0, a1, g0, g1) => { const len = a1 - a0; if (g0 !== null) { const e = K * (a0 - g0) + g0; return [e, e + len]; } if (g1 !== null) { const e = K * (a1 + g1) - g1; return [e - len, e]; } const c = (a0 + a1) / 2 * K; return [c - len / 2, c + len / 2]; };
+    const rectT = o => { const sm = (o.s0 + o.s1) / 2, nm = (o.n0 + o.n1) / 2; const [s0, s1] = ax(o.s0, o.s1, gap(d => onLand(o.s0 - d, nm)), gap(d => onLand(o.s1 + d, nm))); const [n0, n1] = ax(o.n0, o.n1, gap(d => onLand(sm, o.n0 - d)), gap(d => onLand(sm, o.n1 + d))); o.s0 = s0; o.s1 = s1; o.n0 = n0; o.n1 = n1; };
+    const inRect = (o, s, n) => s > o.s0 && s < o.s1 && n > o.n0 && n < o.n1;
+    const st0 = m.start, waits0 = (m.waits || []).map(w => Object.assign({}, w));
+    for (const t of m.terminals) rectT(t); for (const w of (m.waits || [])) rectT(w);
+    for (const b of m.berths) { const mid = (b.a0 + b.a1) / 2 * K, len = b.a1 - b.a0; b.a0 = mid - len / 2; b.a1 = mid + len / 2; b.c = K * (b.c - b.side * 28) + b.side * 28; }
+    for (const b of (m.basins || [])) { b.s0 *= K; b.s1 *= K; b.n0 *= K; b.n1 *= K; if (b.labelN !== undefined) b.labelN *= K; }
+    for (const t of (m.traffic || [])) { t.s *= K; t.n *= K; if (t.nMin !== undefined) { t.nMin *= K; t.nMax *= K; } }
+    for (const c of (m.channels || [])) { c.s0 *= K; c.s1 *= K; c.n0 *= K; c.n1 *= K; }
+    for (const br of (m.bridges || [])) { br.s *= K; br.n0 *= K; br.n1 *= K; if (br.pillars) br.pillars = br.pillars.map(p => p * K); if (br.pylon !== undefined) br.pylon *= K; if (br.towers) br.towers = br.towers.map(p => p * K); }
+    for (const l of (m.labels || [])) { l.s *= K; l.n *= K; } for (const r of (m.roads || [])) r.pts = r.pts.map(([s, n]) => [s * K, n * K]);
+    for (const r of (m.rivals || [])) { r.s *= K; r.n *= K; }
+    const wi = waits0.findIndex(w => inRect(w, st0.s, st0.n)); // start in een wachtplaats: midden in de geschaalde wachtplaats
+    m.start = wi >= 0 ? { s: (m.waits[wi].s0 + m.waits[wi].s1) / 2, n: (m.waits[wi].n0 + m.waits[wi].n1) / 2, hdgOff: st0.hdgOff } : { s: st0.s * K, n: st0.n * K, hdgOff: st0.hdgOff };
+  }
   land = m.land; waits = m.waits || []; basins = m.basins || []; terminals = m.terminals; berths = m.berths; traffic = m.traffic || []; channels = m.channels || []; bridges = m.bridges || []; labels = m.labels || []; roads = m.roads || []; startPos = m.start;
   for (const br of bridges) for (const p of (br.pillars || [])) land.push({ poly: quad(br.s - 9, br.s + 9, p - 9, p + 9), kind: 'pillar' });
   shore = [];
@@ -105,7 +129,14 @@ function loadMap(def) {
   for (const tr of traffic) { tr.hdg = tr.axis === 'n' ? (tr.v > 0 ? TH + Math.PI / 2 : TH - Math.PI / 2) : (tr.v > 0 ? TH : TH + Math.PI); }
   riverPoly = quad(S_MIN, S_MAX, -RIVER_HALF, RIVER_HALF);
   decor = []; seedD = 3;
-  const add = (type, s, n, extra) => { const p = sn2w(s, n); decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); };
+  const landOnly = land.filter(l => l.kind !== 'pillar' && l.kind !== 'dam');
+  const solid = (x, y) => landOnly.some(l => inPoly({ x, y }, l.poly)) && [[14, 0], [-14, 0], [0, 14], [0, -14]].every(([a, b]) => landOnly.some(l => inPoly({ x: x + a, y: y + b }, l.poly)));
+  const FILL = { house: 38, block: 40, tree: 32, container: 22, tank: 70 };
+  const add = (type, s, n, extra) => {
+    if (K === 1) { const p = sn2w(s, n); decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); return; }
+    const offs = FILL[type] ? [[0, 0], [FILL[type], 0], [0, FILL[type]], [FILL[type], FILL[type]]] : [[0, 0]];
+    for (const [ds, dn] of offs) { const p = sn2w(s * K + ds, n * K + dn); if (ds || dn ? solid(p.x, p.y) : true) decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); }
+  };
   if (m.decor) m.decor(add, rndD, h);
   (m.rivals || []).forEach((rp, i) => { const r = rivals[i]; if (!r) return; const p = sn2w(rp.s, rp.n); r.x = p.x; r.y = p.y; r.hdg = TH + rp.hdgOff; r.mode = 'idle'; r.path = []; r.wait = 2 + i * 4; r.racing = false; r.damage = 0; r.cur = 0; r.rev = null; });
   terminal = terminals[0]; ship = berths[0]; dock = ship.dock; mission = -1; trails.clear();
@@ -500,12 +531,12 @@ function reset() {
 }
 // ---------- opslaan / verder varen ----------
 function saveGame(w) {
-  const b = boat, data = { v: 1, at: Date.now(), map: MAP.id, wait: w ? w.name : null, x: b.x, y: b.y, hdg: b.hdg, damage: b.damage, fatigue: b.fatigue, cargo: b.cargo, target: b.target,
+  const b = boat, data = { v: 2, at: Date.now(), map: MAP.id, wait: w ? w.name : null, x: b.x, y: b.y, hdg: b.hdg, damage: b.damage, fatigue: b.fatigue, cargo: b.cargo, target: b.target,
     mission, term: terminals.indexOf(terminal), phase: state.phase === 'bunker' ? 'sail' : state.phase === 'done' || state.phase === 'sunk' ? 'load' : state.phase, missionCount, totalScore,
     tideT, tidePhase, simClock, rivals: rivals.map(r => ({ x: r.x, y: r.y, hdg: r.hdg, gold: r.gold, jobs: r.jobs, damage: r.damage || 0, sunk: r.mode === 'sunk' })) };
   try { localStorage.setItem('bunker_save', JSON.stringify(data)); } catch (e) {}
 }
-function readSave() { try { const s = JSON.parse(localStorage.getItem('bunker_save') || 'null'); return s && s.v === 1 && MAPS.find(m => m.id === s.map) ? s : null; } catch (e) { return null; } }
+function readSave() { try { const s = JSON.parse(localStorage.getItem('bunker_save') || 'null'); return s && s.v === 2 && MAPS.find(m => m.id === s.map) ? s : null; } catch (e) { return null; } }
 function continueGame() {
   const s = readSave(); if (!s) return startGame();
   SND.init(); RADIO.reset(); loadMap(MAPS.find(m => m.id === s.map)); reset();
@@ -638,7 +669,7 @@ function logic(dt) {
       const timeScore = Math.max(0, 900 - Math.round(state.elapsed) * 3);
       score = Math.max(0, 1000 + timeScore - Math.round(b.damage) * 10); totalScore += score;
       if (totalScore > bestScore) { bestScore = totalScore; try { localStorage.setItem('bunker_best', bestScore); } catch (e) {} }
-      const pay = Math.round(b.target * 0.6), bonus = Math.round(Math.max(0, 400 - state.elapsed * 1.5)), clean = b.damage < 0.5 ? 150 : 0;
+      const pay = Math.round(b.target * 0.6), bonus = Math.round(Math.max(0, 400 - state.elapsed * 0.9)), clean = b.damage < 0.5 ? 150 : 0;
       career.gold += pay + bonus + clean; career.jobs++; saveCareer(); SND.coin();
       for (const r of rivals) if (r.racing && r.target === ship) { r.racing = false; r.mode = 'idle'; r.wait = 10; r.path = []; }
       say(tf('✅ Klaar!{0} 🪙 +{1} vracht +{2} tijd{3} = {4} goud. N = volgende, B = winkel', moored ? tr(' M = los,') : '', pay, bonus, clean ? tr(' +150 schadevrij') : '', pay + bonus + clean));
@@ -1044,7 +1075,7 @@ function frame(now) {
     const sdt = dt * warp; tideUpdate(sdt); simClock += sdt;
     { const b = boat; // vermoeidheid: ±15 min varen tot vol; rusten aan een wachtplaats: ±20 s tot uitgerust
       if (moored && moored.to === 'wait') { const f0 = b.fatigue; b.fatigue = Math.max(0, b.fatigue - sdt * 5); if (f0 > 0 && b.fatigue === 0) { say(tr('😴 Uitgerust. M = los om verder te varen.'), 3); saveGame(moored.wait); } }
-      else if (!moored && state.phase !== 'sunk') { const f0 = b.fatigue; b.fatigue = Math.min(100, b.fatigue + sdt * 100 / 900); if (f0 < 80 && b.fatigue >= 80) say(tr('🥱 Je wordt moe – zoek een wachtplaats (blauwe P) om te rusten'), 5); if (f0 < 100 && b.fatigue >= 100) say(tr('😵 Oververmoeid: het roer reageert traag en onnauwkeurig!'), 5); } }
+      else if (!moored && state.phase !== 'sunk') { const f0 = b.fatigue; b.fatigue = Math.min(100, b.fatigue + sdt * 100 / 1500); if (f0 < 80 && b.fatigue >= 80) say(tr('🥱 Je wordt moe – zoek een wachtplaats (blauwe P) om te rusten'), 5); if (f0 < 100 && b.fatigue >= 100) say(tr('😵 Oververmoeid: het roer reageert traag en onnauwkeurig!'), 5); } }
     if (state.phase !== 'sunk') input(dt); updateTraffic(sdt); updateRivals(sdt); for (let i = 0; i < TIME * warp; i++) physics(dt); logic(sdt);
   }
   shake = Math.max(0, shake - dt * 30); const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake;
