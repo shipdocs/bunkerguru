@@ -597,13 +597,14 @@ function physics(dt) {
   let u = rvx * cos + rvy * sin, v = -rvx * sin + rvy * cos;
   const massK = 1 / (1 + 0.45 * (b.cargo / Math.max(1, b.target))); // geladen = trager optrekken en afstoppen
   // motor volgt de telegraaf traag (langzaamloper: toeren op- en afbouwen kost tijd), vermogen 'rpm' in plaats van de stand zelf
-  // omkeren = motor stoppen, startlucht, andere kant op aanzetten (geen keerkoppeling). Vanuit stop idem.
+  // omkeren via de pneumatische keerkoppeling: koppeling ontluchten (vermogen naar nul), motor loopt stationair door, dan de andere kant inkoppelen
   if (b.rpm === undefined) { b.rpm = b.tele; b.engDir = Math.sign(b.tele); b.startT = 0; }
   { const want = Math.sign(b.tele);
-    if (b.startT > 0) { b.startT -= dt; } // startlucht: motor staat even stil
-    else if (want !== 0 && b.engDir !== want) { // andere richting gevraagd: eerst uitlopen naar nul, dan starten
-      if (Math.abs(b.rpm) > 0.01) b.rpm += Math.max(-0.14 * dt, Math.min(0.14 * dt, -b.rpm));
-      else { b.rpm = 0; b.engDir = want; b.startT = 3; SND.airStart(); }
+    if (b.startT > 0) { b.startT -= dt; } // koppeling schakelt om: even geen vermogen op de schroef
+    else if (want !== 0 && b.engDir !== want) { // andere richting gevraagd: eerst uitkoppelen naar nul, dan inkoppelen
+      const wasRunning = b.engDir !== 0;
+      if (Math.abs(b.rpm) > 0.01) b.rpm += Math.max(-0.2 * dt, Math.min(0.2 * dt, -b.rpm));
+      else { b.rpm = 0; b.engDir = want; b.startT = wasRunning ? 2.5 : 1.2; SND.clutch(wasRunning); }
     } else { const rate = Math.abs(b.tele) > Math.abs(b.rpm) ? 0.07 : 0.12; b.rpm += Math.max(-rate * dt, Math.min(rate * dt, b.tele - b.rpm)); if (want === 0 && Math.abs(b.rpm) < 0.01) { b.rpm = 0; b.engDir = 0; } }
   }
   const DYN = 0.4; // massatraagheid: stuwkracht én weerstand lager → zelfde topsnelheid, langzamer optrekken en uitlopen

@@ -1,6 +1,6 @@
 // ---------- geluid (Web Audio, alles gegenereerd) ----------
 const SND = (() => {
-  let ac = null, master, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, bowGain, washGain, muted = false, musicOn = true, musicGain = null, musicTimer = null;
+  let ac = null, master, engLoadUntil = 0, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, bowGain, washGain, muted = false, musicOn = true, musicGain = null, musicTimer = null;
   try { musicOn = localStorage.getItem('bunker_music') !== '0'; } catch (e) {}
   try { muted = localStorage.getItem('bunker_mute') === '1'; } catch (e) {}
   // volumes 0–100 per kanaal
@@ -103,17 +103,38 @@ const SND = (() => {
     tg.gain.setValueAtTime(0.0001, t0); tg.gain.exponentialRampToValueAtTime(0.10 * amp, t0 + 0.001); tg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.03); tk.connect(tf); tf.connect(tg); tg.connect(out); tk.start(t0); tk.stop(t0 + 0.04);
   }
   function scheduleEngine() {
-    if (!ac || muted || !engOn || engRpm < 0.02) { engNext = ac ? ac.currentTime + 0.1 : 0; return; }
-    const rps = (95 + engRpm * 230) / 60; // slagen per seconde
-    while (engNext < ac.currentTime + 0.3) { thump(engNext, Math.min(1, engRpm + (Math.random() - 0.5) * 0.1)); engNext += (1 / rps) * (1 + (Math.random() - 0.5) * (engRpm < 0.3 ? 0.12 : 0.04)); }
+    if (!ac || muted || !engOn) { engNext = ac ? ac.currentTime + 0.1 : 0; return; }
+    const load = ac.currentTime < engLoadUntil ? 1 : 0; // koppeling pakt: toeren zakken, slagen zwaarder
+    const rps = (95 + engRpm * 300) / 60 * (load ? 0.78 : 1); // slagen per seconde: 95 stationair (motor loopt altijd door), ±395 vol
+    while (engNext < ac.currentTime + 0.3) { thump(engNext, Math.min(1, engRpm + load * 0.3 + (Math.random() - 0.5) * 0.1)); engNext += (1 / rps) * (1 + (Math.random() - 0.5) * (engRpm < 0.3 ? 0.12 : 0.04)); }
   }
-  // startlucht: motor stopt, lange sis (psssh) en een plof van de klep; alleen bij aanzetten vanuit stop en bij omkeren
-  function airStart() {
+  // keerkoppeling: pneumatische bediening (korte "pst") + ontluchten van de koppeling ("psshh") + pneumatisch inkoppelen ("ka-tshh" met klonk);
+  // de motor loopt gewoon stationair door, hij zakt even in als de koppeling pakt. Alleen bij omkeren en bij inkoppelen vanuit stop.
+  function clutch(reversing) {
     if (!ac || muted) return; const t0 = ac.currentTime + 0.02;
-    const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.6; const g = ac.createGain();
-    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4); n.connect(f); f.connect(g); g.connect(sfx); n.start(t0); n.stop(t0 + 1.45);
-    const p = ac.createBufferSource(); p.buffer = noiseBuf(); const pf = ac.createBiquadFilter(); pf.type = 'bandpass'; pf.frequency.value = 600; pf.Q.value = 0.8; const pg = ac.createGain();
-    pg.gain.setValueAtTime(0.0001, t0 + 0.05); pg.gain.exponentialRampToValueAtTime(0.25, t0 + 0.06); pg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5); p.connect(pf); pf.connect(pg); pg.connect(sfx); p.start(t0 + 0.05); p.stop(t0 + 0.55);
+    const nz = (t, dur, f0, f1, q, vol, att) => { const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur); f.Q.value = q; const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); n.connect(f); f.connect(g); g.connect(sfx); n.start(t); n.stop(t + dur + 0.05); };
+    const thud = (t, f0, f1, vol, dur) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(sfx); o.start(t); o.stop(t + dur + 0.02); };
+    nz(t0, 0.09, 3500, 3000, 0.8, 0.22, 0.005); // pst: bediening
+    let t = t0 + 0.15;
+    if (reversing) { nz(t, 0.55, 2600, 1400, 0.9, 0.3, 0.01); t += 0.7; } // psshh: koppeling ontlucht
+    nz(t, 0.03, 1800, 1800, 0.4, 0.5, 0.002); thud(t, 140, 60, 0.35, 0.08); // ka: klepklak
+    nz(t + 0.03, 0.4, 3200, 2200, 0.7, 0.3, 0.01); // tshh: inkoppellucht
+    thud(t + 0.22, 90, 45, 0.45, 0.25); nz(t + 0.22, 0.12, 300, 200, 1.5, 0.3, 0.005); // klonk: koppeling pakt
+    engLoadUntil = t + 1.2; // motor zakt even in onder de last
+  }
+  // scheepshoorn: zware tyfoon. Grondtoon 98 Hz met boventonen en een licht zwevende tweede toon, trage aanzet, luchtruis van de hoorn
+  function tyfoon(dur, delay) {
+    if (!ac || muted) return; const t0 = ac.currentTime + 0.02 + (delay || 0), out = ac.createGain(); out.gain.value = 1;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 1.2; const sh = ac.createWaveShaper(); { const c = new Float32Array(512); for (let i = 0; i < 512; i++) { const x = (i / 256 - 1) * 2.2; c[i] = Math.tanh(x) * 0.85; } sh.curve = c; }
+    out.connect(sh); sh.connect(lp); lp.connect(sfx);
+    const att = Math.min(0.25, dur * 0.3), rel = Math.min(0.35, dur * 0.4);
+    for (const [f, type, v] of [[98, 'sawtooth', 0.5], [98.6, 'square', 0.18], [196, 'sawtooth', 0.22], [49, 'sine', 0.35]]) {
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f * 0.97, t0); o.frequency.exponentialRampToValueAtTime(f, t0 + att);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + att); g.gain.setValueAtTime(v, t0 + dur - rel); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + dur + 0.05);
+    }
+    const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 400; f.Q.value = 0.8; const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.12, t0 + att); g.gain.setValueAtTime(0.12, t0 + dur - rel); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); n.connect(f); f.connect(g); g.connect(out); n.start(t0); n.stop(t0 + dur + 0.05);
   }
   function update(st) { // st: {tele, rpm (werkelijk motorvermogen 0..1), speed (m/s door water), bow, moored, running}
     if (!ac || muted) return; const now = ac.currentTime, on = st.running ? 1 : 0;
@@ -127,10 +148,10 @@ const SND = (() => {
   function tone(type, f0, f1, dur, vol, delay, out) { if (!ac || muted) return; const t0 = ac.currentTime + (delay || 0); const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(out || sfx); o.start(t0); o.stop(t0 + dur + 0.05); }
   function burst(freq, dur, vol, type, out) { if (!ac || muted) return; const s = ac.createBufferSource(); s.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq; const g = ac.createGain(), t0 = ac.currentTime; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(g); g.connect(out || sfx); s.start(); s.stop(t0 + dur + 0.05); }
   return {
-    init, update, airStart,
+    init, update, clutch,
     hit(power) { burst(300, 0.4 + power * 0.03, Math.min(1, 0.3 + power * 0.04)); tone('triangle', 90, 40, 0.35, Math.min(0.8, 0.2 + power * 0.03)); },
-    horn() { if (!ac || muted) return; for (const f of [146.8, 185]) tone('sawtooth', f, f * 0.99, 1.1, 0.12); },
-    horn5() { if (!ac || muted) return; for (let i = 0; i < 5; i++) for (const f of [220, 277]) tone('sawtooth', f, f, 0.18, 0.07, i * 0.3); }, // attentiesein: 5 korte stoten
+    horn() { tyfoon(2.6, 0); },
+    horn5() { for (let i = 0; i < 5; i++) tyfoon(0.45, i * 0.65); }, // attentiesein: 5 korte stoten
     rope() { burst(1800, 0.12, 0.25, 'highpass'); tone('square', 220, 140, 0.12, 0.08, 0.05); },
     coin() { [988, 1319, 1568].forEach((f, i) => tone('square', f, f, 0.12, 0.08, i * 0.08)); },
     sink() { tone('sine', 220, 50, 2.5, 0.3); for (let i = 0; i < 6; i++) tone('sine', 500 + Math.random() * 600, 900, 0.1, 0.1, 0.3 + i * 0.25); },
