@@ -1,0 +1,18 @@
+// Beschutte oefenhaven: korte eerste klus zonder verkeer, getij of concurrenten.
+window.MAPS = window.MAPS || [];
+MAPS.push({
+  id: 'training', name: 'Oefenhaven', icon: '🎓', K: 1,
+  desc: { nl: 'Leer losgooien, varen, laden en bunkeren.', en: 'Learn to cast off, sail, load and bunker.' },
+  TH: 0, ORG: { x: 250, y: 450 }, W: 2200, H: 1000,
+  RIVER_HALF: 180, S_MIN: -200, S_MAX: 1900, currentSpeed: 0, tide: null,
+  lanes: { down: -40, up: 40, mouth: 115 },
+  build({ quad }) {
+    return {
+      land: [ { poly: quad(-250, 1950, -450, -180), kind: 'north' }, { poly: quad(-250, 1950, 180, 550), kind: 'tanks' } ],
+      terminals: [{ s0: 400, s1: 750, n0: 120, n1: 172, name: 'Oefenterminal' }],
+      berths: [{ name: 'MT LEERMEESTER', col: '#27ae60', axis: 's', a0: 1200, a1: 1580, c: 150, side: -1, where: 'oefenkade' }],
+      waits: [{ s0: 80, s1: 320, n0: 120, n1: 172, name: 'Startsteiger' }],
+      start: { s: 200, n: 146, hdgOff: 0 }, traffic: [], rivals: [],
+    };
+  },
+});
