@@ -34,7 +34,7 @@ const EN = {
   'Koers {0}° {1}': 'Heading {0}° {1}', '→ draai BB': '→ turn to port', '→ draai SB': '→ turn to starboard', 'Vaart {0} km/h {1}': 'Speed {0} km/h {1}', '✓  →  M = vast': '✓  →  M = moor', '→ afremmen': '→ slow down',
   'ROER': 'RUDDER', 'TELEGRAAF': 'TELEGRAPH', 'BB ': 'PT ', 'SB ': 'SB ',
   '⚓ AFGEMEERD (M = los)': '⚓ MOORED (M = cast off)', '⏩ SNELVAART 2×': '⏩ FAST FORWARD 2×',
-  'Goud': 'Gold', 'klussen': 'jobs', 'Opdracht': 'Job', 'Totaal': 'Total', 'Vaart': 'Speed', 'Koers': 'Heading', 'Telegraaf': 'Telegraph', 'Roer': 'Rudder', 'Stroom': 'Current', 'Lading': 'Cargo', 'Schade': 'Damage', 'Tijd': 'Time', 'Beste score': 'Best score',
+  'Goud': 'Gold', 'I = hulp': 'I = help', 'klussen': 'jobs', 'Opdracht': 'Job', 'Totaal': 'Total', 'Vaart': 'Speed', 'Koers': 'Heading', 'Telegraaf': 'Telegraph', 'Roer': 'Rudder', 'Stroom': 'Current', 'Lading': 'Cargo', 'Schade': 'Damage', 'Tijd': 'Time', 'Beste score': 'Best score',
   'midscheeps': 'amidships', 'bakboord ': 'port ', 'stuurboord ': 'starboard ',
   'vol achteruit': 'full astern', 'half achteruit': 'half astern', 'langzaam achteruit': 'slow astern', 'stop': 'stop', 'zeer langzaam': 'dead slow', 'langzaam': 'slow', 'half': 'half', 'vol': 'full', 'vol vooruit': 'full ahead',
   'NIEUWE WATERWEG · getijdenrivier': 'NIEUWE WATERWEG · tidal river',
@@ -507,6 +507,7 @@ addEventListener('keydown', e => {
   if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
   if (e.key === 'o' || e.key === 'O') toggleSound();
   if ((e.key === 'k' || e.key === 'K') && running) toggleBigMap();
+  if (e.key === '?' || e.key === 'F1' || e.key === 'i' || e.key === 'I') { document.body.classList.toggle('help'); e.preventDefault(); }
   if (e.key === 'v' || e.key === 'V') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2);
   if (e.key === 'p' || e.key === 'P') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); }
   if (e.key === 'g' || e.key === 'G') { SND.init(); const mu = SND.toggle(); if (mu && 'speechSynthesis' in window) speechSynthesis.cancel(); say(tr(mu ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
@@ -697,8 +698,8 @@ function makeWaveTile(size, n, alpha, lw) {
     for (const [dx, dy] of [[0, 0], [size, 0], [-size, 0], [0, size], [0, -size]]) { g.beginPath(); g.moveTo(x + dx, y + dy); g.quadraticCurveTo(x + dx + w / 2, y + dy - h, x + dx + w, y + dy); g.stroke(); } }
   return c;
 }
-const tileA = makeWaveTile(256, 34, 0.45, 3), tileB = makeWaveTile(192, 26, 0.22, 2);
-const tileRA = makeWaveTile(256, 30, 0.30, 2.5), tileRB = makeWaveTile(192, 22, 0.15, 2); // rivier: iets rustiger
+const tileA = makeWaveTile(256, 26, 0.22, 2), tileB = makeWaveTile(192, 20, 0.12, 1.5);
+const tileRA = makeWaveTile(256, 24, 0.20, 2), tileRB = makeWaveTile(192, 18, 0.10, 1.5); // rivier: iets rustiger
 const patA = ctx.createPattern(tileA, 'repeat'), patB = ctx.createPattern(tileB, 'repeat'), patRA = ctx.createPattern(tileRA, 'repeat'), patRB = ctx.createPattern(tileRB, 'repeat');
 function waveLayer(pat, ox, oy, clipPoly, invert, rot) {
   ctx.save(); ctx.beginPath(); ctx.rect(cam.x, cam.y, VW, VH);
@@ -712,14 +713,22 @@ function waveLayer(pat, ox, oy, clipPoly, invert, rot) {
 // voorgerenderde ondiepgloed (wereldgrootte)
 const clouds = [{ x: 100, y: 150, s: 1.2 }, { x: 900, y: 620, s: 1.6 }, { x: 1800, y: 300, s: 1 }, { x: 1400, y: 1200, s: 1.4 }, { x: 2300, y: 900, s: 1.1 }, { x: 3200, y: 1700, s: 1.5 }, { x: 3900, y: 500, s: 1.2 }, { x: 2800, y: 2300, s: 1.3 }];
 
+function makeLandTile() { // fijne korrel voor het land
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 900; i++) { g.fillStyle = rnd() > 0.5 ? 'rgba(255,255,255,.12)' : 'rgba(60,50,30,.10)'; g.fillRect(rnd() * 128, rnd() * 128, 1.5, 1.5); }
+  return c;
+}
+const patLand = ctx.createPattern(makeLandTile(), 'repeat');
 const wrap = (v, m) => ((v % m) + m) % m;
 function drawWater(tReal) {
   const t = simClock; // golven lopen op de spelklok, zodat ze bij snelvaart gelijk blijven met de stroom
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2f8fd0'); g.addColorStop(0.5, '#1f6fae'); g.addColorStop(1, '#2a86c4');
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#3d9bd6'); g.addColorStop(0.5, '#2f86c3'); g.addColorStop(1, '#3792cc');
   ctx.fillStyle = g; ctx.fillRect(cam.x, cam.y, VW, VH);
-  // rivier donkerder
-  ctx.fillStyle = 'rgba(10,50,110,.26)'; path(riverPoly); ctx.fill();
-  ctx.lineCap = 'round'; for (const [w, a] of [[46, .10], [30, .14], [16, .2]]) { ctx.strokeStyle = `rgba(120,230,220,${a})`; ctx.lineWidth = w; ctx.beginPath(); for (const e of shore) { if (Math.max(e.p.x, e.q.x) < cam.x - 60 || Math.min(e.p.x, e.q.x) > cam.x + VW + 60 || Math.max(e.p.y, e.q.y) < cam.y - 60 || Math.min(e.p.y, e.q.y) > cam.y + VH + 60) continue; ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke(); }
+  // diep vaarwater donkerder, met een zachte rand
+  ctx.save(); path(riverPoly); ctx.clip(); ctx.fillStyle = 'rgba(8,45,100,.30)'; ctx.fillRect(cam.x, cam.y, VW, VH); ctx.restore();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(30,90,160,.35)'; ctx.lineWidth = 40; path(riverPoly); ctx.stroke();
+  // ondiepte langs de kant: lichter en groeniger
+  for (const [w, a] of [[56, .07], [34, .10], [16, .16]]) { ctx.strokeStyle = `rgba(140,225,215,${a})`; ctx.lineWidth = w; ctx.beginPath(); for (const e of shore) { if (Math.max(e.p.x, e.q.x) < cam.x - 60 || Math.min(e.p.x, e.q.x) > cam.x + VW + 60 || Math.max(e.p.y, e.q.y) < cam.y - 60 || Math.min(e.p.y, e.q.y) > cam.y + VH + 60) continue; ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke(); }
   const flow = toPx(current.speed) * TIME;
   const arrowAlpha = Math.min(0.7, 0.15 + Math.abs(current.speed) * 0.15);
   // haven: langzaam; rivier: mee met stroom (richting zee)
@@ -731,24 +740,67 @@ function drawWater(tReal) {
   waveLayer(patRB, 0, wrap(t * flow * 0.6, 192), riverPoly, false, RW);
   // glinsters
   ctx.fillStyle = '#fff';
-  for (let i = 0; i < 400; i++) { const x = (i * 97.3) % W, y = (i * 61.7 + 30) % H; if (x < cam.x || x > cam.x + VW || y < cam.y || y > cam.y + VH) continue; const tw = Math.sin(t * 3 + i * 1.3) * 0.5 + 0.5; if (tw < 0.75) continue; ctx.globalAlpha = (tw - 0.75) * 3.2; ctx.fillRect(x, y, 6 + tw * 6, 2); }
+  for (let i = 0; i < 700; i++) { const x = (i * 97.3) % W, y = (i * 61.7 + 30) % H; if (x < cam.x || x > cam.x + VW || y < cam.y || y > cam.y + VH) continue; const tw = Math.sin(t * 2.2 + i * 1.3) * 0.5 + 0.5; if (tw < 0.8) continue; ctx.globalAlpha = (tw - 0.8) * 3.5; ctx.fillRect(x, y, 3 + tw * 3, 1.5); }
   ctx.globalAlpha = 1;
   // stroompijlen
-  ctx.strokeStyle = `rgba(255,255,255,${arrowAlpha})`; ctx.lineWidth = 2 + Math.abs(current.speed) * 0.6; ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(255,255,255,${arrowAlpha * 0.75})`; ctx.lineWidth = 1.5 + Math.abs(current.speed) * 0.45; ctx.lineCap = 'round';
   for (let n = -RIVER_HALF + 40; n <= RIVER_HALF - 40; n += 60) for (let s = S_MIN + ((-t * flow + n * 2) % 240 + 240) % 240; s < S_MAX; s += 240) {
-    const dsg = current.speed >= 0 ? 1 : -1; const a = sn2w(s, n), b = sn2w(s - 26 * dsg, n), c1 = sn2w(s - 19 * dsg, n - 6), c2 = sn2w(s - 19 * dsg, n + 6);
+    const dsg = current.speed >= 0 ? 1 : -1; const a = sn2w(s, n), b = sn2w(s - 20 * dsg, n), c1 = sn2w(s - 14 * dsg, n - 5), c2 = sn2w(s - 14 * dsg, n + 5);
     if (a.x < cam.x - 50 || a.x > cam.x + VW + 50 || a.y < cam.y - 50 || a.y > cam.y + VH + 50) continue;
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(c1.x, c1.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c2.x, c2.y); ctx.stroke();
   }
-  for (const c of clouds) { const cx = (c.x + t * 9) % (W + 300) - 150; ctx.fillStyle = 'rgba(0,30,70,.12)'; ctx.beginPath(); ctx.ellipse(cx, c.y, 90 * c.s, 38 * c.s, 0, 0, 7); ctx.ellipse(cx + 50 * c.s, c.y - 12, 60 * c.s, 34 * c.s, 0, 0, 7); ctx.fill(); }
+  for (const c of clouds) { const cx = (c.x + t * 9) % (W + 300) - 150; ctx.fillStyle = 'rgba(0,30,70,.09)'; ctx.beginPath(); ctx.ellipse(cx, c.y, 90 * c.s, 38 * c.s, 0, 0, 7); ctx.ellipse(cx + 50 * c.s, c.y - 12, 60 * c.s, 34 * c.s, 0, 0, 7); ctx.fill(); }
 }
-function container(x, y, col, ang) { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = col; rrect(-17, -7, 34, 14, 2); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; for (let i = -11; i < 17; i += 7) { ctx.beginPath(); ctx.moveTo(i, -5); ctx.lineTo(i, 5); ctx.stroke(); } ctx.restore(); }
-function tank(x, y, r) { const g = ctx.createRadialGradient(x - r / 3, y - r / 3, 2, x, y, r); g.addColorStop(0, '#fff'); g.addColorStop(1, '#cfd6dd'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.strokeStyle = '#6b7a88'; ctx.lineWidth = 3; ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, 7); ctx.stroke(); }
-function crane(x, y, ang) { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -46); ctx.lineTo(60, -46); ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(50, -46); ctx.lineTo(50, -20); ctx.stroke(); ctx.fillStyle = '#333'; ctx.fillRect(44, -22, 12, 6); ctx.fillStyle = '#e74c3c'; rrect(-10, -6, 20, 12, 3); ctx.fill(); ctx.restore(); }
-function house(x, y, col, ang) { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = col; rrect(-11, -9, 22, 18, 3); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#8b4513'; ctx.beginPath(); ctx.moveTo(-13, -7); ctx.lineTo(0, -18); ctx.lineTo(13, -7); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#9fd6ff'; ctx.fillRect(-7, -3, 5, 5); ctx.fillRect(2, -3, 5, 5); ctx.restore(); }
-function tree(x, y) { ctx.fillStyle = '#8b4513'; ctx.fillRect(x - 2, y, 4, 10); ctx.fillStyle = '#2e8b57'; ctx.beginPath(); ctx.arc(x, y - 4, 9, 0, 7); ctx.fill(); }
-function block(x, y, col, w, h, ang) { ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = col; rrect(-w / 2, -h / 2, w, h, 3); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.35)'; for (let i = -w / 2 + 5; i < w / 2 - 4; i += 7) for (let j = -h / 2 + 5; j < h / 2 - 4; j += 7) ctx.fillRect(i, j, 3, 3); ctx.restore(); }
-function tower(x, y, h, col) { ctx.fillStyle = 'rgba(0,30,60,.25)'; ctx.beginPath(); ctx.ellipse(x + 10, y + 8, 16, 8, 0, 0, 7); ctx.fill(); ctx.strokeStyle = col || '#e74c3c'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y - h * 0.7, 9, 0, 7); ctx.fill(); ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(x, y - h, 4, 0, 7); ctx.fill(); }
+// decor van bovenaf, met een zachte slagschaduw naar rechtsonder (zon linksboven)
+const SHADOW = 'rgba(20,30,45,.22)';
+function shade(col, k) { // kleur donkerder (k<1) of lichter (k>1)
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(col); if (!m) return col;
+  const f = v => Math.max(0, Math.min(255, Math.round(parseInt(v, 16) * k))); return `rgb(${f(m[1])},${f(m[2])},${f(m[3])})`;
+}
+function container(x, y, col, ang) { // stapel van 2–3 containers, iets verspringend
+  const n = 2 + ((Math.round(x * 0.37 + y * 0.11)) % 2);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = SHADOW; rrect(-15 + 4, -6 + 5, 32, 13, 2); ctx.fill();
+  for (let k = 0; k < n; k++) { const o = -k * 2.2; ctx.fillStyle = k === n - 1 ? col : shade(col, 0.8); rrect(-16 + o, -6 + o, 32, 12, 1.5); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.2; ctx.stroke(); }
+  const o = -(n - 1) * 2.2; ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1; for (let i = -10; i < 16; i += 6) { ctx.beginPath(); ctx.moveTo(i + o, -4 + o); ctx.lineTo(i + o, 4 + o); ctx.stroke(); }
+  ctx.restore();
+}
+function tank(x, y, r) { // opslagtank: cilinder met bordes, dakkoepel en schaduw
+  ctx.fillStyle = SHADOW; ctx.beginPath(); ctx.ellipse(x + r * 0.35, y + r * 0.4, r * 1.05, r * 0.9, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#9aa3ad'; ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, 7); ctx.fill(); // bordes
+  const g = ctx.createRadialGradient(x - r / 3, y - r / 3, 1, x, y, r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.7, '#dfe5ea'); g.addColorStop(1, '#aab3bc');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.strokeStyle = '#6b7a88'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.strokeStyle = 'rgba(90,100,110,.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r * 0.62, 0, 7); ctx.stroke();
+  ctx.fillStyle = '#c7cfd6'; ctx.beginPath(); ctx.arc(x, y, r * 0.18, 0, 7); ctx.fill(); ctx.strokeStyle = '#6b7a88'; ctx.stroke();
+  ctx.strokeStyle = '#7b8793'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + r * 0.2, y + r * 0.95); ctx.lineTo(x + r * 0.2, y + r * 1.35); ctx.stroke(); // trap
+}
+function crane(x, y, ang) { // portaalkraan: twee poten op de kade, giek over het water
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = SHADOW; ctx.fillRect(2, -16 + 6, 10, 32); ctx.fillRect(4, -2 + 6, 60, 4);
+  ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-6, -14); ctx.lineTo(-6, 14); ctx.moveTo(6, -14); ctx.lineTo(6, 14); ctx.stroke(); // rails
+  ctx.fillStyle = '#4aa3df'; ctx.fillRect(-4, -14, 8, 8); ctx.fillRect(-4, 6, 8, 8); // poten
+  ctx.strokeStyle = '#4aa3df'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(0, 10); ctx.stroke(); // portaal
+  ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(62, 0); ctx.stroke(); // giek
+  ctx.strokeStyle = '#4aa3df'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(62, 0); ctx.stroke();
+  ctx.fillStyle = '#e74c3c'; ctx.fillRect(40, -3, 8, 6); // loopkat
+  ctx.fillStyle = '#fff'; rrect(-6, -6, 12, 12, 2); ctx.fill(); ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1.2; ctx.stroke(); // machinehuis
+  ctx.restore();
+}
+function house(x, y, col, ang) { ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = SHADOW; rrect(-11 + 4, -9 + 5, 22, 18, 3); ctx.fill();
+  ctx.fillStyle = col; rrect(-11, -9, 22, 18, 2); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.fillStyle = shade(col, 0.72); ctx.fillRect(-11, -9, 22, 8); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(-11, -9, 22, 1.5); // dak met nok
+  ctx.fillStyle = '#b84a3a'; ctx.fillRect(4, -8, 3, 3); // schoorsteen
+  ctx.restore(); }
+function tree(x, y) { ctx.fillStyle = SHADOW; ctx.beginPath(); ctx.ellipse(x + 4, y + 3, 9, 7, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#3f8a4f'; ctx.beginPath(); ctx.arc(x, y - 1, 8.5, 0, 7); ctx.fill(); ctx.fillStyle = '#5fb06a'; ctx.beginPath(); ctx.arc(x - 2.5, y - 3.5, 5, 0, 7); ctx.fill(); }
+function block(x, y, col, w, h, ang) { // loods / gebouw met zadeldak en schaduw
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = SHADOW; rrect(-w / 2 + 5, -h / 2 + 6, w, h, 2); ctx.fill();
+  ctx.fillStyle = col; rrect(-w / 2, -h / 2, w, h, 2); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.2; ctx.stroke();
+  if (h >= w) { ctx.fillStyle = shade(col, 0.82); ctx.fillRect(0, -h / 2, w / 2, h); ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(0, h / 2); ctx.stroke(); }
+  else { ctx.fillStyle = shade(col, 0.82); ctx.fillRect(-w / 2, 0, w, h / 2); ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-w / 2, 0); ctx.lineTo(w / 2, 0); ctx.stroke(); }
+  ctx.restore(); }
+function tower(x, y, h, col) { ctx.fillStyle = SHADOW; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + h * 0.45, y + h * 0.3); ctx.lineTo(x + h * 0.45 + 8, y + h * 0.3 - 3); ctx.lineTo(x + 6, y - 2); ctx.closePath(); ctx.fill(); ctx.strokeStyle = col || '#e74c3c'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y - h * 0.7, 9, 0, 7); ctx.fill(); ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(x, y - h, 4, 0, 7); ctx.fill(); }
 function stadium(x, y) { ctx.save(); ctx.translate(x, y); ctx.rotate(TH); ctx.fillStyle = '#ddd'; ctx.beginPath(); ctx.ellipse(0, 0, 70, 48, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#555'; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = '#5fbf5f'; ctx.beginPath(); ctx.ellipse(0, 0, 46, 28, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(-36, -20, 72, 40); ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(0, 20); ctx.stroke(); ctx.restore(); }
 function drawBridges() { // brugdekken over het water, getekend boven de schepen
   for (const br of bridges) {
@@ -764,27 +816,37 @@ function drawBridges() { // brugdekken over het water, getekend boven de schepen
 }
 function drawLand(t) {
   const vis = e => !(Math.max(e.p.x, e.q.x) < cam.x - 60 || Math.min(e.p.x, e.q.x) > cam.x + VW + 60 || Math.max(e.p.y, e.q.y) < cam.y - 60 || Math.min(e.p.y, e.q.y) > cam.y + VH + 60);
-  // schuim langs oevers
-  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.setLineDash([10, 8]); ctx.lineDashOffset = -t * 16;
-  ctx.beginPath(); for (const e of shore) if (vis(e)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke(); ctx.setLineDash([]);
-  // omlijning (half onder de vulling)
   const green = k => k === 'north' || k === 'park';
-  ctx.lineWidth = 8; ctx.beginPath(); for (const e of shore) if (vis(e) && !green(land[e.li].kind)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.strokeStyle = '#6b5a4a'; ctx.stroke();
-  ctx.beginPath(); for (const e of shore) if (vis(e) && green(land[e.li].kind)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.strokeStyle = '#4e8a3a'; ctx.stroke();
-  // vulling
-  for (const l of land) { path(l.poly); ctx.fillStyle = l.col || (l.kind === 'north' ? '#9fd27a' : l.kind === 'dam' || l.kind === 'pillar' ? '#c9c9c9' : l.kind === 'city' ? '#e9dcc3' : l.kind === 'park' ? '#8fcf6f' : '#f0a24a'); ctx.fill(); }
-  // kadestrook binnen de oever
-  for (const l of land) { if (l.kind === 'pillar') continue; ctx.save(); path(l.poly); ctx.clip(); ctx.lineWidth = l.kind === 'island' ? 18 : 34; ctx.strokeStyle = green(l.kind) ? 'rgba(200,200,200,.75)' : 'rgba(190,190,195,.85)'; ctx.beginPath(); for (const e of shore) if (e.li === land.indexOf(l) && vis(e)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2; ctx.setLineDash([14, 10]); ctx.beginPath(); for (const e of shore) if (e.li === land.indexOf(l) && vis(e)) { ctx.moveTo(e.p.x - e.nx * 12, e.p.y - e.ny * 12); ctx.lineTo(e.q.x - e.nx * 12, e.q.y - e.ny * 12); } ctx.stroke(); ctx.setLineDash([]); ctx.restore(); }
-  // wegen
-  ctx.lineCap = 'round'; for (const r of roads) { ctx.strokeStyle = r.col; ctx.lineWidth = r.w; ctx.beginPath(); r.pts.forEach((p, i) => { const q = sn2w(p[0], p[1]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.stroke(); }
+  // zacht schuimrandje langs de oever
+  ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.setLineDash([12, 10]); ctx.lineDashOffset = -t * 10;
+  ctx.beginPath(); for (const e of shore) if (vis(e)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke(); ctx.setLineDash([]);
+  // oeverschaduw op het water (land werpt schaduw naar rechtsonder)
+  ctx.save(); ctx.translate(5, 6); ctx.fillStyle = 'rgba(10,30,60,.18)'; for (const l of land) { path(l.poly); ctx.fill(); } ctx.restore();
+  // omlijning: kademuur donker, natuurlijke oever groen
+  ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.beginPath(); for (const e of shore) if (vis(e) && !green(land[e.li].kind)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.strokeStyle = '#4a4a44'; ctx.stroke();
+  ctx.beginPath(); for (const e of shore) if (vis(e) && green(land[e.li].kind)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.strokeStyle = '#6a9a4a'; ctx.stroke();
+  // vulling per soort, met textuur
+  const KC = { north: '#a8d088', park: '#92c874', dam: '#c9c9c9', pillar: '#c9c9c9', city: '#e4dac8', town: '#e2d6c0', town2: '#dfd4bf', island: '#e4dac8', tanks: '#d6cdb9', containers: '#d2cbbb', port: '#d9d0bc', base: '#d6cdb9' };
+  for (const l of land) { path(l.poly); ctx.fillStyle = l.col || KC[l.kind] || '#d9cfb8'; ctx.fill(); }
+  ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = patLand; for (const l of land) { path(l.poly); ctx.fill(); } ctx.restore();
+  // kade: lichte betonstrook met donkere kadelijn; groene oever: zandige rand
+  for (const l of land) { if (l.kind === 'pillar') continue; const li = land.indexOf(l); ctx.save(); path(l.poly); ctx.clip();
+    ctx.lineWidth = green(l.kind) ? 10 : (l.kind === 'island' ? 14 : 22); ctx.strokeStyle = green(l.kind) ? 'rgba(220,210,170,.8)' : 'rgba(236,236,230,.92)';
+    ctx.beginPath(); for (const e of shore) if (e.li === li && vis(e)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke();
+    if (!green(l.kind)) { ctx.strokeStyle = 'rgba(80,80,75,.5)'; ctx.lineWidth = 1.2; ctx.beginPath(); for (const e of shore) if (e.li === li && vis(e)) { ctx.moveTo(e.p.x - e.nx * 11, e.p.y - e.ny * 11); ctx.lineTo(e.q.x - e.nx * 11, e.q.y - e.ny * 11); } ctx.stroke(); }
+    ctx.restore(); }
+  // wegen: donker asfalt met middenstreep, snelwegen rood
+  ctx.lineCap = 'round'; for (const r of roads) { const hw = r.col === '#e74c3c'; ctx.strokeStyle = hw ? '#c9453a' : '#5c5c5c'; ctx.lineWidth = r.w + 2; ctx.beginPath(); r.pts.forEach((p, i) => { const q = sn2w(p[0], p[1]); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.stroke();
+    ctx.strokeStyle = hw ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.setLineDash(hw ? [] : [8, 8]); ctx.stroke(); ctx.setLineDash([]); }
   // decor (alleen in beeld)
   for (const d of decor) {
     if (d.x < cam.x - 80 || d.x > cam.x + VW + 80 || d.y < cam.y - 80 || d.y > cam.y + VH + 80) continue;
     if (d.type === 'tank') tank(d.x, d.y, d.r); else if (d.type === 'container') container(d.x, d.y, d.col, TH); else if (d.type === 'crane') crane(d.x, d.y, d.ang); else if (d.type === 'house') house(d.x, d.y, d.col, TH); else if (d.type === 'block') block(d.x, d.y, d.col, d.w, d.h, TH); else if (d.type === 'tower') tower(d.x, d.y, d.h, d.col); else if (d.type === 'stadium') stadium(d.x, d.y); else tree(d.x, d.y);
   }
-  // bolders
-  ctx.fillStyle = '#2b2f3a';
-  for (const e of shore) { if (!vis(e) || land[e.li].kind === 'pillar') continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y); for (let k = 30; k < len - 20; k += 70) { const x = e.p.x + (e.q.x - e.p.x) * k / len - e.nx * 9, y = e.p.y + (e.q.y - e.p.y) * k / len - e.ny * 9; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, 7); ctx.fill(); } }
+  // bolders en fenders langs de kademuren
+  for (const e of shore) { if (!vis(e) || land[e.li].kind === 'pillar' || green(land[e.li].kind)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y), tx = (e.q.x - e.p.x) / len, ty = (e.q.y - e.p.y) / len;
+    for (let k = 30; k < len - 20; k += 70) { const x = e.p.x + tx * k - e.nx * 6, y = e.p.y + ty * k - e.ny * 6; ctx.fillStyle = '#2b2f3a'; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, 7); ctx.fill(); ctx.fillStyle = '#6c7380'; ctx.beginPath(); ctx.arc(x - 0.8, y - 0.8, 1.3, 0, 7); ctx.fill(); }
+    ctx.fillStyle = '#1f2328'; for (let k = 65; k < len - 20; k += 70) { const x = e.p.x + tx * k + e.nx * 1.5, y = e.p.y + ty * k + e.ny * 1.5; ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(ty, tx)); ctx.fillRect(-5, -2, 10, 4); ctx.restore(); } }
   // labels
   ctx.font = 'bold 18px system-ui'; ctx.fillStyle = 'rgba(40,30,10,.8)';
   for (const l of land) if (l.label) { const c = l.poly.reduce((a, p) => ({ x: a.x + p.x / 4, y: a.y + p.y / 4 }), { x: 0, y: 0 }); ctx.save(); ctx.translate(c.x, c.y - (l.kind === 'dam' ? 14 : 0)); ctx.rotate(TH); ctx.textAlign = 'center'; ctx.fillText(l.label, 0, 0); ctx.restore(); }
@@ -868,6 +930,7 @@ function drawShip(sh, t, active) {
   }
   ctx.save(); ctx.translate(5, 7); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.fillStyle = sh.col; hull(); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.stroke();
+  ctx.save(); hull(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3; hull(); ctx.stroke(); ctx.restore(); // lichte dekrand
   ctx.fillStyle = '#f7f1dc'; rrect(-w / 2 + 60, -h / 2 + 7, w - 120, h - 14, 4); ctx.fill();
   const nh = Math.floor((w - 130) / 40);
   for (let i = 0; i < nh; i++) { ctx.fillStyle = '#4a7bd0'; rrect(-w / 2 + 68 + i * 40, -h / 2 + 12, 32, h - 24, 3); ctx.fill(); ctx.strokeStyle = '#2b4f8f'; ctx.lineWidth = 2; ctx.stroke(); }
@@ -966,7 +1029,7 @@ function drawBoat(t) {
 function drawInstruments() {
   const b = boat;
   const cx = VW / 2, cy = VH - (COMPACT ? 20 : 28), R = COMPACT ? 34 : 44;
-  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(cx, cy, R + 8, Math.PI, 0); ctx.lineTo(cx + R + 8, cy + 14); ctx.lineTo(cx - R - 8, cy + 14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(16,24,36,.7)'; ctx.beginPath(); ctx.arc(cx, cy, R + 8, Math.PI, 0); ctx.lineTo(cx + R + 8, cy + 14); ctx.lineTo(cx - R - 8, cy + 14); ctx.closePath(); ctx.fill();
   ctx.lineWidth = 8; ctx.strokeStyle = '#d33f3f'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI, Math.PI * 1.5); ctx.stroke();
   ctx.strokeStyle = '#3cb043'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI * 1.5, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
@@ -980,7 +1043,7 @@ function drawInstruments() {
     const land = VH < 500, tw = 22;
     const th = land ? Math.max(55, Math.min(130, VH - 315)) : Math.max(50, Math.min(130, VH - 580));
     const tx = land ? 44 - tw / 2 : VW - 44 - tw / 2, ty = land ? VH - 160 - th : VH - 170 - th;
-    ctx.fillStyle = 'rgba(0,0,0,.5)'; rrect(tx - 6, ty - 22, tw + 12, th + 30, 6); ctx.fill();
+    ctx.fillStyle = 'rgba(16,24,36,.7)'; rrect(tx - 6, ty - 22, tw + 12, th + 30, 8); ctx.fill();
     const zero = ty + th / 1.6; ctx.fillStyle = '#3cb043'; ctx.fillRect(tx, ty, tw, zero - ty); ctx.fillStyle = '#d33f3f'; ctx.fillRect(tx, zero, tw, ty + th - zero);
     TELE.forEach(s => { const y = zero - s.v * (zero - ty); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(tx, y - 0.5, tw, 1); });
     const hy = zero - b.tele * (zero - ty); ctx.fillStyle = '#ffd54a'; ctx.fillRect(tx - 4, hy - 4, tw + 8, 8);
@@ -988,7 +1051,7 @@ function drawInstruments() {
     return;
   }
   const tx = VW - 185, ty = VH - 170, th = 150, tw = 38;
-  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(tx - 10, ty - 10, tw + 135, th + 30);
+  ctx.fillStyle = 'rgba(16,24,36,.7)'; rrect(tx - 10, ty - 10, tw + 135, th + 30, 10); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = '#333'; ctx.fillRect(tx, ty, tw, th);
   const zero = ty + th * (1 / 1.6);
   ctx.fillStyle = '#3cb043'; ctx.fillRect(tx, ty, tw, zero - ty); ctx.fillStyle = '#d33f3f'; ctx.fillRect(tx, zero, tw, ty + th - zero);
@@ -1006,10 +1069,10 @@ function drawMinimap() {
   let mw = COMPACT ? 140 : 220, mh = Math.round(mw * H / W), mx = VW - mw - (COMPACT ? 8 : 12), my = COMPACT ? 56 : 12;
   if (mapBig) { mw = Math.min(VW * 0.94, (VH * 0.82) * W / H); mh = Math.round(mw * H / W); mx = (VW - mw) / 2; my = Math.max(COMPACT ? 54 : 20, (VH - mh) / 2 - 10); ctx.fillStyle = 'rgba(0,10,25,.55)'; ctx.fillRect(0, 0, VW, VH); }
   const k = mw / W; miniRect = { x: mx, y: my, w: mw, h: mh };
-  ctx.fillStyle = 'rgba(0,0,0,.5)'; rrect(mx - 6, my - 6, mw + 12, mh + 12, 8); ctx.fill();
-  ctx.fillStyle = '#2a7fb8'; ctx.fillRect(mx, my, mw, mh);
+  ctx.fillStyle = 'rgba(16,24,36,.7)'; rrect(mx - 6, my - 6, mw + 12, mh + 12, 10); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#2f86c3'; ctx.fillRect(mx, my, mw, mh);
   ctx.save(); ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip(); ctx.translate(mx, my); ctx.scale(k, k);
-  for (const l of land) { path(l.poly); ctx.fillStyle = l.col || (l.kind === 'north' || l.kind === 'park' ? '#9fd27a' : l.kind === 'city' || l.kind === 'island' ? '#e9dcc3' : l.kind === 'dam' || l.kind === 'pillar' ? '#ccc' : '#f0a24a'); ctx.fill(); }
+  for (const l of land) { path(l.poly); ctx.fillStyle = l.col || (l.kind === 'north' || l.kind === 'park' ? '#a8d088' : l.kind === 'city' || l.kind === 'island' || l.kind === 'town' || l.kind === 'town2' ? '#e4dac8' : l.kind === 'dam' || l.kind === 'pillar' ? '#ccc' : '#d6cdb9'); ctx.fill(); }
   for (const w of waits) { ctx.fillStyle = '#4aa3ff'; path(quad(w.s0 - 30, w.s1 + 30, w.n0 - 30, w.n1 + 30)); ctx.fill(); }
   for (const tm of terminals) { ctx.fillStyle = tm === terminal ? '#ffd54a' : 'rgba(255,213,74,.4)'; path(quad(tm.s0 - 40, tm.s1 + 40, tm.n0 - 40, tm.n1 + 40)); ctx.fill(); }
   ctx.fillStyle = state.phase === 'load' ? '#5ee88a' : '#1bd35a'; path(quad(dock.s0 - 60, dock.s1 + 60, dock.n0 - 80, dock.n1 + 60)); ctx.fill();
@@ -1065,7 +1128,7 @@ function drawHUD() {
   const dmgCol = b.damage < 40 ? '#5ee88a' : b.damage < 75 ? '#ffd54a' : '#ff5a5a';
   const obj = `<div style="color:#ffd54a;font-weight:700;margin-bottom:2px">${objective()}</div>`;
   if (COMPACT) { hud.innerHTML = obj + `${moored ? '⚓ ' : ''}${warp === 2 ? '⏩ ' : ''}🪙 ${Math.round(career.gold)} · ${b.target} t → ${ship.name}<br>${sp.toFixed(1)} km/h · ${tr(TELE[b.teleIdx].n)} · ${tr('Roer')} ${Math.abs(b.rudder) < 0.05 ? '0' : (b.rudder < 0 ? tr('BB ') : tr('SB ')) + Math.round(Math.abs(b.rudder) * 35)}°<br>${tideInfo()} · ${tr('Lading')} ${Math.round(b.cargo)} t<br>${tr('Schade')} <span style="display:inline-block;width:60px;height:7px;background:#333;border-radius:4px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:4px"></span></span> ${Math.round(b.damage)} · 😴 ${Math.round(b.fatigue)}%`; return; }
-  hud.innerHTML = obj + `${moored ? `<span style="color:#ffd54a;font-weight:700">${tr('⚓ AFGEMEERD (M = los)')}</span><br>` : ''}${warp === 2 ? `<span style="color:#5ee88a;font-weight:700">${tr('⏩ SNELVAART 2×')}</span><br>` : ''}<b>🗺️</b> ${MAP.name} · <b>🪙 ${tr('Goud')}</b> ${Math.round(career.gold)} · <b>${tr('klussen')}</b> ${career.jobs}<br>${rivals.map(r => `<span style="color:${r.col}">●</span> ${r.name} ${Math.round(r.gold)} 🪙`).join(' · ')}<br><b>${tr('Opdracht')}</b> ${missionCount + 1}: ${b.target} t → ${ship.name}<br><b>${tr('Totaal')}</b> ${totalScore} pt<br><b>${tr('Vaart')}</b> ${sp.toFixed(1)} km/h<br><b>${tr('Koers')}</b> ${hdgDeg}°${(() => { const di = driftInfo(); return di && Math.abs(di.deg) >= 3 ? ` · <span style="color:#ffd54a">${tr('Drift')} ${Math.abs(Math.round(di.deg))}° ${di.deg > 0 ? tr('SB ').trim() : tr('BB ').trim()}</span>` : ''; })()}<br><b>${tr('Telegraaf')}</b> ${tr(TELE[b.teleIdx].n)}<br><b>${tr('Roer')}</b> ${rud}<br><b>${tr('Stroom')}</b> ${cs.toFixed(1)} m/s · <span style="color:${Math.abs(current.speed) > 2.5 ? '#ff8a5a' : '#fff'}">${tideInfo()}</span><br><b>${tr('Lading')}</b> ${Math.round(b.cargo)} t<br><b>${tr('Schade')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:5px"></span></span> ${Math.round(b.damage)}/100<br><b>${tr('Vermoeidheid')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.round(b.fatigue)}%;height:100%;background:${b.fatigue < 60 ? '#7fb8ff' : b.fatigue < 90 ? '#ffd54a' : '#ff5a5a'};border-radius:5px"></span></span> ${Math.round(b.fatigue)}%<br><b>${tr('Tijd')}</b> ${Math.round(state.elapsed)} s<br><b>${tr('Beste score')}</b> ${bestScore}`;
+  hud.innerHTML = obj + `${moored ? `<span style="color:#ffd54a;font-weight:700">${tr('⚓ AFGEMEERD (M = los)')}</span><br>` : ''}${warp === 2 ? `<span style="color:#5ee88a;font-weight:700">${tr('⏩ SNELVAART 2×')}</span><br>` : ''}<b>🗺️</b> ${MAP.name} · <span style="opacity:.7">${tr('I = hulp')}</span><br><b>🪙 ${tr('Goud')}</b> ${Math.round(career.gold)} · <b>${tr('klussen')}</b> ${career.jobs}<br>${rivals.map(r => `<span style="color:${r.col}">●</span> ${r.name} ${Math.round(r.gold)} 🪙`).join(' · ')}<br><b>${tr('Opdracht')}</b> ${missionCount + 1}: ${b.target} t → ${ship.name}<br><b>${tr('Totaal')}</b> ${totalScore} pt<br><b>${tr('Vaart')}</b> ${sp.toFixed(1)} km/h<br><b>${tr('Koers')}</b> ${hdgDeg}°${(() => { const di = driftInfo(); return di && Math.abs(di.deg) >= 3 ? ` · <span style="color:#ffd54a">${tr('Drift')} ${Math.abs(Math.round(di.deg))}° ${di.deg > 0 ? tr('SB ').trim() : tr('BB ').trim()}</span>` : ''; })()}<br><b>${tr('Telegraaf')}</b> ${tr(TELE[b.teleIdx].n)}<br><b>${tr('Roer')}</b> ${rud}<br><b>${tr('Stroom')}</b> ${cs.toFixed(1)} m/s · <span style="color:${Math.abs(current.speed) > 2.5 ? '#ff8a5a' : '#fff'}">${tideInfo()}</span><br><b>${tr('Lading')}</b> ${Math.round(b.cargo)} t<br><b>${tr('Schade')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:5px"></span></span> ${Math.round(b.damage)}/100<br><b>${tr('Vermoeidheid')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.round(b.fatigue)}%;height:100%;background:${b.fatigue < 60 ? '#7fb8ff' : b.fatigue < 90 ? '#ffd54a' : '#ff5a5a'};border-radius:5px"></span></span> ${Math.round(b.fatigue)}%<br><b>${tr('Tijd')}</b> ${Math.round(state.elapsed)} s<br><b>${tr('Beste score')}</b> ${bestScore}`;
 }
 
 let last = performance.now(), running = false;

@@ -8,10 +8,11 @@
   html,body{margin:0;height:100%;background:#0b2a4a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;overflow:hidden;touch-action:none}
   #wrap{position:fixed;left:0;top:0;width:100vw;height:100vh;height:100dvh;overflow:hidden}
   canvas{display:block;position:absolute;inset:0}
-  #hud{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.45);padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.5;min-width:210px;pointer-events:none}
+  #hud{position:absolute;left:12px;top:12px;background:rgba(16,24,36,.62);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;min-width:210px;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.25)}
   #hud b{color:#ffd54a}
-  #msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.55);padding:8px 16px;border-radius:999px;font-size:16px;font-weight:600;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
-  #help{position:absolute;right:12px;top:215px;background:rgba(0,0,0,.45);padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5;pointer-events:none}
+  #msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(16,24,36,.7);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);padding:8px 18px;border-radius:999px;font-size:16px;font-weight:600;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+  #help{display:none;position:absolute;right:12px;top:215px;background:rgba(16,24,36,.72);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;pointer-events:none}
+  body.help #help{display:block}
   #radio{position:absolute;left:12px;bottom:110px;max-width:min(420px,60vw);background:rgba(20,30,20,.85);border:2px solid #5ee88a;color:#d8ffe0;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px 12px;border-radius:10px;pointer-events:none;opacity:0;transition:opacity .4s}
   #radio b{color:#5ee88a}
   .srow{display:grid;grid-template-columns:170px 1fr 36px;align-items:center;gap:8px;margin:8px 0}
@@ -123,12 +124,12 @@
     </div>
   </div>
 </div>
-<script src="maps/europoort.js?v=202611071236"></script>
-<script src="maps/rotterdam.js?v=202611071236"></script>
-<script src="maps/amsterdam.js?v=202611071236"></script>
-<script src="maps/antwerpen.js?v=202611071236"></script>
-<script src="radio.js?v=202611071236"></script>
-<script src="audio.js?v=202611071236"></script>
-<script src="engine.js?v=202611071236"></script>
+<script src="maps/europoort.js?v=202611071505"></script>
+<script src="maps/rotterdam.js?v=202611071505"></script>
+<script src="maps/amsterdam.js?v=202611071505"></script>
+<script src="maps/antwerpen.js?v=202611071505"></script>
+<script src="radio.js?v=202611071505"></script>
+<script src="audio.js?v=202611071505"></script>
+<script src="engine.js?v=202611071505"></script>
 </body>
 </html>
