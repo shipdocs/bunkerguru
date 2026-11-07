@@ -55,7 +55,7 @@ const EN = {
 };
 function tr(s) { return lang === 'en' && EN[s] !== undefined ? EN[s] : s; }
 function tf(s, ...a) { return tr(s).replace(/\{(\d+)\}/g, (m, i) => a[+i]); }
-function setLang(l) { lang = l; try { localStorage.setItem('bunker_lang', l); } catch (e) {} applyLangHTML(); if (typeof running !== 'undefined' && !running) document.getElementById('msg').textContent = ''; }
+function setLang(l) { lang = l; try { localStorage.setItem('bunker_lang', l); } catch (e) {} applyLangHTML(); labelTouchControls(); if (typeof running !== 'undefined' && !running) document.getElementById('msg').textContent = ''; }
 function applyLangHTML() {
   document.querySelectorAll('[data-nl]').forEach(el => { el.innerHTML = lang === 'en' ? el.dataset.en : el.dataset.nl; });
   document.querySelectorAll('.langbtn').forEach(b => b.style.opacity = b.dataset.l === lang ? 1 : 0.45);
@@ -68,6 +68,19 @@ let COMPACT = false; const COARSE = matchMedia('(pointer:coarse)').matches;
 function fit() { const vv = window.visualViewport; VW = cv.width = Math.round(vv ? vv.width : innerWidth); VH = cv.height = Math.round(vv ? vv.height : innerHeight); const wr = document.getElementById('wrap'); if (wr) wr.style.height = VH + 'px'; COMPACT = COARSE || Math.min(VW, VH) < 560 || VW < 760; document.body.classList.toggle('compact', COMPACT); const r = document.getElementById('rules'); if (r) r.open = !COMPACT; }
 addEventListener('resize', fit); if (window.visualViewport) visualViewport.addEventListener('resize', fit); addEventListener('orientationchange', () => setTimeout(fit, 300)); fit();
 
+let routeCache = null, statsExpanded = false, trainingCompleted = false, trainingLeftBerth = false, trainingMoved = false, playerLabelUntil = 0;
+try { trainingCompleted = localStorage.getItem('bunker_training_done') === '1'; } catch (e) {}
+document.getElementById('statsToggle').onclick = () => { statsExpanded = !statsExpanded; };
+function labelTouchControls() {
+  const labels = { q: ['Boeg BB', 'Bow PT'], e: ['Boeg SB', 'Bow SB'], m: ['⚓ Vast/los', '⚓ Moor'], mid: ['Midscheeps', 'Centre'], t: ['2×', '2×'], ArrowUp: ['▲', '▲'], ArrowDown: ['▼', '▼'] };
+  document.querySelectorAll('.tb').forEach(el => {
+    const pair = labels[el.dataset.k];
+    if (pair) { el.textContent = pair[lang === 'en' ? 1 : 0]; el.setAttribute('aria-label', el.textContent); }
+    el.setAttribute('role', 'button');
+  });
+}
+labelTouchControls();
+addEventListener('blur', () => { Object.keys(keys).forEach(k => keys[k] = false); });
 // ---------- wereld (kaart-onafhankelijk) ----------
 // px-coördinaten; 1 px = 0,5 m. Rivierframe (s,n): s langs de rivier (zee = s klein), n dwars (n>0 = zuidoever)
 const SCALE = 2, toPx = m => m * SCALE, TIME = 3, SH = 52;
@@ -86,6 +99,7 @@ let seedD = 3; const rndD = () => (seedD = (seedD * 16807) % 2147483647) / 21474
 const cols = ['#e67e22', '#27ae60', '#2980b9', '#e74c3c', '#f1c40f'];
 
 function loadMap(def) {
+  routeCache = null;
   // K = ruimtefactor: de wereld (rivier, bekkens, afstanden) wordt K× zo groot, schepen houden hun maat en ligplaatsen blijven tegen hun kade
   const K = def.K || 1;
   MAP = Object.assign({}, def, { lanes: def.lanes ? { down: def.lanes.down * K, up: def.lanes.up * K, mouth: (def.RIVER_HALF - (def.RIVER_HALF - def.lanes.mouth)) * K } : null });
@@ -140,6 +154,7 @@ function loadMap(def) {
   };
   if (m.decor) m.decor(add, rndD, h);
   (m.rivals || []).forEach((rp, i) => { const r = rivals[i]; if (!r) return; const p = sn2w(rp.s, rp.n); r.x = p.x; r.y = p.y; r.hdg = TH + rp.hdgOff; r.mode = 'idle'; r.path = []; r.wait = 2 + i * 4; r.racing = false; r.damage = 0; r.cur = 0; r.rev = null; });
+  if (def.id === 'training') rivals.forEach(r => { r.mode = 'sunk'; r.path = []; r.racing = false; });
   terminal = terminals[0]; ship = berths[0]; dock = ship.dock; mission = -1; trails.clear();
   updateTraffic(0);
 }
@@ -164,10 +179,11 @@ function updateTraffic(dt) {
   }
 }
 function pickMission() {
-  let i; do { i = Math.floor(Math.random() * berths.length); } while (i === mission && berths.length > 1);
+  routeCache = null;
+  let i; do { i = MAP.id === 'training' ? 0 : Math.floor(Math.random() * berths.length); } while (i === mission && berths.length > 1);
   mission = i; ship = berths[i]; dock = ship.dock;
   terminal = terminals[Math.floor(Math.random() * terminals.length)];
-  boat.target = pickTarget(); boat.cargo = 0;
+  boat.target = MAP.id === 'training' ? 600 : pickTarget(); boat.cargo = 0;
   state.phase = 'load'; state.holdT = 0; state.bunkerT = 0; state.elapsed = 0; score = 0; state.inZone = false; state.doneT = 0; state.slowWas = true;
   say(tf('Opdracht {0}: {1} t voor {2} ({3}). Laden bij {4}.', missionCount + 1, boat.target, ship.name, tr(ship.where), terminal.name), 7);
   if (typeof maybeRace === 'function' && running) maybeRace();
@@ -306,6 +322,7 @@ function rivalSink(r) {
   RADIO.say([{ who: r.name, spk: 3, text: lang === 'en' ? `Mayday, mayday, ${r.name} is going down! Uh... never mind, insurance.` : `Mayday, mayday, hier ${r.name}, ik zink! Eh... laat maar, de verzekering betaalt.` }], lang, true);
 }
 function updateRivals(dt) {
+  if (MAP.id === 'training') return;
   for (const r of rivals) {
     if (r.hitCD > 0) r.hitCD -= dt;
     r.damage = r.damage || 0; r.cur = r.cur || 0;
@@ -435,7 +452,7 @@ function radioRival(r, berth) {
   const en = lang === 'en';
   RADIO.say([{ who: r.name, spk: 3, text: en ? `All bunker boats, ${r.name}, I'm taking ${berth.name} too. First alongside gets it!` : `Alle bunkerboten, hier ${r.name}, ik ga ook voor de ${berth.name}. Wie het eerst langszij ligt!` }], lang, true);
 }
-function maybeRace() { if (Math.random() < 0.55) { const idle = rivals.filter(r => r.mode === 'idle'); if (idle.length) { const r = idle[Math.floor(Math.random() * idle.length)]; setTimeout(() => { if (r.mode === 'idle') rivalStartJob(r, ship, true); }, 3000 + Math.random() * 6000); } } }
+function maybeRace() { if (MAP.id === 'training') return; const raceMap = MAP; if (Math.random() < 0.55) { const idle = rivals.filter(r => r.mode === 'idle'); if (idle.length) { const r = idle[Math.floor(Math.random() * idle.length)]; setTimeout(() => { if (running && MAP === raceMap && MAP.id !== 'training' && r.mode === 'idle') rivalStartJob(r, ship, true); }, 3000 + Math.random() * 6000); } } }
 function drawRival(r, t) {
   const L = 2 * RL, Bw = 2 * RB, moving = (r.mode === 'toTerminal' || r.mode === 'toShip') && (r.cur || 0) > 0.3;
   if (r.mode === 'sunk') { const k = Math.min(1, r.sinkT / 4); ctx.save(); ctx.globalAlpha = 1 - k * 0.9; ctx.translate(r.x, r.y); ctx.rotate(r.hdg + k * 0.5); ctx.scale(1 - k * 0.6, 1 - k * 0.6); ctx.fillStyle = r.col; ctx.fillRect(-L / 2, -Bw / 2, L, Bw); ctx.restore(); ctx.globalAlpha = 1; ctx.fillStyle = 'rgba(255,255,255,.8)'; for (let i = 0; i < 8; i++) { const ph = (t * 0.8 + i * 0.12) % 1; ctx.beginPath(); ctx.arc(r.x + (i - 4) * 8, r.y - ph * 40, 2 + ph * 4, 0, 7); ctx.fill(); } return; }
@@ -466,7 +483,7 @@ function mooringCandidates() {
 }
 function toggleMooring() {
   const b = boat;
-  if (moored) { moored = null; SND.rope(); say(tr('Trossen los'), 1.5); return; }
+  if (moored) { if (MAP.id === 'training' && moored.to === 'wait') trainingLeftBerth = true; moored = null; SND.rope(); say(tr('Trossen los'), 1.5); return; }
   const c = mooringCandidates(); if (!c.ok) { say(tf('Kan niet vastmaken: {0}', c.why), 2); return; }
   const L = toPx(b.L), cos = Math.cos(b.hdg), sin = Math.sin(b.hdg);
   const pts = [0.42, -0.42].map(f => ({ x: b.x + cos * L * f, y: b.y + sin * L * f }));
@@ -503,7 +520,7 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowUp') teleStep(1);
   if (e.key === 'ArrowDown') teleStep(-1);
   if (e.key === 'r' || e.key === 'R') reset();
-  if ((e.key === 'n' || e.key === 'N') && state.phase === 'done') nextMission();
+  if ((e.key === 'n' || e.key === 'N') && state.phase === 'done') { if (MAP.id === 'training') startGame(true); else nextMission(); }
   if ((e.key === 'b' || e.key === 'B') && running) toggleShop();
   if ((e.key === 'm' || e.key === 'M') && running) toggleMooring();
   if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
@@ -522,8 +539,8 @@ addEventListener('keyup', e => { keys[e.key] = false; });
 document.getElementById('touch').addEventListener('contextmenu', e => e.preventDefault());
 document.querySelectorAll('.tb').forEach(b => {
   const k = b.dataset.k;
-  const on = e => { e.preventDefault(); keys[k] = true; if (k === 'mid') { boat.rudderCmd = 0; say(tr('Roer midscheeps'), 0.8); } if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'o') toggleSound(); if (k === 'v') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2); if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
-  const off = e => { e.preventDefault(); keys[k] = false; };
+  const on = e => { e.preventDefault(); b.classList.add('active'); keys[k] = true; if (k === 'mid') { boat.rudderCmd = 0; say(tr('Roer midscheeps'), 0.8); } if (k === 'ArrowUp') teleStep(1); if (k === 'ArrowDown') teleStep(-1); if (k === 'b') toggleShop(); if (k === 'm') toggleMooring(); if (k === 'esc' && running) openMenu(); if (k === 'h') { SND.init(); SND.horn(); } if (k === 'o') toggleSound(); if (k === 'v') say(tr(RADIO.toggle() ? '📻 Marifoon aan' : '📻 Marifoon uit'), 1.2); if (k === 'p') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); } if (k === 'g') { SND.init(); say(tr(SND.toggle() ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); } if (k === 't') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); } };
+  const off = e => { e.preventDefault(); b.classList.remove('active'); keys[k] = false; };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 });
 
@@ -535,14 +552,17 @@ function reset() {
   boat = { x: p.x, y: p.y, hdg: TH + startPos.hdgOff, vx: 0, vy: 0, r: 0, tele: 0, teleIdx: 3, rudderCmd: 0, rudder: 0, bow: 0, L: 110, B: 11, damage: 0, cargo: 0, target: 800, fatigue: 0 };
   state = { phase: 'load', holdT: 0, bunkerT: 0, elapsed: 0 }; moored = null;
   score = 0; totalScore = 0; missionCount = 0; mission = -1; pickMission();
+  trainingLeftBerth = false; trainingMoved = false; playerLabelUntil = performance.now() + 18000;
+  Object.keys(keys).forEach(k => keys[k] = false); warp = 1; mapBig = false; document.body.classList.remove('bigmap', 'help');
+  if (MAP.id === 'training') toggleMooring();
   cam.x = boat.x - VW / 2; cam.y = boat.y - VH / 2;
 }
 // ---------- opslaan / verder varen ----------
 function saveGame(w) {
   const b = boat, data = { v: 3, at: Date.now(), map: MAP.id, wait: w ? w.name : null, x: b.x, y: b.y, hdg: b.hdg, damage: b.damage, fatigue: b.fatigue, cargo: b.cargo, target: b.target,
-    mission, term: terminals.indexOf(terminal), phase: state.phase === 'bunker' ? 'sail' : state.phase === 'done' || state.phase === 'sunk' ? 'load' : state.phase, missionCount, totalScore,
+    trainingLeftBerth, trainingMoved, mission, term: terminals.indexOf(terminal), phase: state.phase === 'bunker' ? 'sail' : state.phase === 'done' || state.phase === 'sunk' ? 'load' : state.phase, missionCount, totalScore,
     tideT, tidePhase, simClock, rivals: rivals.map(r => ({ x: r.x, y: r.y, hdg: r.hdg, gold: r.gold, jobs: r.jobs, damage: r.damage || 0, sunk: r.mode === 'sunk' })) };
-  try { localStorage.setItem('bunker_save', JSON.stringify(data)); } catch (e) {}
+  try { localStorage.setItem(MAP.id === 'training' ? 'bunker_training_save' : 'bunker_save', JSON.stringify(data)); } catch (e) {}
 }
 function readSave() { try { const s = JSON.parse(localStorage.getItem('bunker_save') || 'null'); return s && s.v === 3 && MAPS.find(m => m.id === s.map) ? s : null; } catch (e) { return null; } }
 function continueGame() {
@@ -550,9 +570,9 @@ function continueGame() {
   SND.init(); RADIO.reset(); loadMap(MAPS.find(m => m.id === s.map)); reset();
   const b = boat; b.x = s.x; b.y = s.y; b.hdg = s.hdg; b.damage = s.damage || 0; b.fatigue = s.fatigue || 0; b.cargo = s.cargo || 0; b.target = s.target || 800;
   mission = s.mission >= 0 && s.mission < berths.length ? s.mission : 0; ship = berths[mission]; dock = ship.dock; terminal = terminals[s.term] || terminals[0];
-  state.phase = s.phase || 'load'; missionCount = s.missionCount || 0; totalScore = s.totalScore || 0; tideT = s.tideT || 0; tidePhase = s.tidePhase || 0; simClock = s.simClock || 0;
+  state.phase = s.phase || 'load'; trainingLeftBerth = !!s.trainingLeftBerth; trainingMoved = !!s.trainingMoved; missionCount = s.missionCount || 0; totalScore = s.totalScore || 0; tideT = s.tideT || 0; tidePhase = s.tidePhase || 0; simClock = s.simClock || 0;
   (s.rivals || []).forEach((q, i) => { const r = rivals[i]; if (!r) return; r.x = q.x; r.y = q.y; r.hdg = q.hdg; r.gold = q.gold; r.jobs = q.jobs; r.damage = q.damage || 0; r.mode = 'idle'; r.wait = 4 + i * 5; r.path = []; r.cur = 0; });
-  cam.x = b.x - VW / 2; cam.y = b.y - VH / 2;
+  routeCache = null; playerLabelUntil = performance.now() + 18000; cam.x = b.x - VW / 2; cam.y = b.y - VH / 2;
   overlay.style.display = 'none'; running = true; paused = false; last = performance.now();
   const c = mooringCandidates(); if (c.ok) { const L = toPx(b.L), cos = Math.cos(b.hdg), sin = Math.sin(b.hdg); moored = { to: c.to, wait: c.wait, lines: [0.42, -0.42].map(f => { const p = { x: b.x + cos * L * f, y: b.y + sin * L * f }; let best = null; for (const poly of c.polys) { const e = nearestEdge(p, poly); if (!best || e.d < best.d) best = e; } return { a: p, b: { x: best.qx, y: best.qy } }; }) }; }
   say(tf('▶ Verder varen vanaf {0}. Opdracht: {1} t voor {2}.', s.wait || MAP.name, b.target, ship.name), 6);
@@ -665,14 +685,14 @@ function physics(dt) {
 function inSN(b, z) { const { s, n } = w2sn(b.x, b.y); return s > z.s0 && s < z.s1 && n > z.n0 && n < z.n1; }
 function logic(dt) {
   const b = boat; state.elapsed += dt;
-  if (b.damage >= 100 && state.phase !== 'sunk') { moored = null; state.phase = 'sunk'; state.sinkT = 0; b.tele = 0; b.teleIdx = 3; const loss = Math.round(career.gold / 2); career.gold -= loss; SND.sink(); saveCareer(); say(tf('🫧 Gezonken! Verzekering betaalt de helft: −{0} goud. Nieuwe boot volgt…', loss)); }
+  if (b.damage >= 100 && state.phase !== 'sunk') { moored = null; state.phase = 'sunk'; state.sinkT = 0; b.tele = 0; b.teleIdx = 3; const loss = MAP.id === 'training' ? 0 : Math.round(career.gold / 2); career.gold -= loss; SND.sink(); saveCareer(); say(tf('🫧 Gezonken! Verzekering betaalt de helft: −{0} goud. Nieuwe boot volgt…', loss)); }
   if (state.phase === 'sunk') { state.sinkT += dt; b.vx *= 0.9; b.vy *= 0.9; b.r *= 0.9; if (state.sinkT > 5) { const p = sn2w(startPos.s, startPos.n); b.x = p.x; b.y = p.y; b.hdg = TH + startPos.hdgOff; b.vx = b.vy = b.r = 0; b.damage = 0; b.rudderCmd = b.rudder = 0; pickMission(); } return; }
   const speedKmh = Math.hypot(b.vx, b.vy) * 3.6;
-  if (state.phase === 'done') { state.doneT = (state.doneT || 0) + dt; if (state.doneT > 7) { state.doneT = 0; nextMission(); } if (msgTimer > 0) msgTimer -= dt; return; }
+  if (state.phase === 'done') { state.doneT = (state.doneT || 0) + dt; if (state.doneT > 7 && MAP.id !== 'training') { state.doneT = 0; nextMission(); } if (msgTimer > 0) msgTimer -= dt; return; }
   if (state.phase === 'load') {
-    if (inSN(b, terminal) && speedKmh < 1.5) {
+    if (inSN(b, terminal) && speedKmh < 1.5 && (MAP.id !== 'training' || moored?.to === 'terminal')) {
       b.cargo = Math.min(b.target, b.cargo + dt * 160);
-      if (b.damage > 0) { const fix = Math.min(b.damage, dt * 10); b.damage -= fix; career.gold = Math.max(0, career.gold - fix * 2); state.repairT = (state.repairT || 0) + dt; if (state.repairT > 1) { state.repairT = 0; saveCareer(); } }
+      if (b.damage > 0 && MAP.id !== 'training') { const fix = Math.min(b.damage, dt * 10); b.damage -= fix; career.gold = Math.max(0, career.gold - fix * 2); state.repairT = (state.repairT || 0) + dt; if (state.repairT > 1) { state.repairT = 0; saveCareer(); } }
       say(tf('{0}Laden… {1} / {2} t{3} · {4} · B = winkel', moored ? '⚓ ' : '', Math.round(b.cargo), b.target, b.damage > 0 ? tr(' · werf repareert (2 🪙/pt)') : '', tr(moored ? 'M = los' : 'M = vast')));
       if (b.cargo >= b.target) { state.phase = 'sail'; say(tf('Vol. Naar {0}, {1}. Let op stroming, dam en verkeer!', ship.name, tr(ship.where)), 5); }
     } else if (msgTimer <= 0) say(tf('Haal {0} t bij {1} (geel) – stil liggen om te laden', b.target, terminal.name));
@@ -681,7 +701,7 @@ function logic(dt) {
     const d = (((b.hdg - ship.hdg) % Math.PI) + Math.PI) % Math.PI; const hdgErr = Math.min(d, Math.PI - d); state.hdgErr = hdgErr; state.inZone = inZone;
     const ok = inZone && speedKmh < 1.5 && hdgErr < 10 * Math.PI / 180;
     if (moored && moored.to === 'ship' && inZone) { state.phase = 'bunker'; say(tr('Slangen aan. Bunkeren!')); return; }
-    if (ok) { state.holdT += dt; say(tf('Langszij… houden {0} s', (2 - state.holdT).toFixed(1))); if (state.holdT >= 2) { state.phase = 'bunker'; say(tr('Slangen aan. Bunkeren!')); } }
+    if (ok && MAP.id !== 'training') { state.holdT += dt; say(tf('Langszij… houden {0} s', (2 - state.holdT).toFixed(1))); if (state.holdT >= 2) { state.phase = 'bunker'; say(tr('Slangen aan. Bunkeren!')); } }
     else { state.holdT = 0; if (inZone && msgTimer <= 0) say(speedKmh >= 1.5 ? tf('Te snel: {0} km/h', speedKmh.toFixed(1)) : hdgErr >= 10 * Math.PI / 180 ? tf('Koers {0}° scheef', Math.round(hdgErr * 180 / Math.PI)) : tr('M = trossen vast')); else if (msgTimer <= 0) say(tr('Naar de groene zone langs het zeeschip (zie minimap)')); }
   } else if (state.phase === 'bunker') {
     if (!moored && speedKmh > 2.5) { state.phase = 'sail'; state.holdT = 0; say(tr('⚠️ Losgeslagen! Slangen eraf. Opnieuw langszij (of M = vast).'), 2); return; }
@@ -690,11 +710,13 @@ function logic(dt) {
       state.phase = 'done';
       const timeScore = Math.max(0, 900 - Math.round(state.elapsed) * 3);
       score = Math.max(0, 1000 + timeScore - Math.round(b.damage) * 10); totalScore += score;
-      if (totalScore > bestScore) { bestScore = totalScore; try { localStorage.setItem('bunker_best', bestScore); } catch (e) {} }
+      if (MAP.id !== 'training' && totalScore > bestScore) { bestScore = totalScore; try { localStorage.setItem('bunker_best', bestScore); } catch (e) {} }
       const pay = Math.round(b.target * 0.6), bonus = Math.round(Math.max(0, 400 - state.elapsed * 0.9)), clean = b.damage < 0.5 ? 150 : 0;
-      career.gold += pay + bonus + clean; career.jobs++; saveCareer(); SND.coin();
+      if (MAP.id !== 'training') { career.gold += pay + bonus + clean; career.jobs++; saveCareer(); }
+      else { trainingCompleted = true; try { localStorage.setItem('bunker_training_done', '1'); } catch (e) {} } SND.coin();
       for (const r of rivals) if (r.racing && r.target === ship) { r.racing = false; r.mode = 'idle'; r.wait = 10; r.path = []; }
-      say(tf('✅ Klaar!{0} 🪙 +{1} vracht +{2} tijd{3} = {4} goud. N = volgende, B = winkel', moored ? tr(' M = los,') : '', pay, bonus, clean ? tr(' +150 schadevrij') : '', pay + bonus + clean));
+      if (MAP.id === 'training') say(lang === 'en' ? '🎓 First job completed! Choose Go to the harbour.' : '🎓 Eerste klus geslaagd! Kies Naar de haven.');
+      else say(tf('✅ Klaar!{0} 🪙 +{1} vracht +{2} tijd{3} = {4} goud. N = volgende, B = winkel', moored ? tr(' M = los,') : '', pay, bonus, clean ? tr(' +150 schadevrij') : '', pay + bonus + clean));
     }
   }
   if (msgTimer > 0) msgTimer -= dt;
@@ -989,20 +1011,7 @@ function drawShip(sh, t, active) {
   ctx.restore();
   if (sh.v) { const k = Math.min(1, Math.abs(sh.v) / 6); drawKelvin(sh.cx - Math.cos(sh.hdg) * w / 2, sh.cy - Math.sin(sh.hdg) * w / 2, sh.hdg, w * 0.8, k); }
 }
-function drawDockHelper() {
-  if (state.phase !== 'sail' || !state.inZone) return;
-  const b = boat, cx = VW / 2, cy = VH / 2 - 120;
-  ctx.fillStyle = 'rgba(0,0,0,.55)'; rrect(cx - 150, cy - 34, 300, 82, 12); ctx.fill();
-  const err = state.hdgErr * 180 / Math.PI;
-  // welke kant draaien: teken van hoekverschil t.o.v. dichtstbijzijnde parallelle richting
-  let dd = b.hdg - ship.hdg; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); if (Math.abs(dd) > Math.PI / 2) dd -= Math.sign(dd) * Math.PI;
-  const sp = Math.hypot(b.vx, b.vy) * 3.6;
-  ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center';
-  ctx.fillStyle = err < 10 ? '#5ee88a' : '#ffd54a'; ctx.fillText(tf('Koers {0}° {1}', err.toFixed(0), err < 2 ? '✓' : tr(dd > 0 ? '→ draai BB' : '→ draai SB')), cx, cy - 8);
-  const okM = sp < MOOR_KMH && err < 20; const cs = Math.hypot(currentAt(b.x, b.y).vx, currentAt(b.x, b.y).vy);
-  ctx.fillStyle = sp < MOOR_KMH ? '#5ee88a' : '#ff8a5a'; ctx.fillText(tf('Vaart {0} km/h {1}', sp.toFixed(1), tr(okM ? '✓  →  M = vast' : sp < MOOR_KMH ? '✓' : '→ afremmen')), cx, cy + 16);
-  if (!okM && cs > 0.8) { ctx.fillStyle = '#9fd6ff'; ctx.font = '12px system-ui'; ctx.fillText(tr('Tip: kop tegen de stroom in, machine bij tot je stil ligt'), cx, cy + 38); }
-}
+function drawDockHelper() { drawVoyageGuide(); }
 function drawMooring() {
   if (!moored) return;
   ctx.strokeStyle = '#f5e6c8'; ctx.lineWidth = 3; ctx.lineCap = 'round';
@@ -1044,6 +1053,7 @@ function drawDriftLines() { // ECDIS-achtig: doorgetrokken = kop, gestippeld = k
 function drawBoat(t) {
   const b = boat, L = toPx(b.L), Bw = toPx(b.B);
   drawDriftLines();
+  if (state.phase !== 'sunk') { ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.hdg); ctx.strokeStyle = '#7df4ff'; ctx.lineWidth = 2 / zoom; ctx.setLineDash([8 / zoom, 5 / zoom]); rrect(-L / 2 - 10, -Bw / 2 - 10, L + 20, Bw + 20, 14); ctx.stroke(); ctx.restore(); }
   const sp = Math.hypot(b.vx, b.vy);
   { const c0 = currentAt(b.x, b.y); const uw = Math.hypot(b.vx - c0.vx, b.vy - c0.vy); const kk = Math.min(1, uw / 6);
     const sx = b.x - Math.cos(b.hdg) * L / 2, sy = b.y - Math.sin(b.hdg) * L / 2;
@@ -1066,14 +1076,16 @@ function drawBoat(t) {
   if (b.bow !== 0) { const s = -b.bow; ctx.fillStyle = 'rgba(255,255,255,.75)'; for (let i = 0; i < 7; i++) { const ph = (t * 5 + i * 0.14) % 1; ctx.beginPath(); ctx.arc(L / 2 - 18 + Math.sin(i * 1.7) * 3, s * (Bw / 2 + 3 + ph * 26), 2 + ph * 4, 0, 7); ctx.fill(); } ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L / 2 - 18, s * Bw / 2); ctx.lineTo(L / 2 - 18, s * (Bw / 2 + 28)); ctx.stroke(); }
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.save(); ctx.translate(-L / 2 + 2, 0); ctx.rotate(-b.rudder * RUD_MAX * Math.PI / 180); ctx.fillStyle = '#ff8a2a'; rrect(-16, -3.5, 16, 7, 3); ctx.fill(); ctx.strokeStyle = '#8a3d00'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-  const pim = art('ship_player');
+  const original = art('ship_player');
+  if (original && !tinted.playerOrange) { const c = document.createElement('canvas'); c.width = original.naturalWidth; c.height = original.naturalHeight; const g = c.getContext('2d'); g.drawImage(original, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(245,128,22,.55)'; g.fillRect(0, 0, c.width, c.height); tinted.playerOrange = c; }
+  const pim = tinted.playerOrange || original;
   if (pim) { spr(pim, 0, 0, 0, L + 4, Bw * 1.25); // sprite is iets breder getekend dan de romp (reling)
     const fill = b.cargo / Math.max(1, b.target); if (fill > 0.02) { ctx.fillStyle = 'rgba(230,126,34,.55)'; for (let i = 0; i < 5; i++) { const x = -L / 2 + 44 + i * (L - 86) / 4; ctx.beginPath(); ctx.arc(x, 0, 4.5, 0, 7); ctx.fill(); } ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-L / 2 + 40, Bw / 2 + 4, L - 80, 3); ctx.fillStyle = '#f39c12'; ctx.fillRect(-L / 2 + 40, Bw / 2 + 4, (L - 80) * fill, 3); }
     if (b.bow !== 0) { ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(L / 2 - 20, -Bw / 2, 3, Bw); } }
   else {
   ctx.fillStyle = '#6b7680'; hull(); ctx.fill(); ctx.strokeStyle = '#2f3840'; ctx.lineWidth = 3.5; ctx.stroke(); // grijze romp
   ctx.save(); hull(); ctx.clip(); ctx.fillStyle = '#1f5fbf'; ctx.fillRect(-L / 2, -Bw / 2, L, 3); ctx.fillRect(-L / 2, Bw / 2 - 3, L, 3); ctx.restore(); // blauwe band
-  drawTankerBody(L, Bw, '#6b7680', b.cargo / Math.max(1, b.target), b.bow !== 0, { deck: '#9aa5ad', accTrim: '#f39c12', whTrim: '#f39c12', rail: '#f4f6f7' }); }
+  drawTankerBody(L, Bw, '#e87722', b.cargo / Math.max(1, b.target), b.bow !== 0, { deck: '#9aa5ad', accTrim: '#f39c12', whTrim: '#f39c12', rail: '#f4f6f7' }); }
   ctx.restore();
 }
 function drawInstruments() {
@@ -1129,6 +1141,7 @@ function drawMinimap() {
   for (const b of berths) { ctx.fillStyle = b.col; path(b.quad); ctx.fill(); }
   for (const tr of traffic) { ctx.fillStyle = tr.col; path(tr.quad); ctx.fill(); }
   for (const r of rivals) if (r.mode !== 'sunk') { ctx.fillStyle = r.col; ctx.beginPath(); ctx.arc(r.x, r.y, mapBig ? 6 / k : 22, 0, 7); ctx.fill(); }
+  drawNavigationRoute(true, k);
   // boot
   for (const br of bridges) { const a = sn2w(br.s, br.n0), c = sn2w(br.s, br.n1); ctx.strokeStyle = 'rgba(80,80,80,.9)'; ctx.lineWidth = 3 / k; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke(); }
   ctx.fillStyle = '#fff'; ctx.save(); ctx.translate(boat.x, boat.y); ctx.rotate(boat.hdg); if (mapBig) ctx.scale(0.16 / k, 0.16 / k); ctx.beginPath(); ctx.moveTo(60, 0); ctx.lineTo(-40, -30); ctx.lineTo(-40, 30); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 8; ctx.stroke(); ctx.restore();
@@ -1137,17 +1150,29 @@ function drawMinimap() {
   ctx.restore();
   if (mapBig) { // namen op de grote kaart
     const P = (x, y) => ({ x: mx + x * k, y: my + y * k });
-    const lab = (t, x, y, col, size, bold) => { const p = P(x, y); ctx.font = `${bold ? 'bold ' : ''}${size}px system-ui`; const hw = ctx.measureText(t).width / 2 + 3; p.x = Math.max(mx + hw, Math.min(mx + mw - hw, p.x)); p.y = Math.max(my + size + 2, Math.min(my + mh - 4, p.y)); ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.strokeText(t, p.x, p.y); ctx.fillStyle = col; ctx.fillText(t, p.x, p.y); };
+    const boxes = [], bounds = { x: mx + 5, y: my + 5, w: mw - 10, h: mh - 10 };
+    const lab = (t, x, y, col, size, bold) => {
+      const p = P(x, y); ctx.font = `${bold ? 'bold ' : ''}${size}px system-ui`;
+      while (ctx.measureText(t).width > bounds.w - 10 && t.length > 4) t = t.slice(0, -2).replace(/…$/, '') + '…';
+      const box = BunkerNavigation.placeLabel(boxes, p.x, p.y - size, ctx.measureText(t).width + 10, size + 8, bounds);
+      if (!box) return;
+      ctx.fillStyle = '#10283be6'; rrect(box.x, box.y, box.w, box.h, 4); ctx.fill();
+      ctx.textAlign = 'center'; ctx.fillStyle = col; ctx.fillText(t, box.x + box.w / 2, box.y + size + 2);
+    };
     const fs = Math.max(10, Math.min(14, mw / 70));
     const small = mw < 600; // op een smal (staand) scherm alleen de belangrijkste namen
-    if (!small) for (const b of basins) if (b.name) { const c = sn2w((b.s0 + b.s1) / 2, (b.n0 + b.n1) / 2); lab(b.name, c.x, c.y, 'rgba(255,255,255,.75)', fs - 1); }
-    if (!small) for (const l of land) if (l.label && l.kind !== 'dam') { const c = l.poly.reduce((a, p) => ({ x: a.x + p.x / 4, y: a.y + p.y / 4 }), { x: 0, y: 0 }); lab(l.label, c.x, c.y, 'rgba(60,40,20,.9)', fs, true); }
-    for (const w of waits) { const c = sn2w((w.s0 + w.s1) / 2, (w.n0 + w.n1) / 2); lab('🅿️ ' + w.name, c.x, c.y, '#9fd0ff', fs - 1, true); }
-    for (const tm of terminals) { if (small && !(tm === terminal && state.phase === 'load')) continue; const c = sn2w((tm.s0 + tm.s1) / 2, (tm.n0 + tm.n1) / 2); lab('⛽ ' + tm.name + (tm === terminal && state.phase === 'load' ? ' ◀' : ''), c.x, c.y, '#ffd54a', fs, true); }
-    for (const b of berths) if (!small || (b === ship && state.phase !== 'done')) lab(b.name + (b === ship && state.phase !== 'done' ? ' ◀' : ''), b.cx, b.cy - 30, b === ship && state.phase !== 'done' ? '#5ee88a' : '#fff', fs - 1, b === ship);
-    for (const r of rivals) if (r.mode !== 'sunk') lab(r.name, r.x, r.y - 40, r.col === '#8e44ad' ? '#d7a8f0' : '#ff9a8a', fs - 1, true);
-    lab(lang === 'en' ? 'YOU' : 'JIJ', boat.x, boat.y - 45, '#fff', fs + 1, true);
-    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = `${fs}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(tr('Tik / K om te sluiten'), mx + mw / 2, my + mh + 22); ctx.textAlign = 'left';
+    // Reserve space for the player and the two mission locations first.
+    lab(lang === 'en' ? 'YOUR BOAT' : 'JOUW SCHIP', boat.x, boat.y - 45, '#8df7ff', fs + 1, true);
+    const tc = sn2w((terminal.s0 + terminal.s1) / 2, (terminal.n0 + terminal.n1) / 2);
+    lab('⛽ ' + terminal.name, tc.x, tc.y, '#ffd54a', fs, true);
+    lab('⚓ ' + ship.name, ship.cx, ship.cy - 30, '#5ee88a', fs, true);
+    if (!small) {
+      for (const w of waits) { const c = sn2w((w.s0 + w.s1) / 2, (w.n0 + w.n1) / 2); lab('P · ' + w.name, c.x, c.y, '#9fd0ff', fs - 1); }
+      for (const tm of terminals) if (tm !== terminal) { const c = sn2w((tm.s0 + tm.s1) / 2, (tm.n0 + tm.n1) / 2); lab(tm.name, c.x, c.y, '#ffd54a', fs - 1); }
+      for (const b of berths) if (b !== ship) lab(b.name, b.cx, b.cy - 30, '#ddd', fs - 2);
+      for (const b of basins) if (b.name) { const c = sn2w((b.s0 + b.s1) / 2, (b.n0 + b.n1) / 2); lab(b.name, c.x, c.y, '#ddd', fs - 2); }
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = `${fs}px system-ui`; ctx.textAlign = 'center'; ctx.fillText(lang === 'en' ? 'Cyan: suggested route · watch traffic' : 'Lichtblauw: vaarroute · let op verkeer', mx + mw / 2, my + mh + 20); ctx.fillText(tr('Tik / K om te sluiten'), mx + mw / 2, my + mh + 38); ctx.textAlign = 'left';
     return;
   }
   ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'right'; ctx.fillText('⤢', mx + mw - 3, my + 13); ctx.textAlign = 'left';
@@ -1155,7 +1180,8 @@ function drawMinimap() {
   const tgt = state.phase === 'load' ? sn2w((terminal.s0 + terminal.s1) / 2, (terminal.n0 + terminal.n1) / 2) : sn2w((dock.s0 + dock.s1) / 2, (dock.n0 + dock.n1) / 2);
   const ang = Math.atan2(tgt.y - boat.y, tgt.x - boat.x);
   ctx.save(); ctx.translate(mx + mw / 2 + (COMPACT ? 8 : 0), my + mh + (COMPACT ? 18 : 26)); ctx.fillStyle = '#fff'; ctx.font = (COMPACT ? 'bold 10px' : 'bold 12px') + ' system-ui'; ctx.textAlign = 'center';
-  const dTxt = `${state.phase === 'load' ? terminal.name : ship.name} ${Math.round(Math.hypot(tgt.x - boat.x, tgt.y - boat.y) / SCALE)} m`; ctx.fillText(dTxt, 0, 4);
+  const distance = Math.round(Math.hypot(tgt.x - boat.x, tgt.y - boat.y) / SCALE);
+  const dTxt = COMPACT ? `${distance} m · ${lang === 'en' ? 'tap map' : 'tik kaart'}` : `${state.phase === 'load' ? terminal.name : ship.name} ${distance} m`; ctx.fillText(dTxt, 0, 4);
   ctx.translate(-ctx.measureText(dTxt).width / 2 - 12, 0); ctx.rotate(ang); ctx.fillStyle = '#ffd54a'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -7); ctx.lineTo(-8, 7); ctx.closePath(); ctx.fill(); ctx.restore();
 }
 function objective() {
@@ -1172,13 +1198,12 @@ function objective() {
 }
 function drawHUD() {
   const b = boat, sp = Math.hypot(b.vx, b.vy) * 3.6;
-  const hdgDeg = Math.round(((((b.hdg * 180 / Math.PI) + 90) % 360) + 360) % 360);
-  const rud = Math.abs(b.rudder) < 0.05 ? tr('midscheeps') : tr(b.rudder < 0 ? 'bakboord ' : 'stuurboord ') + Math.round(Math.abs(b.rudder) * RUD_MAX) + '°';
-  const c = currentAt(b.x, b.y); const cs = Math.hypot(c.vx, c.vy);
-  const dmgCol = b.damage < 40 ? '#5ee88a' : b.damage < 75 ? '#ffd54a' : '#ff5a5a';
-  const obj = `<div style="color:#ffd54a;font-weight:700;margin-bottom:2px">${objective()}</div>`;
-  if (COMPACT) { hud.innerHTML = obj + `${moored ? '⚓ ' : ''}${warp === 2 ? '⏩ ' : ''}🪙 ${Math.round(career.gold)} · ${b.target} t → ${ship.name}<br>${sp.toFixed(1)} km/h · ${tr(TELE[b.teleIdx].n)} · ${tr('Roer')} ${Math.abs(b.rudder) < 0.05 ? '0' : (b.rudder < 0 ? tr('BB ') : tr('SB ')) + Math.round(Math.abs(b.rudder) * 35)}°<br>${tideInfo()} · ${tr('Lading')} ${Math.round(b.cargo)} t<br>${tr('Schade')} <span style="display:inline-block;width:60px;height:7px;background:#333;border-radius:4px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:4px"></span></span> ${Math.round(b.damage)} · 😴 ${Math.round(b.fatigue)}%`; return; }
-  hud.innerHTML = obj + `${moored ? `<span style="color:#ffd54a;font-weight:700">${tr('⚓ AFGEMEERD (M = los)')}</span><br>` : ''}${warp === 2 ? `<span style="color:#5ee88a;font-weight:700">${tr('⏩ SNELVAART 2×')}</span><br>` : ''}<b>🗺️</b> ${MAP.name} · <span style="opacity:.7">${tr('I = hulp')}</span><br><b>🪙 ${tr('Goud')}</b> ${Math.round(career.gold)} · <b>${tr('klussen')}</b> ${career.jobs}<br>${rivals.map(r => `<span style="color:${r.col}">●</span> ${r.name} ${Math.round(r.gold)} 🪙`).join(' · ')}<br><b>${tr('Opdracht')}</b> ${missionCount + 1}: ${b.target} t → ${ship.name}<br><b>${tr('Totaal')}</b> ${totalScore} pt<br><b>${tr('Vaart')}</b> ${sp.toFixed(1)} km/h<br><b>${tr('Koers')}</b> ${hdgDeg}°${(() => { const di = driftInfo(); return di && Math.abs(di.deg) >= 3 ? ` · <span style="color:#ffd54a">${tr('Drift')} ${Math.abs(Math.round(di.deg))}° ${di.deg > 0 ? tr('SB ').trim() : tr('BB ').trim()}</span>` : ''; })()}<br><b>${tr('Telegraaf')}</b> ${tr(TELE[b.teleIdx].n)}<br><b>${tr('Roer')}</b> ${rud}<br><b>${tr('Stroom')}</b> ${cs.toFixed(1)} m/s · <span style="color:${Math.abs(current.speed) > 2.5 ? '#ff8a5a' : '#fff'}">${tideInfo()}</span><br><b>${tr('Lading')}</b> ${Math.round(b.cargo)} t<br><b>${tr('Schade')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.min(100, b.damage)}%;height:100%;background:${dmgCol};border-radius:5px"></span></span> ${Math.round(b.damage)}/100<br><b>${tr('Vermoeidheid')}</b> <span style="display:inline-block;width:90px;height:9px;background:#333;border-radius:5px;vertical-align:middle"><span style="display:block;width:${Math.round(b.fatigue)}%;height:100%;background:${b.fatigue < 60 ? '#7fb8ff' : b.fatigue < 90 ? '#ffd54a' : '#ff5a5a'};border-radius:5px"></span></span> ${Math.round(b.fatigue)}%<br><b>${tr('Tijd')}</b> ${Math.round(state.elapsed)} s<br><b>${tr('Beste score')}</b> ${bestScore}`;
+  const obj = objective().replace(/(\d+) m(?=$|[ ·])/g, '<span class="distance">$1 m</span>');
+  const details = statsExpanded ? `<div class="hud-details">🪙 ${Math.round(career.gold)} · ${tr('klussen')} ${career.jobs}<br>${tr('Koers')} ${Math.round((b.hdg * 180 / Math.PI + 450) % 360)}° · ${tr('Roer')} ${Math.round(b.rudder * RUD_MAX)}°<br>${tideInfo()}<br>${tr('Schade')} ${Math.round(b.damage)}/100 · ${tr('Vermoeidheid')} ${Math.round(b.fatigue)}%<br>${tr('Totaal')} ${totalScore} · ${tr('Beste score')} ${bestScore}<br>${MAP.id === 'training' ? '' : rivals.map(r => `${r.name}: ${Math.round(r.gold)} 🪙`).join('<br>')}<br>${tr('I = hulp')}</div>` : '';
+  const html = `<div class="objective">${obj}</div>${sp.toFixed(1)} km/h · ${tr(TELE[b.teleIdx].n)}${moored ? ' · ⚓' : ''}${warp === 2 ? ' · ⏩' : ''}<br>${tr('Lading')} ${Math.round(b.cargo)} / ${b.target} t → ${ship.name}${b.damage >= 40 ? `<br>⚠ ${tr('Schade')} ${Math.round(b.damage)}/100` : ''}${b.fatigue >= 80 ? `<br>⚠ ${tr('Vermoeidheid')} ${Math.round(b.fatigue)}%` : ''}${details}`;
+  if (hud.innerHTML !== html) hud.innerHTML = html;
+  const toggle = document.getElementById('statsToggle'); toggle.style.top = (hud.offsetTop + hud.offsetHeight + 5) + 'px';
+  toggle.textContent = statsExpanded ? (lang === 'en' ? 'Fewer details' : 'Minder details') : 'Details'; toggle.setAttribute('aria-expanded', String(statsExpanded));
 }
 
 let last = performance.now(), running = false;
@@ -1216,31 +1241,108 @@ function frame(now) {
   cam.x += (tx - cam.x) * Math.min(1, dt * 6); cam.y += (ty - cam.y) * Math.min(1, dt * 6);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, SVW, SVH);
   ctx.save(); ctx.setTransform(zoom, 0, 0, zoom, -Math.round((cam.x + sx) * zoom), -Math.round((cam.y + sy) * zoom));
-  drawWater(t); drawLand(t); for (const b of berths) drawShip(b, t, b === ship && state.phase !== 'done'); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawMooring(); drawBoat(t); drawBridges();
+  drawWater(t); drawLand(t); for (const b of berths) drawShip(b, t, b === ship && state.phase !== 'done'); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawNavigationRoute(); drawMooring(); drawBoat(t); drawPlayerLabel(); drawBridges();
   ctx.restore();
   VW = SVW; VH = SVH;
-  if (running && !paused) RADIO.tick(now / 1000, radioChatter, lang);
+  if (running && !paused && MAP.id !== 'training') RADIO.tick(now / 1000, radioChatter, lang);
   { const c0 = currentAt(boat.x, boat.y); SND.update({ tele: boat.tele, rpm: boat.rpm || 0, speed: Math.hypot(boat.vx - c0.vx, boat.vy - c0.vy), bow: boat.bow, running: running && !paused && state.phase !== 'sunk' }); }
   if (hitFlash > 0) { ctx.fillStyle = `rgba(255,40,40,${hitFlash * 0.9})`; ctx.fillRect(0, 0, VW, VH); hitFlash -= dt; }
   drawInstruments(); if (!mapBig) drawMinimap(); drawDockHelper(); if (mapBig) drawMinimap(); drawHUD();
   requestAnimationFrame(frame);
 }
+// ---------- vaarhulp ----------
+function targetInfo() {
+  const loading = state.phase === 'load', zone = loading ? terminal : dock;
+  const p = sn2w((zone.s0 + zone.s1) / 2, (zone.n0 + zone.n1) / 2);
+  const q = w2sn(boat.x, boat.y);
+  const edge = sn2w(Math.max(zone.s0, Math.min(zone.s1, q.s)), Math.max(zone.n0, Math.min(zone.n1, q.n)));
+  const heading = loading ? TH + ((terminal.n1 - terminal.n0 > terminal.s1 - terminal.s0) ? Math.PI / 2 : 0) : ship.hdg;
+  let turn = Math.atan2(Math.sin(boat.hdg - heading), Math.cos(boat.hdg - heading));
+  if (Math.abs(turn) > Math.PI / 2) turn -= Math.sign(turn) * Math.PI;
+  return { p, zone, distance: Math.hypot(edge.x - boat.x, edge.y - boat.y) / SCALE, turn, error: Math.abs(turn) * 180 / Math.PI };
+}
+function navigationRoute() {
+  if (!['load', 'sail'].includes(state.phase)) return [];
+  const now = performance.now(), goal = targetInfo().p;
+  if (routeCache && routeCache.map === MAP && routeCache.phase === state.phase && now - routeCache.at < 2500 && Math.hypot(boat.x - routeCache.start.x, boat.y - routeCache.start.y) < 100) return routeCache.path;
+  const obstacles = land.map(l => l.poly).concat(berths.map(b => b.quad));
+  const boxes = obstacles.map(poly => ({ poly, x0: Math.min(...poly.map(p => p.x)) - 16, x1: Math.max(...poly.map(p => p.x)) + 16, y0: Math.min(...poly.map(p => p.y)) - 16, y1: Math.max(...poly.map(p => p.y)) + 16 }));
+  const clear = (a, b) => {
+    const length = Math.hypot(b.x - a.x, b.y - a.y), steps = Math.max(1, Math.ceil(length / 10));
+    for (let i = 0; i <= steps; i++) {
+      const p = { x: a.x + (b.x - a.x) * i / steps, y: a.y + (b.y - a.y) * i / steps };
+      if (p.x < 0 || p.y < 0 || p.x > W || p.y > H) return false;
+      const sn = w2sn(p.x, p.y);
+      const water = sn.s >= S_MIN && sn.s <= S_MAX && Math.abs(sn.n) <= RIVER_HALF || basins.some(z => sn.s >= z.s0 && sn.s <= z.s1 && sn.n >= Math.min(z.n0, z.n1) && sn.n <= Math.max(z.n0, z.n1)) || channels.some(z => sn.s >= z.s0 && sn.s <= z.s1 && sn.n >= z.n0 && sn.n <= z.n1);
+      if (!water || boxes.some(z => p.x >= z.x0 && p.x <= z.x1 && p.y >= z.y0 && p.y <= z.y1 && distToPoly(p, z.poly) < 16)) return false;
+    }
+    return true;
+  };
+  const start = { x: boat.x, y: boat.y };
+  const path = BunkerNavigation.waterRoute(start, goal, W, H, clear);
+  routeCache = { map: MAP, phase: state.phase, start, path, at: now };
+  return path;
+}
+function drawNavigationRoute(onMap = false, scale = zoom) {
+  const route = navigationRoute(); if (route.length < 2) return;
+  ctx.save(); ctx.strokeStyle = onMap ? '#8df7ff' : 'rgba(126,242,255,.65)'; ctx.lineWidth = (onMap ? 2.5 : 2) / scale; ctx.setLineDash([8 / scale, 7 / scale]);
+  ctx.beginPath(); route.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); ctx.restore();
+}
+function drawPlayerLabel() {
+  if (state.phase === 'sunk' || performance.now() > playerLabelUntil) return;
+  ctx.save(); ctx.translate(boat.x, boat.y - 42 / zoom); ctx.scale(1 / zoom, 1 / zoom);
+  const text = lang === 'en' ? 'YOUR BOAT' : 'JOUW SCHIP'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+  const w = ctx.measureText(text).width + 20; ctx.fillStyle = '#10283bf0'; rrect(-w / 2, -18, w, 25, 7); ctx.fill(); ctx.fillStyle = '#91f5ff'; ctx.fillText(text, 0, 0); ctx.restore();
+}
+function drawVoyageGuide() {
+  const panel = document.getElementById('voyageGuide'), title = document.getElementById('guideTitle'), text = document.getElementById('guideText'), finish = document.getElementById('finishTraining');
+  const training = MAP.id === 'training', en = lang === 'en';
+  panel.hidden = !running || paused || state.phase === 'sunk'; finish.hidden = true;
+  if (panel.hidden) return;
+  const speed = Math.hypot(boat.vx, boat.vy) * 3.6, target = targetInfo(), candidates = mooringCandidates();
+  if (training && speed > 0.5) trainingMoved = true;
+  const anchor = COARSE ? (en ? 'Anchor button' : 'Ankerknop') : 'M';
+  const upKey = COARSE ? '▲' : '↑', downKey = COARSE ? '▼' : '↓';
+  let heading = '', body = '', warning = false;
+  if (training) {
+    if (state.phase === 'done') { heading = en ? '6/6 · First job completed!' : '6/6 · Eerste klus geslaagd!'; body = en ? 'You can now cast off, load and bunker. Ready for harbour traffic and current?' : 'Je kunt nu losgooien, laden en bunkeren. Klaar voor havenverkeer en stroming?'; finish.hidden = false; }
+    else if (!trainingLeftBerth) { heading = en ? '1/6 · Cast off' : '1/6 · Trossen los'; body = en ? `Press ${anchor} to leave the starting berth.` : `Gebruik ${anchor} om los te gooien bij de startsteiger.`; }
+    else if (!trainingMoved) { heading = en ? '2/6 · Slowly ahead' : '2/6 · Langzaam vooruit'; body = en ? `Tap ${upKey} twice for slow ahead. Steer with ◀/▶; Q/E or bow thruster buttons move the bow.` : `Tik ${upKey} twee keer voor langzaam vooruit. Stuur met ◀/▶; Q/E of de boegschroefknoppen verplaatsen de boeg.`; }
+    else if (state.phase === 'load') { heading = en ? '3/6 · Stop and load' : '3/6 · Afremmen en laden'; body = moored?.to === 'terminal' ? (en ? `Loading: ${Math.round(boat.cargo)} / ${boat.target} t. Wait until full.` : `Laden: ${Math.round(boat.cargo)} / ${boat.target} t. Wacht tot je vol bent.`) : (en ? `Enter the yellow zone slowly. Use ${downKey} to reduce power or reverse. Below ${MOOR_KMH} km/h, use ${anchor} to make fast.` : `Vaar langzaam de gele zone in. Gebruik ${downKey} om de machine terug of achteruit te zetten. Onder ${MOOR_KMH} km/h: ${anchor} om vast te maken.`); }
+    else if (moored?.to === 'terminal') { heading = en ? '4/6 · Sail to the ship' : '4/6 · Naar het zeeschip'; body = en ? `Full! Cast off with ${anchor}. Follow the cyan route to the green zone.` : `Vol! Gooi los met ${anchor}. Volg de lichtblauwe route naar de groene zone.`; }
+    else { heading = en ? '5/6 · Come alongside' : '5/6 · Langszij en bunkeren'; body = state.phase === 'bunker' ? (en ? 'Hoses connected. Wait for bunkering to finish.' : 'Slangen aangesloten. Wacht tot het bunkeren klaar is.') : (en ? `Reduce power early. Align with the ship and use ${anchor} in the green zone.` : `Neem tijdig gas terug. Ga parallel aan het schip liggen en gebruik ${anchor} in de groene zone.`); }
+  }
+  if (['load', 'sail'].includes(state.phase) && !moored && target.distance < Math.max(220, speed / 3.6 * 18 + 55)) {
+    const zone = inSN(boat, target.zone), ready = candidates.ok && candidates.to === (state.phase === 'load' ? 'terminal' : 'ship');
+    warning = speed > MOOR_KMH;
+    const prompt = ready ? (en ? `${anchor} · make fast` : `${anchor} · vastmaken`) : warning ? (en ? `${downKey} · reduce power; reverse if needed` : `${downKey} · machine terug; zo nodig achteruit`) : !zone ? (en ? 'Enter the marked zone slowly' : 'Vaar langzaam de gemarkeerde zone in') : (en ? 'Align with the ship' : 'Ga parallel aan het schip liggen');
+    const alignment = target.error < 10 ? '✓' : (en ? `turn ${target.turn > 0 ? 'port' : 'starboard'}` : `draai ${target.turn > 0 ? 'BB' : 'SB'}`);
+    heading = warning ? (en ? 'Reduce power now' : 'Nu machine terug') : heading || (en ? 'Docking assistance' : 'Aanleghulp');
+    body += `${body ? ' ' : ''}${speed.toFixed(1)} km/h · ${en ? 'alignment' : 'koersafwijking'} ${target.error.toFixed(0)}° (${alignment}) · ${prompt}.`;
+  }
+  panel.hidden = !heading; panel.classList.toggle('warning', warning); title.textContent = heading; text.textContent = body;
+}
+
 // ---------- kaartkeuze ----------
 function renderMapMenu() {
   const box = document.getElementById('mapList'); if (!box) return;
+  const first = !trainingCompleted && career.jobs === 0; document.getElementById('firstVoyageNote').hidden = !first; document.getElementById('skipTraining').hidden = !first;
   let cur = null; try { cur = localStorage.getItem('bunker_map'); } catch (e) {}
-  box.innerHTML = MAPS.map(m => `<div class="mapcard" data-id="${m.id}" style="border:3px solid ${(cur || MAPS[0].id) === m.id ? '#ff8a2a' : '#ddd'}"><div style="font-size:30px">${m.icon}</div><b>${m.name}</b><div style="font-size:12px;color:#555">${lang === 'en' ? m.desc.en : m.desc.nl}</div></div>`).join('');
+  box.innerHTML = MAPS.filter(m => m.id !== 'training').map(m => `<div class="mapcard" data-id="${m.id}" style="border:3px solid ${(cur || MAPS[0].id) === m.id ? '#ff8a2a' : '#ddd'}"><div style="font-size:30px">${m.icon}</div><b>${m.name}</b><div style="font-size:12px;color:#555">${lang === 'en' ? m.desc.en : m.desc.nl}</div></div>`).join('');
   box.querySelectorAll('.mapcard').forEach(c => c.onclick = () => { try { localStorage.setItem('bunker_map', c.dataset.id); } catch (e) {} renderMapMenu(); });
 }
 function chosenMap() { let id = null; try { id = localStorage.getItem('bunker_map'); } catch (e) {} return MAPS.find(m => m.id === id) || MAPS[0]; }
-function startGame() { SND.init(); RADIO.reset(); loadMap(chosenMap()); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); maybeRace(); }
+function startGame(skipTraining = false) { SND.init(); RADIO.reset(); const firstVoyage = !skipTraining && !trainingCompleted && career.jobs === 0; loadMap(firstVoyage ? MAPS.find(m => m.id === 'training') : chosenMap()); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); maybeRace(); }
 function renderContinue() { const s = readSave(), btn = document.getElementById('cont'); if (!btn) return; if (!s) { btn.style.display = 'none'; return; } const m = MAPS.find(x => x.id === s.map), d = new Date(s.at);
   btn.style.display = ''; btn.innerHTML = `▶ ${tr('Verder varen')}<br><span style="font-size:11px;font-weight:400">${m.name} · ${s.wait || ''} · ${d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'nl-NL')} ${d.toLocaleTimeString(lang === 'en' ? 'en-GB' : 'nl-NL', { hour: '2-digit', minute: '2-digit' })}</span>`; }
 function openMenu() { running = false; renderMapMenu(); renderContinue(); overlay.style.display = 'flex'; }
 renderMapMenu(); loadMap(chosenMap()); reset(); requestAnimationFrame(frame);
 document.querySelectorAll('.langbtn').forEach(b => b.onclick = () => setLang(b.dataset.l));
 applyLangHTML();
-document.getElementById('start').onclick = startGame;
+document.getElementById('start').onclick = () => startGame();
+document.getElementById('skipTraining').onclick = () => startGame(true);
+document.getElementById('training').onclick = () => { SND.init(); RADIO.reset(); loadMap(MAPS.find(m => m.id === 'training')); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); };
+document.getElementById('finishTraining').onclick = () => startGame(true);
 document.getElementById('cont').onclick = continueGame;
 renderContinue();
 // ---------- geluidsinstellingen ----------
@@ -1284,6 +1386,7 @@ function renderShop() {
   document.querySelectorAll('#shopRows button').forEach(btn => btn.onclick = () => { const k = btn.dataset.k, c = UPG[k].cost[career.lvl[k] + 1]; if (career.gold >= c) { career.gold -= c; career.lvl[k]++; saveCareer(); renderShop(); } });
 }
 function toggleShop() {
+  if (MAP.id === 'training') { say(lang === 'en' ? 'Upgrades are available in the harbour after practice.' : 'Upgrades koop je in de haven na de oefenvaart.', 3); return; }
   if (shop.style.display === 'flex') { shop.style.display = 'none'; paused = false; last = performance.now(); return; }
   const atTerminal = terminals.some(tm => inSN(boat, tm)) && Math.hypot(boat.vx, boat.vy) * 3.6 < 1.5;
   if (!atTerminal && state.phase !== 'done') { say(tr('Winkel alleen aan een terminal (stil liggen) of na een klus'), 2); return; }
