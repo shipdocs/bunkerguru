@@ -28,14 +28,17 @@ MAPS.push({
     const nBasins = [
       { s0: 2000, s1: 2160, n0: -900, n1: -RH, name: 'Zijkanaal G · Zaandam', labelN: -560 },
       { s0: 3300, s1: 3500, n0: -450, n1: -RH, name: 'Hemhaven', labelN: -330 },
+      { s0: 700, s1: 790, n0: -700, n1: -RH, name: 'Zijkanaal C · Nauerna', labelN: -480 },
     ];
     const land = [];
     const sPieces = [[S0, 200, 'tanks'], [600, 900, 'containers'], [1500, 1900, 'containers'], [2300, 2600, 'tanks'], [2800, 3000, 'tanks'], [3200, 3600, 'containers'], [3800, 4100, 'city'], [4300, S1, 'city']];
     for (const [a, b, k] of sPieces) land.push({ poly: quad(a, b, RH, 1100), kind: k });
     land.push({ poly: quad(S0, S1, 1100, 2200), kind: 'tanks' });
-    const nPieces = [[S0, 2000, 'north'], [2160, 3300, 'north'], [3500, S1, 'north']];
+    const nPieces = [[S0, 700, 'north'], [790, 2000, 'north'], [2160, 3300, 'north'], [3500, S1, 'north']];
     for (const [a, b, k] of nPieces) land.push({ poly: quad(a, b, -900, -RH), kind: k });
     land.push({ poly: quad(S0, S1, -2100, -900), kind: 'north' });
+    for (const b of sBasins) land.push({ poly: quad(b.s0, b.s1, b.n1, 2200), kind: 'tanks' });
+    for (const b of nBasins) land.push({ poly: quad(b.s0, b.s1, -2100, b.n0), kind: 'north' });
     return {
       land, basins: sBasins.concat(nBasins),
       terminals: [
@@ -74,7 +77,7 @@ MAPS.push({
         { s: 4000, n: 800, text: 'SLOTERDIJK', size: 16, col: 'rgba(60,40,20,.7)' },
         { s: 3400, n: -520, text: 'Hembrug', size: 11, col: 'rgba(30,60,30,.8)' },
         { s: 1000, n: 0, text: 'NOORDZEEKANAAL · spuistroom naar IJmuiden', size: 16, col: 'rgba(255,255,255,.75)' },
-        { s: 2800, n: -600, text: 'Hemweg-centrale', size: 11, col: 'rgba(30,60,30,.8)' },
+        { s: 2900, n: 880, text: 'Hemweg-centrale', size: 11, col: 'rgba(60,40,20,.8)' },
       ],
       decor(add, rnd) {
         const inBasin = (s, n) => sBasins.concat(nBasins).some(b => s > b.s0 - 45 && s < b.s1 + 45 && n > b.n0 - 45 && n < b.n1 + 45);
@@ -82,7 +85,7 @@ MAPS.push({
         // tankparken Afrikahaven / Petroleumhaven
         for (let s = S0 + 40; s < 190; s += 64) for (let n = RH + 90; n < 1050; n += 64) if (rnd() > 0.3) add('tank', s + rnd() * 8, n + rnd() * 8, { r: 16 + rnd() * 8 });
         for (let s = 2340; s < 2570; s += 64) for (let n = RH + 90; n < 1050; n += 64) if (rnd() > 0.3) add('tank', s, n, { r: 16 + rnd() * 8 });
-        for (let s = 2830; s < 2980; s += 60) for (let n = RH + 90; n < 1050; n += 60) if (rnd() > 0.3) add('tank', s, n, { r: 14 + rnd() * 8 });
+        for (let s = 2830; s < 2980; s += 60) for (let n = RH + 90; n < 1050; n += 60) if (rnd() > 0.3 && !(n > 680 && n < 860)) add('tank', s, n, { r: 14 + rnd() * 8 });
         // containerterminals
         for (let s = 640; s < 870; s += 44) for (let n = RH + 70; n < 1060; n += 26) if (rnd() > 0.4) add('container', s, n, { col: cols[Math.floor(rnd() * 5)] });
         for (let s = 1540; s < 1870; s += 44) for (let n = RH + 70; n < 1060; n += 26) if (rnd() > 0.4) add('container', s, n, { col: cols[Math.floor(rnd() * 5)] });
@@ -94,8 +97,8 @@ MAPS.push({
         // achterland zuid: tanks en loodsen
         for (let i = 0; i < 350; i++) { const s = S0 + rnd() * (S1 - S0), n = 1240 + rnd() * 900; add(rnd() > 0.5 ? 'tank' : 'block', s, n, { r: 14 + rnd() * 8, col: beige[Math.floor(rnd() * 4)], w: 20, h: 14 }); }
         // Zaandam: huisjes en bomen, Hemweg-centrale
-        for (let s = S0 + 40; s < S1; s += 40) for (let n = -RH - 70; n > -900; n -= 36) { if (inBasin(s, n)) continue; if (s > 2600 && s < 3000 && n > -700) continue; const t = rnd(); if (t < 0.45) add('house', s + rnd() * 8, n + rnd() * 8, { col: green[Math.floor(rnd() * 3)] }); else if (t < 0.7) add('tree', s, n); }
-        add('tower', 2800, -450, { h: 120, col: '#c9c9c9' }); add('tower', 2860, -450, { h: 100, col: '#bbb' });
+        for (let s = S0 + 40; s < S1; s += 40) for (let n = -RH - 70; n > -900; n -= 36) { if (inBasin(s, n)) continue; const t = rnd(); if (t < 0.45) add('house', s + rnd() * 8, n + rnd() * 8, { col: green[Math.floor(rnd() * 3)] }); else if (t < 0.7) add('tree', s, n); }
+        add('tower', 2880, 760, { h: 120, col: '#c9c9c9' }); add('tower', 2940, 760, { h: 100, col: '#bbb' }); // Hemweg-centrale, zuidoever tussen Petroleum- en Coenhaven
         for (let i = 0; i < 400; i++) { const s = S0 + rnd() * (S1 - S0), n = -1050 - rnd() * 1000; add(rnd() > 0.6 ? 'house' : 'tree', s, n, { col: green[Math.floor(rnd() * 3)] }); }
       },
     };

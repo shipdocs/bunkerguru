@@ -30,7 +30,7 @@ MAPS.push({
     const sBasins = [
       { s0: 150, s1: 900, n0: RH, n1: 1300, name: 'Waalhaven', labelN: 800 },
       { s0: 1250, s1: 1600, n0: RH, n1: 900, name: 'Maashaven', labelN: 600 },
-      { s0: 2000, s1: 2350, n0: RH, n1: 750, name: 'Rijnhaven', labelN: 520 },
+      { s0: 2000, s1: 2350, n0: RH, n1: 830, name: 'Rijnhaven', labelN: 560 },
       { s0: 2650, s1: 2730, n0: RH, n1: 600, name: 'Spoorweghaven', labelN: 430 },
       { s0: 3330, s1: 3440, n0: RH, n1: 650, name: 'Binnenhaven', labelN: 460 },
       { s0: 3750, s1: 3820, n0: RH, n1: 450, name: 'Nassauhaven', labelN: 360 },
@@ -44,6 +44,11 @@ MAPS.push({
     const sPieces = [[S0, 150, 'port'], [900, 1250, 'port'], [1600, 2000, 'city'], [2350, 2650, 'city'], [2730, 3330, 'city'], [3440, 3750, 'city'], [3820, S1, 'park']];
     for (const [a, b, k] of sPieces) land.push({ poly: quad(a, b, RH, 1300), kind: k });
     land.push({ poly: quad(S0, S1, 1300, 2300), kind: 'city' });
+    // land achter elk bekken: de bekkens zijn doodlopend en verschillend diep, zoals op de havenkaart
+    for (const b of nBasins) land.push({ poly: quad(b.s0, b.s1, -2100, b.n0), kind: b.n0 < -700 ? 'port' : 'city' });
+    for (const b of sBasins) land.push({ poly: quad(b.s0, b.s1, b.n1, 2300), kind: b.n1 > 1000 ? 'port' : 'city' });
+    // havenhoofd Rijnhaven (westzijde; de oostwand blijft vrij als aanlooplijn voor de ligplaats)
+    land.push({ poly: quad(2000, 2070, RH, RH + 90), kind: 'city', label: 'Katendrechtse hoofd' });
     // eilanden
     land.push({ poly: quad(2550, 3250, 40, 150), kind: 'island', col: '#e9dcc3', label: 'Noordereiland' });
     land.push({ poly: quad(4300, 4650, 60, 200), kind: 'park', label: 'Eiland van Brienenoord' });
@@ -91,6 +96,7 @@ MAPS.push({
         { s: 2300, n: -820, text: 'ROTTERDAM CENTRUM', size: 24, col: 'rgba(60,40,20,.75)' },
         { s: 2500, n: 1000, text: 'KOP VAN ZUID', size: 16, col: 'rgba(60,40,20,.7)' },
         { s: 1800, n: 1000, text: 'KATENDRECHT', size: 16, col: 'rgba(60,40,20,.7)' },
+        { s: 2500, n: 560, text: 'Wilhelminapier', size: 11, col: 'rgba(60,40,20,.8)' }, { s: 600, n: 1150, text: 'Heijplaat · RDM', size: 11, col: 'rgba(60,40,20,.8)' },
         { s: 3050, n: 1000, text: 'FEIJENOORD', size: 16, col: 'rgba(60,40,20,.7)' },
         { s: 2900, n: 212, text: 'Koningshaven', size: 11, col: 'rgba(255,255,255,.8)' },
         { s: 1000, n: 0, text: 'NIEUWE MAAS · getijdenrivier', size: 16, col: 'rgba(255,255,255,.75)' },

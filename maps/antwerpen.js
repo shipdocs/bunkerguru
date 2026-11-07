@@ -22,23 +22,28 @@ MAPS.push({
       { s0: 1950, s1: 2070, n0: RH, n1: 600, name: 'Kallosluis', labelN: 420 },
     ];
     const rBasins = [
+      { s0: -100, s1: 120, n0: -600, n1: -RH, name: 'Zandvliet- & Berendrechtsluis', labelN: -420 },
+      { s0: 2050, s1: 2170, n0: -500, n1: -RH, name: 'Boudewijnsluis', labelN: -360 },
       { s0: 2500, s1: 2650, n0: -900, n1: -RH, name: 'Kanaaldok · Royerssluis', labelN: -560 },
       { s0: 3850, s1: 3930, n0: -420, n1: -RH, name: 'Kattendijk', labelN: -340 },
+      { s0: 4000, s1: 4200, n0: -700, n1: -RH, name: 'Petroleumdok Zuid', labelN: -480 },
     ];
     const land = [];
     const lPieces = [[S0, 300, 'north'], [900, 1950, 'north'], [2070, S1, 'park']];
     for (const [a, b, k] of lPieces) land.push({ poly: quad(a, b, RH, 1400), kind: k });
     land.push({ poly: quad(S0, S1, 1400, 2500), kind: 'north' });
-    const rPieces = [[S0, 1400, 'tanks'], [1400, 2500, 'containers'], [2650, 3850, 'city'], [3930, S1, 'tanks']];
+    const rPieces = [[S0, -100, 'tanks'], [120, 1400, 'tanks'], [1400, 2050, 'containers'], [2170, 2500, 'containers'], [2650, 3850, 'city'], [3930, 4000, 'tanks'], [4200, S1, 'tanks']];
     for (const [a, b, k] of rPieces) land.push({ poly: quad(a, b, -900, -RH), kind: k });
     land.push({ poly: quad(S0, S1, -2100, -900), kind: 'city' });
+    for (const b of lBasins) land.push({ poly: quad(b.s0, b.s1, b.n1, 2500), kind: 'north' });
+    for (const b of rBasins) land.push({ poly: quad(b.s0, b.s1, -2100, b.n0), kind: b.n0 < -800 ? 'containers' : 'tanks' });
     // Fort Liefkenshoek: eilandje op de linkeroever-plaat
     land.push({ poly: quad(1150, 1330, RH - 40, RH + 40), kind: 'island', col: '#8fcf6f', label: 'Fort Liefkenshoek' });
     return {
       land, basins: lBasins.concat(rBasins),
       terminals: [
         { s0: 836, s1: 900, n0: 400, n1: 1300, name: 'Terminal Deurganckdok' },
-        { s0: 3950, s1: 4250, n0: -RH, n1: -RH + 64, name: 'Terminal Petroleum Zuid' },
+        { s0: 4000, s1: 4064, n0: -660, n1: -220, name: 'Terminal Petroleum Zuid' },
       ],
       berths: [
         { name: 'MV DEURGANCK', col: '#e74c3c', axis: 'n', a0: 400, a1: 1000, c: 300 + 28, side: +1, where: 'westwand Deurganckdok' },
@@ -70,6 +75,7 @@ MAPS.push({
         { s: 3250, n: -700, text: 'ANTWERPEN', size: 26, col: 'rgba(60,40,20,.75)' },
         { s: 600, n: 1700, text: 'WAASLANDHAVEN', size: 22, col: 'rgba(30,60,30,.7)' },
         { s: 1700, n: -600, text: 'LILLO', size: 14, col: 'rgba(60,40,20,.7)' },
+        { s: 300, n: -750, text: 'ZANDVLIET', size: 12, col: 'rgba(60,40,20,.7)' }, { s: 2300, n: -650, text: 'NOORDKASTEEL', size: 11, col: 'rgba(60,40,20,.7)' },
         { s: 1700, n: 800, text: 'KALLO', size: 14, col: 'rgba(30,60,30,.7)' },
         { s: 3200, n: 800, text: 'LINKEROEVER · SINT-ANNA', size: 14, col: 'rgba(30,60,30,.7)' },
         { s: 4100, n: -600, text: 'PETROLEUM ZUID', size: 14, col: 'rgba(60,40,20,.7)' },
@@ -87,13 +93,13 @@ MAPS.push({
         // Sint-Anna / Burcht: park met bomen
         for (let i = 0; i < 350; i++) { const s = 2100 + rnd() * (S1 - 2100), n = RH + 60 + rnd() * 1280; if (inBasin(s, n)) continue; add('tree', s, n); }
         // rechteroever: tanks bij Zandvliet, containers Noordzeeterminal, stad, Petroleum Zuid
-        for (let s = S0 + 40; s < 1380; s += 64) for (let n = -RH - 90; n > -880; n -= 64) if (rnd() > 0.3) add('tank', s + rnd() * 8, n + rnd() * 8, { r: 16 + rnd() * 8 });
-        for (let s = 1440; s < 2480; s += 44) for (let n = -RH - 70; n > -880; n -= 26) if (rnd() > 0.4) add('container', s, n, { col: cols[Math.floor(rnd() * 5)] });
+        for (let s = S0 + 40; s < 1380; s += 64) for (let n = -RH - 90; n > -880; n -= 64) if (rnd() > 0.3 && !inBasin(s, n)) add('tank', s + rnd() * 8, n + rnd() * 8, { r: 16 + rnd() * 8 });
+        for (let s = 1440; s < 2480; s += 44) for (let n = -RH - 70; n > -880; n -= 26) if (rnd() > 0.4 && !inBasin(s, n)) add('container', s, n, { col: cols[Math.floor(rnd() * 5)] });
         for (let n = -RH - 60; n > -860; n -= 160) { add('crane', 2500 - 18, n, { ang: TH + Math.PI }); add('crane', 2650 + 18, n, { ang: TH }); }
         for (let s = 2700; s < 3830; s += 46) for (let n = -RH - 70; n > -880; n -= 40) { if (inBasin(s, n)) continue; const t = rnd(); if (t < 0.5) add('block', s + rnd() * 8, n + rnd() * 8, { col: beige[Math.floor(rnd() * 4)], w: 18 + rnd() * 10, h: 18 + rnd() * 10 }); else if (t < 0.8) add('house', s, n, { col: brick[Math.floor(rnd() * 4)] }); }
         add('tower', 3300, -330, { h: 120, col: '#d8d8d8' }); // kathedraal
         add('tower', 3820, -260, { h: 70, col: '#b5533b' }); // MAS
-        for (let s = 3960; s < S1; s += 64) for (let n = -RH - 90; n > -880; n -= 64) if (rnd() > 0.3) add('tank', s, n, { r: 16 + rnd() * 8 });
+        for (let s = 3960; s < S1; s += 64) for (let n = -RH - 90; n > -880; n -= 64) if (rnd() > 0.3 && !inBasin(s, n)) add('tank', s, n, { r: 16 + rnd() * 8 });
         for (let i = 0; i < 500; i++) { const s = S0 + rnd() * (S1 - S0), n = -1050 - rnd() * 1000; add(rnd() > 0.5 ? 'house' : 'block', s, n, { col: (rnd() > 0.5 ? beige : brick)[Math.floor(rnd() * 4)], w: 20, h: 16 }); }
       },
     };

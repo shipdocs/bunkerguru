@@ -92,9 +92,9 @@ function loadMap(def) {
   Object.assign(EN, def.i18n || {}); TH = def.TH; CT = Math.cos(TH); ST = Math.sin(TH); ORG = { x: def.ORG.x * K, y: def.ORG.y * K }; W = def.W * K; H = def.H * K; RIVER_HALF = def.RIVER_HALF * K; S_MIN = def.S_MIN * K; S_MAX = def.S_MAX * K;
   current.base = def.currentSpeed; current.speed = def.currentSpeed; dirSea = { x: -CT, y: -ST }; tideT = 0; tidePhase = Math.random() * Math.PI * 2; lastTideSign = 0;
   // eerst onschaalde opbouw in (s,n) om te zien welke randen tegen een kade liggen
-  const h0 = { quad: (s0, s1, n0, n1) => [{ x: s0, y: n0 }, { x: s1, y: n0 }, { x: s1, y: n1 }, { x: s0, y: n1 }], sn2w: (s, n) => ({ x: s, y: n }), RIVER_HALF: def.RIVER_HALF, TH, SH, S_MIN: def.S_MIN, S_MAX: def.S_MAX, cols };
+  const h0 = { quad: (s0, s1, n0, n1) => [{ x: s0, y: n0 }, { x: s1, y: n0 }, { x: s1, y: n1 }, { x: s0, y: n1 }], poly: pts => pts.map(([a, b]) => ({ x: a, y: b })), sn2w: (s, n) => ({ x: s, y: n }), RIVER_HALF: def.RIVER_HALF, TH, SH, S_MIN: def.S_MIN, S_MAX: def.S_MAX, cols };
   const m0 = def.build(h0), onLand = (s, n) => m0.land.some(l => inPoly({ x: s, y: n }, l.poly));
-  const h = { quad: (s0, s1, n0, n1) => quad(s0 * K, s1 * K, n0 * K, n1 * K), sn2w: (s, n) => sn2w(s * K, n * K), RIVER_HALF: def.RIVER_HALF, TH, SH, S_MIN: def.S_MIN, S_MAX: def.S_MAX, cols };
+  const h = { quad: (s0, s1, n0, n1) => quad(s0 * K, s1 * K, n0 * K, n1 * K), poly: pts => pts.map(([a, b]) => sn2w(a * K, b * K)), sn2w: (s, n) => sn2w(s * K, n * K), RIVER_HALF: def.RIVER_HALF, TH, SH, S_MIN: def.S_MIN, S_MAX: def.S_MAX, cols };
   const m = def.build(h);
   if (K !== 1) {
     // gap = afstand tot de kade (null = geen kade binnen 14 px); de kade schaalt mee, de ligplaats blijft er even dicht tegenaan
@@ -133,10 +133,10 @@ function loadMap(def) {
   const landOnly = land.filter(l => l.kind !== 'pillar' && l.kind !== 'dam');
   const solid = (x, y) => landOnly.some(l => inPoly({ x, y }, l.poly)) && [[14, 0], [-14, 0], [0, 14], [0, -14]].every(([a, b]) => landOnly.some(l => inPoly({ x: x + a, y: y + b }, l.poly)));
   const FILL = { house: 38, block: 40, tree: 32, container: 22, tank: 70 };
-  const add = (type, s, n, extra) => {
-    if (K === 1) { const p = sn2w(s, n); decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); return; }
-    const offs = FILL[type] ? [[0, 0], [FILL[type], 0], [0, FILL[type]], [FILL[type], FILL[type]]] : [[0, 0]];
-    for (const [ds, dn] of offs) { const p = sn2w(s * K + ds, n * K + dn); if (ds || dn ? solid(p.x, p.y) : true) decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); }
+  const onLandPt = (x, y) => landOnly.some(l => inPoly({ x, y }, l.poly));
+  const add = (type, s, n, extra) => { // decor alleen op land: kleine dingen ruim binnen de oever, kranen mogen op de kaderand
+    const offs = FILL[type] && K !== 1 ? [[0, 0], [FILL[type], 0], [0, FILL[type]], [FILL[type], FILL[type]]] : [[0, 0]];
+    for (const [ds, dn] of offs) { const p = sn2w(s * K + ds, n * K + dn); const ok = type === 'crane' ? true : FILL[type] ? solid(p.x, p.y) : onLandPt(p.x, p.y); if (ok) decor.push(Object.assign({ type, x: p.x, y: p.y }, extra)); }
   };
   if (m.decor) m.decor(add, rndD, h);
   (m.rivals || []).forEach((rp, i) => { const r = rivals[i]; if (!r) return; const p = sn2w(rp.s, rp.n); r.x = p.x; r.y = p.y; r.hdg = TH + rp.hdgOff; r.mode = 'idle'; r.path = []; r.wait = 2 + i * 4; r.racing = false; r.damage = 0; r.cur = 0; r.rev = null; });
@@ -536,12 +536,12 @@ function reset() {
 }
 // ---------- opslaan / verder varen ----------
 function saveGame(w) {
-  const b = boat, data = { v: 2, at: Date.now(), map: MAP.id, wait: w ? w.name : null, x: b.x, y: b.y, hdg: b.hdg, damage: b.damage, fatigue: b.fatigue, cargo: b.cargo, target: b.target,
+  const b = boat, data = { v: 3, at: Date.now(), map: MAP.id, wait: w ? w.name : null, x: b.x, y: b.y, hdg: b.hdg, damage: b.damage, fatigue: b.fatigue, cargo: b.cargo, target: b.target,
     mission, term: terminals.indexOf(terminal), phase: state.phase === 'bunker' ? 'sail' : state.phase === 'done' || state.phase === 'sunk' ? 'load' : state.phase, missionCount, totalScore,
     tideT, tidePhase, simClock, rivals: rivals.map(r => ({ x: r.x, y: r.y, hdg: r.hdg, gold: r.gold, jobs: r.jobs, damage: r.damage || 0, sunk: r.mode === 'sunk' })) };
   try { localStorage.setItem('bunker_save', JSON.stringify(data)); } catch (e) {}
 }
-function readSave() { try { const s = JSON.parse(localStorage.getItem('bunker_save') || 'null'); return s && s.v === 2 && MAPS.find(m => m.id === s.map) ? s : null; } catch (e) { return null; } }
+function readSave() { try { const s = JSON.parse(localStorage.getItem('bunker_save') || 'null'); return s && s.v === 3 && MAPS.find(m => m.id === s.map) ? s : null; } catch (e) { return null; } }
 function continueGame() {
   const s = readSave(); if (!s) return startGame();
   SND.init(); RADIO.reset(); loadMap(MAPS.find(m => m.id === s.map)); reset();
