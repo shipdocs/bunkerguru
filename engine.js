@@ -444,8 +444,10 @@ function drawRival(r, t) {
   const hull = () => { ctx.beginPath(); ctx.moveTo(-L / 2 + 4, -Bw / 2); ctx.lineTo(L / 2 - 16, -Bw / 2); ctx.quadraticCurveTo(L / 2 + 6, 0, L / 2 - 16, Bw / 2); ctx.lineTo(-L / 2 + 4, Bw / 2); ctx.quadraticCurveTo(-L / 2 - 3, 0, -L / 2 + 4, -Bw / 2); ctx.closePath(); };
   if (moving) drawBowWave(L, Bw, Math.min(1, (r.cur || 0) / 6), t);
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
-  ctx.fillStyle = r.col; hull(); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3.5; ctx.stroke();
-  drawTankerBody(L, Bw, r.col, r.mode === 'loading' ? 0.5 : r.mode === 'toShip' ? 1 : 0.1, false);
+  const rim = artTint('ship_rival', r.col);
+  if (rim) spr(rim, 0, 0, 0, L + 4, Bw * 1.25);
+  else { ctx.fillStyle = r.col; hull(); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 3.5; ctx.stroke();
+  drawTankerBody(L, Bw, r.col, r.mode === 'loading' ? 0.5 : r.mode === 'toShip' ? 1 : 0.1, false); }
   ctx.restore();
   ctx.fillStyle = r.racing ? '#ffd54a' : '#fff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(r.name + (r.racing ? ' ⚔️' : '') + (r.standOn ? ' ⚠️' : r.giveWay ? ' ✋' : ''), r.x, r.y - 26); ctx.textAlign = 'left';
   if (r.damage > 0) { const dc = r.damage < 40 ? '#5ee88a' : r.damage < 75 ? '#ffd54a' : '#ff5a5a'; ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(r.x - 22, r.y - 22, 44, 5); ctx.fillStyle = dc; ctx.fillRect(r.x - 22, r.y - 22, 44 * Math.min(1, r.damage / 100), 5); }
@@ -719,11 +721,28 @@ function makeLandTile() { // fijne korrel voor het land
   return c;
 }
 const patLand = ctx.createPattern(makeLandTile(), 'repeat');
+// ---------- sprites (SpriteCook, map art/) ----------
+const ART = {}, ARTPAT = {}; let artLoaded = 0;
+const ART_NAMES = ['water', 'grass', 'concrete', 'containers', 'crane', 'warehouse', 'chimney', 'fender', 'tank_l', 'tank_m', 'tank_s', 'house_red', 'house_slate', 'house_orange', 'tree_a', 'tree_b', 'church', 'office', 'bollard', 'buoy', 'ship_player', 'ship_rival', 'ship_sea', 'tug'];
+for (const n of ART_NAMES) { const im = new Image(); im.onload = () => { artLoaded++; if (n === 'water' || n === 'grass' || n === 'concrete') { const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(im, 0, 0, 256, 256); ARTPAT[n] = ctx.createPattern(c, 'repeat'); } }; im.onerror = () => { ART[n] = null; }; im.src = `art/${n}.${n === 'water' || n === 'grass' || n === 'concrete' ? 'jpg' : 'png'}`; ART[n] = im; }
+const art = n => { const im = ART[n]; return im && im.complete && im.naturalWidth ? im : null; };
+const tinted = {}; // kleurvarianten van een sprite (hue-rotatie), bv. concurrent-schepen
+function artTint(n, col, baseHue) { const key = n + col; if (tinted[key] !== undefined) return tinted[key]; const im = art(n); if (!im) return null;
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(col); if (!m) return tinted[key] = im;
+  const r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b); let h = 0;
+  if (mx !== mn) { const d = mx - mn; h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
+  const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const g2 = c.getContext('2d'); g2.filter = `hue-rotate(${Math.round(h - (baseHue || 0))}deg)`; g2.drawImage(im, 0, 0); return tinted[key] = c; }
+// sprite tekenen: midden op (x,y), gedraaid, geschaald naar breedte w (hoogte volgt de verhouding tenzij h gegeven)
+function spr(im, x, y, ang, w, h, ax, ay) { if (!im) return false; const iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height; const hh = h || w * ih / iw; ctx.save(); ctx.translate(x, y); ctx.rotate(ang || 0); ctx.drawImage(im, -w * (ax === undefined ? 0.5 : ax), -hh * (ay === undefined ? 0.5 : ay), w, hh); ctx.restore(); return true; }
+const shadowCache = new Map(); // silhouet per sprite één keer voorgerenderd (blur per frame is te duur)
+function sprShadow(im, x, y, ang, w, h, dx, dy, alpha) { if (!im) return; let sh = shadowCache.get(im);
+  if (!sh) { const iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height, sc = Math.min(1, 160 / Math.max(iw, ih)); sh = document.createElement('canvas'); sh.width = Math.max(2, Math.round(iw * sc)); sh.height = Math.max(2, Math.round(ih * sc)); const g = sh.getContext('2d'); g.filter = 'brightness(0) blur(1.5px)'; g.drawImage(im, 0, 0, sh.width, sh.height); shadowCache.set(im, sh); }
+  ctx.save(); ctx.globalAlpha = alpha || 0.28; spr(sh, x + (dx || 4), y + (dy || 5), ang, w, h); ctx.restore(); }
 const wrap = (v, m) => ((v % m) + m) % m;
 function drawWater(tReal) {
   const t = simClock; // golven lopen op de spelklok, zodat ze bij snelvaart gelijk blijven met de stroom
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#3d9bd6'); g.addColorStop(0.5, '#2f86c3'); g.addColorStop(1, '#3792cc');
-  ctx.fillStyle = g; ctx.fillRect(cam.x, cam.y, VW, VH);
+  if (ARTPAT.water) { ctx.fillStyle = ARTPAT.water; ctx.fillRect(cam.x, cam.y, VW, VH); ctx.fillStyle = 'rgba(20,70,130,.18)'; ctx.fillRect(cam.x, cam.y, VW, VH); }
+  else { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#3d9bd6'); g.addColorStop(0.5, '#2f86c3'); g.addColorStop(1, '#3792cc'); ctx.fillStyle = g; ctx.fillRect(cam.x, cam.y, VW, VH); }
   // diep vaarwater donkerder, met een zachte rand
   ctx.save(); path(riverPoly); ctx.clip(); ctx.fillStyle = 'rgba(8,45,100,.30)'; ctx.fillRect(cam.x, cam.y, VW, VH); ctx.restore();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(30,90,160,.35)'; ctx.lineWidth = 40; path(riverPoly); ctx.stroke();
@@ -732,12 +751,14 @@ function drawWater(tReal) {
   const flow = toPx(current.speed) * TIME;
   const arrowAlpha = Math.min(0.7, 0.15 + Math.abs(current.speed) * 0.15);
   // haven: langzaam; rivier: mee met stroom (richting zee)
+  ctx.globalAlpha = ARTPAT.water ? 0.55 : 1;
   waveLayer(patA, (t * 10) % 256, Math.sin(t * 0.5) * 4, riverPoly, true);
   waveLayer(patB, (-t * 6) % 192, Math.cos(t * 0.4) * 3, riverPoly, true);
   // rivier: patroon gedraaid met de rivier (kammen dwars), schuift langs de rivieras mee met de stroom (eb = naar zee = -s)
   const RW = TH + Math.PI / 2; // tile-x ligt dan langs n, tile-y langs -s
+  ctx.globalAlpha = ARTPAT.water ? 0.45 : 1;
   waveLayer(patRA, Math.sin(t * 0.7) * 3, wrap(t * flow, 256), riverPoly, false, RW);
-  waveLayer(patRB, 0, wrap(t * flow * 0.6, 192), riverPoly, false, RW);
+  waveLayer(patRB, 0, wrap(t * flow * 0.6, 192), riverPoly, false, RW); ctx.globalAlpha = 1;
   // glinsters
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 700; i++) { const x = (i * 97.3) % W, y = (i * 61.7 + 30) % H; if (x < cam.x || x > cam.x + VW || y < cam.y || y > cam.y + VH) continue; const tw = Math.sin(t * 2.2 + i * 1.3) * 0.5 + 0.5; if (tw < 0.8) continue; ctx.globalAlpha = (tw - 0.8) * 3.5; ctx.fillRect(x, y, 3 + tw * 3, 1.5); }
@@ -828,7 +849,9 @@ function drawLand(t) {
   // vulling per soort, met textuur
   const KC = { north: '#a8d088', park: '#92c874', dam: '#c9c9c9', pillar: '#c9c9c9', city: '#e4dac8', town: '#e2d6c0', town2: '#dfd4bf', island: '#e4dac8', tanks: '#d6cdb9', containers: '#d2cbbb', port: '#d9d0bc', base: '#d6cdb9' };
   for (const l of land) { path(l.poly); ctx.fillStyle = l.col || KC[l.kind] || '#d9cfb8'; ctx.fill(); }
-  ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = patLand; for (const l of land) { path(l.poly); ctx.fill(); } ctx.restore();
+  if (ARTPAT.grass && ARTPAT.concrete) { // echte textuur: gras op groene oevers, betonplaten op de kades; met een lichte kleurzweem per soort erover
+    ctx.save(); for (const l of land) { if (l.kind === 'pillar') continue; path(l.poly); ctx.globalAlpha = green(l.kind) ? 0.85 : 0.75; ctx.fillStyle = green(l.kind) ? ARTPAT.grass : ARTPAT.concrete; ctx.fill(); if (green(l.kind)) { ctx.globalAlpha = 0.22; ctx.fillStyle = '#9fb08a'; ctx.fill(); } else if (!l.col) { ctx.globalAlpha = 0.28; ctx.fillStyle = KC[l.kind] || '#d9cfb8'; ctx.fill(); } } ctx.restore();
+  } else { ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = patLand; for (const l of land) { path(l.poly); ctx.fill(); } ctx.restore(); }
   // kade: lichte betonstrook met donkere kadelijn; groene oever: zandige rand
   for (const l of land) { if (l.kind === 'pillar') continue; const li = land.indexOf(l); ctx.save(); path(l.poly); ctx.clip();
     ctx.lineWidth = green(l.kind) ? 10 : (l.kind === 'island' ? 14 : 22); ctx.strokeStyle = green(l.kind) ? 'rgba(220,210,170,.8)' : 'rgba(236,236,230,.92)';
@@ -841,7 +864,14 @@ function drawLand(t) {
   // decor (alleen in beeld)
   for (const d of decor) {
     if (d.x < cam.x - 80 || d.x > cam.x + VW + 80 || d.y < cam.y - 80 || d.y > cam.y + VH + 80) continue;
-    if (d.type === 'tank') tank(d.x, d.y, d.r); else if (d.type === 'container') container(d.x, d.y, d.col, TH); else if (d.type === 'crane') crane(d.x, d.y, d.ang); else if (d.type === 'house') house(d.x, d.y, d.col, TH); else if (d.type === 'block') block(d.x, d.y, d.col, d.w, d.h, TH); else if (d.type === 'tower') tower(d.x, d.y, d.h, d.col); else if (d.type === 'stadium') stadium(d.x, d.y); else tree(d.x, d.y);
+    if (d.type === 'tank') { const im = art(d.r > 22 ? 'tank_l' : d.r > 18 ? 'tank_m' : 'tank_s'); if (im) { const w = d.r * 3; sprShadow(im, d.x, d.y, 0, w, 0, 5, 6); spr(im, d.x, d.y, 0, w); } else tank(d.x, d.y, d.r); }
+    else if (d.type === 'container') { const im = art('containers'); if (im) { const hsh = Math.abs(Math.round(d.x * 0.37 + d.y * 0.11)) % 3; const w = 30; sprShadow(im, d.x, d.y, TH + hsh * 0.02, w, 0, 4, 5); spr(im, d.x, d.y, TH + (hsh - 1) * 0.02, w); } else container(d.x, d.y, d.col, TH); }
+    else if (d.type === 'crane') { const im = art('crane'); if (im) { sprShadow(im, d.x, d.y, d.ang, 110, 0, 5, 6); spr(im, d.x, d.y, d.ang, 110, 0, 0.22, 0.5); } else crane(d.x, d.y, d.ang); }
+    else if (d.type === 'house') { const hs = Math.abs(Math.round(d.x * 0.53 + d.y * 0.29)) % 3; const im = art(['house_red', 'house_slate', 'house_orange'][hs]); if (im) { sprShadow(im, d.x, d.y, 0, 26, 0, 3, 4); spr(im, d.x, d.y, 0, 26); } else house(d.x, d.y, d.col, TH); }
+    else if (d.type === 'block') { const big = Math.max(d.w, d.h) > 24; const im = art(big ? 'warehouse' : 'office'); if (im) { const w = big ? 70 : 32; if (big) { sprShadow(im, d.x, d.y, TH, w, 0, 5, 6); spr(im, d.x, d.y, TH, w); } else { sprShadow(im, d.x, d.y, 0, w, 0, 4, 5); spr(im, d.x, d.y, 0, w); } } else block(d.x, d.y, d.col, d.w, d.h, TH); }
+    else if (d.type === 'tower') { const im = (d.col === '#c9c9c9' || d.col === '#bbb') ? art('chimney') : null; if (im) { const w = d.h * 0.42; sprShadow(im, d.x, d.y, 0, w, 0, d.h * 0.3, d.h * 0.2); spr(im, d.x, d.y, 0, w, 0, 0.5, 0.85); } else tower(d.x, d.y, d.h, d.col); }
+    else if (d.type === 'stadium') stadium(d.x, d.y);
+    else { const im = art(Math.abs(Math.round(d.x * 0.7 + d.y)) % 2 ? 'tree_a' : 'tree_b'); if (im) { sprShadow(im, d.x, d.y, 0, 20, 0, 4, 4); spr(im, d.x, d.y, 0, 20); } else tree(d.x, d.y); }
   }
   // bolders en fenders langs de kademuren
   for (const e of shore) { if (!vis(e) || land[e.li].kind === 'pillar' || green(land[e.li].kind)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y), tx = (e.q.x - e.p.x) / len, ty = (e.q.y - e.p.y) / len;
@@ -929,6 +959,9 @@ function drawShip(sh, t, active) {
     drawBowWave(w, h, k, t);
   }
   ctx.save(); ctx.translate(5, 7); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
+  const sim = w < 140 ? art('tug') : artTint('ship_sea', sh.col, 212);
+  if (sim) { spr(sim, 0, 0, 0, w + 6, w < 140 ? h * 1.15 : h * 1.3); ctx.fillStyle = active ? '#ffd54a' : '#fff'; ctx.font = (active ? 'bold 14px' : 'bold 12px') + ' system-ui'; ctx.textAlign = 'left'; ctx.fillText(sh.name + (active ? '  ◀ ' + tr('HIER') : ''), -w / 2 + 66, h / 2 + 22); ctx.restore();
+    if (sh.v) { const k = Math.min(1, Math.abs(sh.v) / 6); drawKelvin(sh.cx - Math.cos(sh.hdg) * w / 2, sh.cy - Math.sin(sh.hdg) * w / 2, sh.hdg, w * 0.8, k); } return; }
   ctx.fillStyle = sh.col; hull(); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.stroke();
   ctx.save(); hull(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3; hull(); ctx.stroke(); ctx.restore(); // lichte dekrand
   ctx.fillStyle = '#f7f1dc'; rrect(-w / 2 + 60, -h / 2 + 7, w - 120, h - 14, 4); ctx.fill();
@@ -1021,9 +1054,14 @@ function drawBoat(t) {
   if (b.bow !== 0) { const s = -b.bow; ctx.fillStyle = 'rgba(255,255,255,.75)'; for (let i = 0; i < 7; i++) { const ph = (t * 5 + i * 0.14) % 1; ctx.beginPath(); ctx.arc(L / 2 - 18 + Math.sin(i * 1.7) * 3, s * (Bw / 2 + 3 + ph * 26), 2 + ph * 4, 0, 7); ctx.fill(); } ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L / 2 - 18, s * Bw / 2); ctx.lineTo(L / 2 - 18, s * (Bw / 2 + 28)); ctx.stroke(); }
   ctx.save(); ctx.translate(3, 5); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
   ctx.save(); ctx.translate(-L / 2 + 2, 0); ctx.rotate(-b.rudder * RUD_MAX * Math.PI / 180); ctx.fillStyle = '#ff8a2a'; rrect(-16, -3.5, 16, 7, 3); ctx.fill(); ctx.strokeStyle = '#8a3d00'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+  const pim = art('ship_player');
+  if (pim) { spr(pim, 0, 0, 0, L + 4, Bw * 1.25); // sprite is iets breder getekend dan de romp (reling)
+    const fill = b.cargo / Math.max(1, b.target); if (fill > 0.02) { ctx.fillStyle = 'rgba(230,126,34,.55)'; for (let i = 0; i < 5; i++) { const x = -L / 2 + 44 + i * (L - 86) / 4; ctx.beginPath(); ctx.arc(x, 0, 4.5, 0, 7); ctx.fill(); } ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-L / 2 + 40, Bw / 2 + 4, L - 80, 3); ctx.fillStyle = '#f39c12'; ctx.fillRect(-L / 2 + 40, Bw / 2 + 4, (L - 80) * fill, 3); }
+    if (b.bow !== 0) { ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(L / 2 - 20, -Bw / 2, 3, Bw); } }
+  else {
   ctx.fillStyle = '#6b7680'; hull(); ctx.fill(); ctx.strokeStyle = '#2f3840'; ctx.lineWidth = 3.5; ctx.stroke(); // grijze romp
   ctx.save(); hull(); ctx.clip(); ctx.fillStyle = '#1f5fbf'; ctx.fillRect(-L / 2, -Bw / 2, L, 3); ctx.fillRect(-L / 2, Bw / 2 - 3, L, 3); ctx.restore(); // blauwe band
-  drawTankerBody(L, Bw, '#6b7680', b.cargo / Math.max(1, b.target), b.bow !== 0, { deck: '#9aa5ad', accTrim: '#f39c12', whTrim: '#f39c12', rail: '#f4f6f7' });
+  drawTankerBody(L, Bw, '#6b7680', b.cargo / Math.max(1, b.target), b.bow !== 0, { deck: '#9aa5ad', accTrim: '#f39c12', whTrim: '#f39c12', rail: '#f4f6f7' }); }
   ctx.restore();
 }
 function drawInstruments() {

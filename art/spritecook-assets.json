@@ -1,0 +1,28 @@
+{
+ "assets": [
+  {
+   "asset_id": "1a38bb31-a6ac-43ef-8975-b75b01d90c9d",
+   "label": "props1 (containers, crane, warehouse, chimney, bollard, fender)"
+  },
+  {
+   "asset_id": "b70165a7-ae5f-4ef6-a6d0-62ff7dda7851",
+   "label": "ships1"
+  },
+  {
+   "asset_id": "0c64eec2-2146-42d3-89e8-0eaee3fe35d6",
+   "label": "town1 (tanks, houses, trees, church, office, bollard, buoy)"
+  },
+  {
+   "asset_id": "ae0a1676-646d-485a-8bca-54dc02b24c7d",
+   "label": "water texture"
+  },
+  {
+   "asset_id": "30335b6d-96f5-4b6f-8b67-f1cf1e8e4119",
+   "label": "grass texture"
+  },
+  {
+   "asset_id": "4f14c259-192d-461d-bcbd-f68b64ae609d",
+   "label": "concrete texture"
+  }
+ ]
+}
