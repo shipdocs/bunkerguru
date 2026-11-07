@@ -221,6 +221,10 @@ function terminalTarget(tm, slot) {
     const to = { s: c.s, n: c.n + dn }; const an = to.n - sg * (RL + 60);
     return { to, approach: Math.abs(an) > RIVER_HALF + RL ? { s: c.s, n: an } : null };
   }
+  if (Math.abs(c.n) < RIVER_HALF) { // terminal langs de rivieroever: ligplekken naast elkaar langs de kade, aanlopen langs de oever
+    const len = tm.s1 - tm.s0, ds = slot === undefined || len < 4 * RL + 40 ? 0 : (slot - 0.5) * (2 * RL + 20);
+    const to = { s: c.s + ds, n: c.n }; return { to, approach: { s: to.s - (RL + 60), n: to.n } };
+  }
   const w = tm.s1 - tm.s0, ds = slot === undefined ? 0 : (slot - 0.5) * Math.min(48, w / 2); const bs = basinAt(c.s, c.n); let ts = c.s + ds; if (bs) ts = Math.max(bs.s0 + 55, Math.min(bs.s1 - 55, ts)); const to = { s: ts, n: c.n - sg * 30 }; return { to, approach: { s: to.s, n: to.n - sg * 100 } };
 }
 const RL = 110, RB = 11; // halve lengte en halve breedte in px: concurrenten zijn ook 110 × 11 m
