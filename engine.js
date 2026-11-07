@@ -495,7 +495,7 @@ const TELE = [
   { v: 0, n: 'stop' },
   { v: 0.15, n: 'zeer langzaam' }, { v: 0.3, n: 'langzaam' }, { v: 0.55, n: 'half' }, { v: 0.8, n: 'vol' }, { v: 1, n: 'vol vooruit' },
 ];
-function teleStep(d) { if (moored) { say(tr('⚓ Trossen zitten vast – eerst M = los'), 1.5); return; } const old = boat.teleIdx; boat.teleIdx = Math.max(0, Math.min(TELE.length - 1, boat.teleIdx + d)); boat.tele = TELE[boat.teleIdx].v; if (boat.teleIdx !== old) SND.hiss(); }
+function teleStep(d) { if (moored) { say(tr('⚓ Trossen zitten vast – eerst M = los'), 1.5); return; } const old = boat.teleIdx; boat.teleIdx = Math.max(0, Math.min(TELE.length - 1, boat.teleIdx + d)); boat.tele = TELE[boat.teleIdx].v; }
 addEventListener('keydown', e => {
   if (e.repeat) { if (e.key.startsWith('Arrow')) e.preventDefault(); return; }
   keys[e.key] = true;
@@ -597,7 +597,15 @@ function physics(dt) {
   let u = rvx * cos + rvy * sin, v = -rvx * sin + rvy * cos;
   const massK = 1 / (1 + 0.45 * (b.cargo / Math.max(1, b.target))); // geladen = trager optrekken en afstoppen
   // motor volgt de telegraaf traag (langzaamloper: toeren op- en afbouwen kost tijd), vermogen 'rpm' in plaats van de stand zelf
-  if (b.rpm === undefined) b.rpm = b.tele; { const rate = b.tele > b.rpm ? 0.07 : 0.12; b.rpm += Math.max(-rate * dt, Math.min(rate * dt, b.tele - b.rpm)); }
+  // omkeren = motor stoppen, startlucht, andere kant op aanzetten (geen keerkoppeling). Vanuit stop idem.
+  if (b.rpm === undefined) { b.rpm = b.tele; b.engDir = Math.sign(b.tele); b.startT = 0; }
+  { const want = Math.sign(b.tele);
+    if (b.startT > 0) { b.startT -= dt; } // startlucht: motor staat even stil
+    else if (want !== 0 && b.engDir !== want) { // andere richting gevraagd: eerst uitlopen naar nul, dan starten
+      if (Math.abs(b.rpm) > 0.01) b.rpm += Math.max(-0.14 * dt, Math.min(0.14 * dt, -b.rpm));
+      else { b.rpm = 0; b.engDir = want; b.startT = 3; SND.airStart(); }
+    } else { const rate = Math.abs(b.tele) > Math.abs(b.rpm) ? 0.07 : 0.12; b.rpm += Math.max(-rate * dt, Math.min(rate * dt, b.tele - b.rpm)); if (want === 0 && Math.abs(b.rpm) < 0.01) { b.rpm = 0; b.engDir = 0; } }
+  }
   const DYN = 0.4; // massatraagheid: stuwkracht én weerstand lager → zelfde topsnelheid, langzamer optrekken en uitlopen
   const maxThrust = up('motor') * massK * DYN, thrust = Math.sign(b.rpm) * Math.pow(Math.abs(b.rpm), 1.6) * maxThrust * (b.rpm < 0 ? 0.7 : 1); // niet-lineair: lage standen blijven traag, vol gas ~31 km/h
   const du = thrust - (0.08 * u * Math.abs(u) + 0.05 * u) * DYN;

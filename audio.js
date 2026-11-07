@@ -1,6 +1,6 @@
 // ---------- geluid (Web Audio, alles gegenereerd) ----------
 const SND = (() => {
-  let ac = null, master, engGain, engFilt, rumGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, bowGain, washGain, muted = false, musicOn = true, musicGain = null, musicTimer = null;
+  let ac = null, master, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, bowGain, washGain, muted = false, musicOn = true, musicGain = null, musicTimer = null;
   try { musicOn = localStorage.getItem('bunker_music') !== '0'; } catch (e) {}
   try { muted = localStorage.getItem('bunker_mute') === '1'; } catch (e) {}
   // volumes 0–100 per kanaal
@@ -16,9 +16,12 @@ const SND = (() => {
     master = ac.createGain(); master.gain.value = gMaster(); master.connect(ac.destination);
     sfx = ac.createGain(); sfx.gain.value = vol.sfx / 100; sfx.connect(master); radioBus = ac.createGain(); radioBus.gain.value = vol.radio / 100; radioBus.connect(master);
     // dieselmotor: twee zaagtanden, laagdoorlaat, lichte tremolo
-    engFilt = ac.createBiquadFilter(); engFilt.type = 'lowpass'; engFilt.frequency.value = 420; engGain = ac.createGain(); engGain.gain.value = 0;
-    engFilt.connect(engGain); engGain.connect(sfx);
-    const rum = loopNoise('lowpass', 90, 0.35); rum.g.connect(engFilt); rumGain = rum.g; // diepe uitlaatrommel onder de slagen
+    engFilt = ac.createBiquadFilter(); engFilt.type = 'lowpass'; engFilt.frequency.value = 900; engGain = ac.createGain(); engGain.gain.value = 0;
+    engBus = ac.createGain(); engBus.gain.value = 1; const shp = ac.createWaveShaper(); { const c = new Float32Array(512); for (let i = 0; i < 512; i++) { const x = (i / 256 - 1) * 1.6; c[i] = Math.tanh(x) * 0.9; } shp.curve = c; }
+    engBus.connect(shp); shp.connect(engFilt); engFilt.connect(engGain); engGain.connect(sfx);
+    const rum = loopNoise('lowpass', 70, 0.25); rum.g.connect(engBus); rumGain = rum.g; // diepe rommel onder de slagen
+    turboOsc = ac.createOscillator(); turboOsc.type = 'sine'; turboOsc2 = ac.createOscillator(); turboOsc2.type = 'sine'; turboGain = ac.createGain(); turboGain.gain.value = 0; const t2g = ac.createGain(); t2g.gain.value = 0.5;
+    turboOsc.connect(turboGain); turboOsc2.connect(t2g); t2g.connect(turboGain); turboGain.connect(sfx); turboOsc.start(); turboOsc2.start(); // turbofluit, alleen bovenin het toerenbereik, nauwelijks hoorbaar
     engTimer = setInterval(scheduleEngine, 50); engNext = ac.currentTime + 0.1;
     const b = loopNoise('bandpass', 900, 1.5); bowGain = b.g;
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
@@ -85,39 +88,45 @@ const SND = (() => {
     if (musicTimer) return; step = 0; pass = 0; nextT = ac.currentTime + 0.2; musicTimer = setInterval(schedule, 60);
   }
   function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
-  // ---------- motor: ouderwetse langzaamloper ----------
-  // één slag per cilinder-ontsteking: doffe dreun (sinus 48→34 Hz) + uitlaatpuf (laagdoorlaat-ruis); tempo loopt van ±100 (stationair) tot ±300 rpm (vol)
-  function thump(t0, strength) {
-    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(52, t0); o.frequency.exponentialRampToValueAtTime(34, t0 + 0.12);
-    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.9 * strength, t0 + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22); o.connect(g); g.connect(engFilt); o.start(t0); o.stop(t0 + 0.25);
-    const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260 + strength * 300; const ng = ac.createGain();
-    ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.35 * strength, t0 + 0.008); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.10); n.connect(f); f.connect(ng); ng.connect(engFilt); n.start(t0); n.stop(t0 + 0.12);
+  // ---------- motor: ouderwetse langzaamloper (1-cilinder-gevoel, 95–325 slagen/min) ----------
+  // per slag: diepe dreun (54→30 Hz) + metalige verbrandingsklop (zaagtand 85 Hz, laag gefilterd) + korte uitlaatstoot (bandruis) + klepstotertik
+  function thump(t0, st) {
+    const amp = 0.5 + 0.5 * st, out = engBus;
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(54, t0); o.frequency.exponentialRampToValueAtTime(30, t0 + 0.1);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.9 * amp, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32); o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.34);
+    const k = ac.createOscillator(), kf = ac.createBiquadFilter(), kg = ac.createGain(); k.type = 'sawtooth'; k.frequency.value = 85; kf.type = 'lowpass'; kf.frequency.value = 260 + st * 220;
+    kg.gain.setValueAtTime(0.0001, t0); kg.gain.exponentialRampToValueAtTime(0.55 * amp, t0 + 0.002); kg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15); k.connect(kf); kf.connect(kg); kg.connect(out); k.start(t0); k.stop(t0 + 0.16);
+    const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; const hi = 420 + st * 380; f.frequency.value = Math.sqrt(90 * hi); f.Q.value = 0.5; const ng = ac.createGain();
+    ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(1.1 * amp, t0 + 0.005); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2); n.connect(f); f.connect(ng); ng.connect(out); n.start(t0); n.stop(t0 + 0.22);
+    const tk = ac.createBufferSource(); tk.buffer = noiseBuf(); const tf = ac.createBiquadFilter(); tf.type = 'bandpass'; tf.frequency.value = 2100; tf.Q.value = 1.2; const tg = ac.createGain();
+    tg.gain.setValueAtTime(0.0001, t0); tg.gain.exponentialRampToValueAtTime(0.10 * amp, t0 + 0.001); tg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.03); tk.connect(tf); tf.connect(tg); tg.connect(out); tk.start(t0); tk.stop(t0 + 0.04);
   }
   function scheduleEngine() {
-    if (!ac || muted || !engOn) { engNext = ac ? ac.currentTime + 0.1 : 0; return; }
-    const rps = (100 + engRpm * 200) / 60; // slagen per seconde
-    while (engNext < ac.currentTime + 0.3) { thump(engNext, 0.55 + engRpm * 0.45 + (Math.random() - 0.5) * 0.12); engNext += (1 / rps) * (1 + (Math.random() - 0.5) * 0.06); }
+    if (!ac || muted || !engOn || engRpm < 0.02) { engNext = ac ? ac.currentTime + 0.1 : 0; return; }
+    const rps = (95 + engRpm * 230) / 60; // slagen per seconde
+    while (engNext < ac.currentTime + 0.3) { thump(engNext, Math.min(1, engRpm + (Math.random() - 0.5) * 0.1)); engNext += (1 / rps) * (1 + (Math.random() - 0.5) * (engRpm < 0.3 ? 0.12 : 0.04)); }
   }
-  // pneumatische besturing: kss-psss bij elke telegraafstand
-  function hiss() {
+  // startlucht: motor stopt, lange sis (psssh) en een plof van de klep; alleen bij aanzetten vanuit stop en bij omkeren
+  function airStart() {
     if (!ac || muted) return; const t0 = ac.currentTime + 0.02;
-    for (const [d, dur, vol, fq] of [[0, 0.16, 0.22, 3200], [0.2, 0.55, 0.14, 2400]]) { const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fq; f.Q.value = 0.7; const g = ac.createGain();
-      g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(vol, t0 + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + dur); n.connect(f); f.connect(g); g.connect(sfx); n.start(t0 + d); n.stop(t0 + d + dur + 0.05); }
-    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'square'; o.frequency.value = 1800; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.03, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.04); o.connect(g); g.connect(sfx); o.start(t0); o.stop(t0 + 0.05); // klik van de klep
+    const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 0.6; const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4); n.connect(f); f.connect(g); g.connect(sfx); n.start(t0); n.stop(t0 + 1.45);
+    const p = ac.createBufferSource(); p.buffer = noiseBuf(); const pf = ac.createBiquadFilter(); pf.type = 'bandpass'; pf.frequency.value = 600; pf.Q.value = 0.8; const pg = ac.createGain();
+    pg.gain.setValueAtTime(0.0001, t0 + 0.05); pg.gain.exponentialRampToValueAtTime(0.25, t0 + 0.06); pg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5); p.connect(pf); pf.connect(pg); pg.connect(sfx); p.start(t0 + 0.05); p.stop(t0 + 0.55);
   }
   function update(st) { // st: {tele, rpm (werkelijk motorvermogen 0..1), speed (m/s door water), bow, moored, running}
     if (!ac || muted) return; const now = ac.currentTime, on = st.running ? 1 : 0;
     const pw = Math.abs(st.rpm !== undefined ? st.rpm : st.tele); engRpm = pw; engOn = on;
-    engFilt.frequency.setTargetAtTime(300 + pw * 500, now, 0.4);
-    engGain.gain.setTargetAtTime(on * (0.16 + pw * 0.22), now, 0.3);
-    if (rumGain) rumGain.gain.setTargetAtTime(0.15 + pw * 0.3, now, 0.5);
+    engGain.gain.setTargetAtTime(on * (0.18 + pw * 0.2), now, 0.3);
+    if (rumGain) rumGain.gain.setTargetAtTime(0.25 + pw * 0.5, now, 0.5);
+    if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.011; turboGain.gain.setTargetAtTime(on * ta, now, 0.4); }
     bowGain.gain.setTargetAtTime(on * (st.bow ? 0.35 : 0), now, 0.15);
     washGain.gain.setTargetAtTime(on * Math.min(0.5, st.speed * 0.07), now, 0.4);
   }
   function tone(type, f0, f1, dur, vol, delay, out) { if (!ac || muted) return; const t0 = ac.currentTime + (delay || 0); const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(out || sfx); o.start(t0); o.stop(t0 + dur + 0.05); }
   function burst(freq, dur, vol, type, out) { if (!ac || muted) return; const s = ac.createBufferSource(); s.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq; const g = ac.createGain(), t0 = ac.currentTime; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(g); g.connect(out || sfx); s.start(); s.stop(t0 + dur + 0.05); }
   return {
-    init, update, hiss,
+    init, update, airStart,
     hit(power) { burst(300, 0.4 + power * 0.03, Math.min(1, 0.3 + power * 0.04)); tone('triangle', 90, 40, 0.35, Math.min(0.8, 0.2 + power * 0.03)); },
     horn() { if (!ac || muted) return; for (const f of [146.8, 185]) tone('sawtooth', f, f * 0.99, 1.1, 0.12); },
     horn5() { if (!ac || muted) return; for (let i = 0; i < 5; i++) for (const f of [220, 277]) tone('sawtooth', f, f, 0.18, 0.07, i * 0.3); }, // attentiesein: 5 korte stoten
