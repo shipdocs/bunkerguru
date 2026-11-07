@@ -698,10 +698,15 @@ function makeWaveTile(size, n, alpha, lw) {
   return c;
 }
 const tileA = makeWaveTile(256, 34, 0.45, 3), tileB = makeWaveTile(192, 26, 0.22, 2);
-const patA = ctx.createPattern(tileA, 'repeat'), patB = ctx.createPattern(tileB, 'repeat');
-function waveLayer(pat, ox, oy, clipPoly, invert) {
+const tileRA = makeWaveTile(256, 30, 0.30, 2.5), tileRB = makeWaveTile(192, 22, 0.15, 2); // rivier: iets rustiger
+const patA = ctx.createPattern(tileA, 'repeat'), patB = ctx.createPattern(tileB, 'repeat'), patRA = ctx.createPattern(tileRA, 'repeat'), patRB = ctx.createPattern(tileRB, 'repeat');
+function waveLayer(pat, ox, oy, clipPoly, invert, rot) {
   ctx.save(); ctx.beginPath(); ctx.rect(cam.x, cam.y, VW, VH);
   if (clipPoly) { if (invert) { sub(clipPoly); ctx.clip('evenodd'); } else { ctx.clip(); path(clipPoly); ctx.clip(); } } else ctx.clip();
+  if (rot !== undefined) { // patroon in het rivierassenstelsel: kammen dwars op de stroom, verschuiving (ox) langs de rivier
+    ctx.rotate(rot); ctx.translate(ox, oy); const cx = cam.x + VW / 2, cy = cam.y + VH / 2, c = Math.cos(rot), sn = Math.sin(rot);
+    const px = cx * c + cy * sn - ox, py = -cx * sn + cy * c - oy, R = Math.hypot(VW, VH) / 2 + 300; ctx.fillStyle = pat; ctx.fillRect(px - R, py - R, 2 * R, 2 * R); ctx.restore(); return;
+  }
   ctx.translate(ox, oy); ctx.fillStyle = pat; ctx.fillRect(cam.x - ox - 400, cam.y - oy - 400, VW + 800, VH + 800); ctx.restore();
 }
 // voorgerenderde ondiepgloed (wereldgrootte)
@@ -720,8 +725,10 @@ function drawWater(tReal) {
   // haven: langzaam; rivier: mee met stroom (richting zee)
   waveLayer(patA, (t * 10) % 256, Math.sin(t * 0.5) * 4, riverPoly, true);
   waveLayer(patB, (-t * 6) % 192, Math.cos(t * 0.4) * 3, riverPoly, true);
-  waveLayer(patA, wrap(t * flow * dirSea.x, 256), wrap(t * flow * dirSea.y, 256) + Math.sin(t * 0.7) * 3, riverPoly, false);
-  waveLayer(patB, wrap(t * flow * 0.6 * dirSea.x, 192), wrap(t * flow * 0.6 * dirSea.y, 192), riverPoly, false);
+  // rivier: patroon gedraaid met de rivier (kammen dwars), schuift langs de rivieras mee met de stroom (eb = naar zee = -s)
+  const RW = TH + Math.PI / 2; // tile-x ligt dan langs n, tile-y langs -s
+  waveLayer(patRA, Math.sin(t * 0.7) * 3, wrap(t * flow, 256), riverPoly, false, RW);
+  waveLayer(patRB, 0, wrap(t * flow * 0.6, 192), riverPoly, false, RW);
   // glinsters
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 400; i++) { const x = (i * 97.3) % W, y = (i * 61.7 + 30) % H; if (x < cam.x || x > cam.x + VW || y < cam.y || y > cam.y + VH) continue; const tw = Math.sin(t * 3 + i * 1.3) * 0.5 + 0.5; if (tw < 0.75) continue; ctx.globalAlpha = (tw - 0.75) * 3.2; ctx.fillRect(x, y, 6 + tw * 6, 2); }
