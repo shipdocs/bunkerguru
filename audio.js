@@ -1,6 +1,6 @@
 // ---------- geluid (Web Audio, alles gegenereerd) ----------
 const SND = (() => {
-  let ac = null, master, engOsc, engOsc2, engGain, engFilt, bowGain, washGain, muted = false, musicOn = true, musicGain = null, musicTimer = null;
+  let ac = null, master, engGain, engFilt, rumGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, bowGain, washGain, muted = false, musicOn = true, musicGain = null, musicTimer = null;
   try { musicOn = localStorage.getItem('bunker_music') !== '0'; } catch (e) {}
   try { muted = localStorage.getItem('bunker_mute') === '1'; } catch (e) {}
   // volumes 0–100 per kanaal
@@ -16,10 +16,10 @@ const SND = (() => {
     master = ac.createGain(); master.gain.value = gMaster(); master.connect(ac.destination);
     sfx = ac.createGain(); sfx.gain.value = vol.sfx / 100; sfx.connect(master); radioBus = ac.createGain(); radioBus.gain.value = vol.radio / 100; radioBus.connect(master);
     // dieselmotor: twee zaagtanden, laagdoorlaat, lichte tremolo
-    engFilt = ac.createBiquadFilter(); engFilt.type = 'lowpass'; engFilt.frequency.value = 220; engGain = ac.createGain(); engGain.gain.value = 0;
-    engOsc = ac.createOscillator(); engOsc.type = 'sawtooth'; engOsc2 = ac.createOscillator(); engOsc2.type = 'square';
-    const lfo = ac.createOscillator(), lfoG = ac.createGain(); lfo.frequency.value = 9; lfoG.gain.value = 0.12; lfo.connect(lfoG); lfoG.connect(engGain.gain); lfo.start();
-    engOsc.connect(engFilt); engOsc2.connect(engFilt); engFilt.connect(engGain); engGain.connect(sfx); engOsc.start(); engOsc2.start();
+    engFilt = ac.createBiquadFilter(); engFilt.type = 'lowpass'; engFilt.frequency.value = 420; engGain = ac.createGain(); engGain.gain.value = 0;
+    engFilt.connect(engGain); engGain.connect(sfx);
+    const rum = loopNoise('lowpass', 90, 0.35); rum.g.connect(engFilt); rumGain = rum.g; // diepe uitlaatrommel onder de slagen
+    engTimer = setInterval(scheduleEngine, 50); engNext = ac.currentTime + 0.1;
     const b = loopNoise('bandpass', 900, 1.5); bowGain = b.g;
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
     musicGain = ac.createGain(); musicGain.gain.value = gMusic(); musicGain.connect(master);
@@ -85,19 +85,39 @@ const SND = (() => {
     if (musicTimer) return; step = 0; pass = 0; nextT = ac.currentTime + 0.2; musicTimer = setInterval(schedule, 60);
   }
   function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
-  function update(st) { // st: {tele, speed (m/s door water), bow, moored, running}
+  // ---------- motor: ouderwetse langzaamloper ----------
+  // één slag per cilinder-ontsteking: doffe dreun (sinus 48→34 Hz) + uitlaatpuf (laagdoorlaat-ruis); tempo loopt van ±100 (stationair) tot ±300 rpm (vol)
+  function thump(t0, strength) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(52, t0); o.frequency.exponentialRampToValueAtTime(34, t0 + 0.12);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.9 * strength, t0 + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22); o.connect(g); g.connect(engFilt); o.start(t0); o.stop(t0 + 0.25);
+    const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260 + strength * 300; const ng = ac.createGain();
+    ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.35 * strength, t0 + 0.008); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.10); n.connect(f); f.connect(ng); ng.connect(engFilt); n.start(t0); n.stop(t0 + 0.12);
+  }
+  function scheduleEngine() {
+    if (!ac || muted || !engOn) { engNext = ac ? ac.currentTime + 0.1 : 0; return; }
+    const rps = (100 + engRpm * 200) / 60; // slagen per seconde
+    while (engNext < ac.currentTime + 0.3) { thump(engNext, 0.55 + engRpm * 0.45 + (Math.random() - 0.5) * 0.12); engNext += (1 / rps) * (1 + (Math.random() - 0.5) * 0.06); }
+  }
+  // pneumatische besturing: kss-psss bij elke telegraafstand
+  function hiss() {
+    if (!ac || muted) return; const t0 = ac.currentTime + 0.02;
+    for (const [d, dur, vol, fq] of [[0, 0.16, 0.22, 3200], [0.2, 0.55, 0.14, 2400]]) { const n = ac.createBufferSource(); n.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fq; f.Q.value = 0.7; const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(vol, t0 + d + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + dur); n.connect(f); f.connect(g); g.connect(sfx); n.start(t0 + d); n.stop(t0 + d + dur + 0.05); }
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'square'; o.frequency.value = 1800; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.03, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.04); o.connect(g); g.connect(sfx); o.start(t0); o.stop(t0 + 0.05); // klik van de klep
+  }
+  function update(st) { // st: {tele, rpm (werkelijk motorvermogen 0..1), speed (m/s door water), bow, moored, running}
     if (!ac || muted) return; const now = ac.currentTime, on = st.running ? 1 : 0;
-    const rpm = 0.35 + Math.abs(st.tele) * 0.65;
-    engOsc.frequency.setTargetAtTime(38 + rpm * 34, now, 0.4); engOsc2.frequency.setTargetAtTime(19 + rpm * 17, now, 0.4);
-    engFilt.frequency.setTargetAtTime(160 + rpm * 260, now, 0.4);
-    engGain.gain.setTargetAtTime(on * (0.10 + Math.abs(st.tele) * 0.16), now, 0.3);
+    const pw = Math.abs(st.rpm !== undefined ? st.rpm : st.tele); engRpm = pw; engOn = on;
+    engFilt.frequency.setTargetAtTime(300 + pw * 500, now, 0.4);
+    engGain.gain.setTargetAtTime(on * (0.16 + pw * 0.22), now, 0.3);
+    if (rumGain) rumGain.gain.setTargetAtTime(0.15 + pw * 0.3, now, 0.5);
     bowGain.gain.setTargetAtTime(on * (st.bow ? 0.35 : 0), now, 0.15);
     washGain.gain.setTargetAtTime(on * Math.min(0.5, st.speed * 0.07), now, 0.4);
   }
   function tone(type, f0, f1, dur, vol, delay, out) { if (!ac || muted) return; const t0 = ac.currentTime + (delay || 0); const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(out || sfx); o.start(t0); o.stop(t0 + dur + 0.05); }
   function burst(freq, dur, vol, type, out) { if (!ac || muted) return; const s = ac.createBufferSource(); s.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq; const g = ac.createGain(), t0 = ac.currentTime; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(g); g.connect(out || sfx); s.start(); s.stop(t0 + dur + 0.05); }
   return {
-    init, update,
+    init, update, hiss,
     hit(power) { burst(300, 0.4 + power * 0.03, Math.min(1, 0.3 + power * 0.04)); tone('triangle', 90, 40, 0.35, Math.min(0.8, 0.2 + power * 0.03)); },
     horn() { if (!ac || muted) return; for (const f of [146.8, 185]) tone('sawtooth', f, f * 0.99, 1.1, 0.12); },
     horn5() { if (!ac || muted) return; for (let i = 0; i < 5; i++) for (const f of [220, 277]) tone('sawtooth', f, f, 0.18, 0.07, i * 0.3); }, // attentiesein: 5 korte stoten

@@ -495,7 +495,7 @@ const TELE = [
   { v: 0, n: 'stop' },
   { v: 0.15, n: 'zeer langzaam' }, { v: 0.3, n: 'langzaam' }, { v: 0.55, n: 'half' }, { v: 0.8, n: 'vol' }, { v: 1, n: 'vol vooruit' },
 ];
-function teleStep(d) { if (moored) { say(tr('⚓ Trossen zitten vast – eerst M = los'), 1.5); return; } boat.teleIdx = Math.max(0, Math.min(TELE.length - 1, boat.teleIdx + d)); boat.tele = TELE[boat.teleIdx].v; }
+function teleStep(d) { if (moored) { say(tr('⚓ Trossen zitten vast – eerst M = los'), 1.5); return; } const old = boat.teleIdx; boat.teleIdx = Math.max(0, Math.min(TELE.length - 1, boat.teleIdx + d)); boat.tele = TELE[boat.teleIdx].v; if (boat.teleIdx !== old) SND.hiss(); }
 addEventListener('keydown', e => {
   if (e.repeat) { if (e.key.startsWith('Arrow')) e.preventDefault(); return; }
   keys[e.key] = true;
@@ -596,10 +596,13 @@ function physics(dt) {
   const rvx = b.vx - c.vx, rvy = b.vy - c.vy;
   let u = rvx * cos + rvy * sin, v = -rvx * sin + rvy * cos;
   const massK = 1 / (1 + 0.45 * (b.cargo / Math.max(1, b.target))); // geladen = trager optrekken en afstoppen
-  const maxThrust = up('motor') * massK, thrust = Math.sign(b.tele) * Math.pow(Math.abs(b.tele), 1.6) * maxThrust * (b.tele < 0 ? 0.7 : 1); // niet-lineair: lage standen blijven traag, vol gas ~31 km/h
-  const du = thrust - 0.08 * u * Math.abs(u) - 0.05 * u;
+  // motor volgt de telegraaf traag (langzaamloper: toeren op- en afbouwen kost tijd), vermogen 'rpm' in plaats van de stand zelf
+  if (b.rpm === undefined) b.rpm = b.tele; { const rate = b.tele > b.rpm ? 0.07 : 0.12; b.rpm += Math.max(-rate * dt, Math.min(rate * dt, b.tele - b.rpm)); }
+  const DYN = 0.4; // massatraagheid: stuwkracht én weerstand lager → zelfde topsnelheid, langzamer optrekken en uitlopen
+  const maxThrust = up('motor') * massK * DYN, thrust = Math.sign(b.rpm) * Math.pow(Math.abs(b.rpm), 1.6) * maxThrust * (b.rpm < 0 ? 0.7 : 1); // niet-lineair: lage standen blijven traag, vol gas ~31 km/h
+  const du = thrust - (0.08 * u * Math.abs(u) + 0.05 * u) * DYN;
   const dv = -1.2 * v * Math.abs(v) - 0.9 * v;
-  const flow = Math.max(-4, Math.min(6, u + (b.tele > 0 ? b.tele * 2.0 : 0))); // plafond: geen tolboot op volle vaart
+  const flow = Math.max(-4, Math.min(6, u + (b.rpm > 0 ? b.rpm * 2.0 : 0))); // plafond: geen tolboot op volle vaart
   // roer tot 60°: roerkracht ~ sin(hoek), genormeerd zodat 35° gelijk blijft aan vroeger; bij grote hoeken extra weerstand (vaartverlies)
   const rudDeg = b.rudder * RUD_MAX, rudEff = Math.sin(rudDeg * Math.PI / 180) / Math.sin(35 * Math.PI / 180), rudDrag = Math.pow(Math.abs(b.rudder), 2) * 0.35;
   const rudForce = rudEff * flow * Math.abs(flow) * 0.09;
@@ -1208,7 +1211,7 @@ function frame(now) {
   ctx.restore();
   VW = SVW; VH = SVH;
   if (running && !paused) RADIO.tick(now / 1000, radioChatter, lang);
-  { const c0 = currentAt(boat.x, boat.y); SND.update({ tele: boat.tele, speed: Math.hypot(boat.vx - c0.vx, boat.vy - c0.vy), bow: boat.bow, running: running && !paused && state.phase !== 'sunk' }); }
+  { const c0 = currentAt(boat.x, boat.y); SND.update({ tele: boat.tele, rpm: boat.rpm || 0, speed: Math.hypot(boat.vx - c0.vx, boat.vy - c0.vy), bow: boat.bow, running: running && !paused && state.phase !== 'sunk' }); }
   if (hitFlash > 0) { ctx.fillStyle = `rgba(255,40,40,${hitFlash * 0.9})`; ctx.fillRect(0, 0, VW, VH); hitFlash -= dt; }
   drawInstruments(); if (!mapBig) drawMinimap(); drawDockHelper(); if (mapBig) drawMinimap(); drawHUD();
   requestAnimationFrame(frame);
