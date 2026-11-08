@@ -34,7 +34,7 @@ const EN = {
   'Koers {0}° {1}': 'Heading {0}° {1}', '→ draai BB': '→ turn to port', '→ draai SB': '→ turn to starboard', 'Vaart {0} km/h {1}': 'Speed {0} km/h {1}', '✓  →  M = vast': '✓  →  M = moor', '→ afremmen': '→ slow down',
   'ROER': 'RUDDER', 'TELEGRAAF': 'TELEGRAPH', 'BB ': 'PT ', 'SB ': 'SB ',
   '⚓ AFGEMEERD (M = los)': '⚓ MOORED (M = cast off)', '⏩ SNELVAART 2×': '⏩ FAST FORWARD 2×',
-  'Goud': 'Gold', 'I = hulp': 'I = help', 'Wind is gaan liggen': 'Wind has dropped', ' · ⚠ schade: lekkage onderweg, repareer op de werf': ' · ⚠ damage: leaking underway, repair at the yard', '⚠️ Lekkage! Lading loopt weg – minder schade = minder verlies. Werf: W op de minimap': '⚠️ Leak! Cargo is running out – less damage = less loss. Yard: W on the minimap', '⚠️ Maar {0} t afgeleverd door lekkage': '⚠️ Only {0} t delivered due to leakage', '🔧 Gerepareerd. M = los': '🔧 Repaired. M = cast off', '🔧 Werf repareert… schade {0} (3 🪙/pt)': '🔧 Yard repairing… damage {0} (3 🪙/pt)', '🔧 Werf: geen goud voor reparatie': '🔧 Yard: no gold for repairs', '🔴 {0} dicht · C = oproepen': '🔴 {0} closed · C = call', 'SPOED': 'URGENT', 'GETIJ': 'TIDE', 'LANG': 'LONG', 'KORT': 'SHORT', 'vaste klant': 'regular client', 'laden bij': 'load at', 'reputatie': 'reputation', '+25% op tijd': '+25% if on time', 'vóór HW {0}': 'before HW {0}', 'ETA {0}': 'ETA {0}', '🌊 vóór HW {0}': '🌊 before HW {0}', '⏱ ETA {0}': '⏱ ETA {0}', 'nog {0} min': '{0} min left', '{0} min te laat': '{0} min late', 'Opdrachtenbeurs': 'Job board', 'Kies met 1 / 2 / 3 of tik. Wat jij laat liggen, pakken de concurrenten.': 'Choose with 1 / 2 / 3 or tap. Whatever you leave, the rivals take.', 'Dagdoel': 'Daily goal', '{0} klussen op tijd en schadevrij': '{0} jobs on time and damage-free', 'Ranglijst': 'Leaderboard', 'nog geen scores': 'no scores yet', '📋 Kies een opdracht (1 / 2 / 3)': '📋 Choose a job (1 / 2 / 3)', '✅ Klus klaar! Opdrachtenbeurs over {0} s (N = nu)': '✅ Job done! Job board in {0} s (N = now)', '🏆 Dagdoel gehaald: +300 goud!': '🏆 Daily goal reached: +300 gold!', ' +{0} op tijd': ' +{0} on time', ' (te laat: korting)': ' (late: reduced)', '✅ Klaar!{0} 🪙 +{1} vracht{2}{3} = {4} goud{5}. B = winkel': '✅ Done!{0} 🪙 +{1} freight{2}{3} = {4} gold{5}. B = shop', 'Opdracht {0}: {1} t voor {2} ({3}). Laden bij {4}. {5}': 'Job {0}: {1} t for {2} ({3}). Load at {4}. {5}', 'ROER KLEMT': 'RUDDER JAMMED', 'WIND': 'WIND', '💥 Drijvende container geraakt': '💥 Hit the drifting container', 'klussen': 'jobs', 'Opdracht': 'Job', 'Totaal': 'Total', 'Vaart': 'Speed', 'Koers': 'Heading', 'Telegraaf': 'Telegraph', 'Roer': 'Rudder', 'Stroom': 'Current', 'Lading': 'Cargo', 'Schade': 'Damage', 'Tijd': 'Time', 'Beste score': 'Best score',
+  'Goud': 'Gold', 'I = hulp': 'I = help', 'Wind is gaan liggen': 'Wind has dropped', 'Nu even niet (Esc) · N = beurs openen': 'Not now (Esc) · N = open board', 'Planning': 'Schedule', 'Kies met 1 / 2 / 3… of tik. Klussen vervallen op hun tijd; de concurrenten pakken er af en toe een.': 'Choose with 1 / 2 / 3… or tap. Jobs expire at their time; the rivals take one now and then.', 'Nu even niet (Esc) · N = planning': 'Not now (Esc) · N = schedule', 'Vrij varen. N = planning, M = vast aan een wachtplaats': 'Free sailing. N = schedule, M = moor at a waiting berth', '🧭 Vrij varen · N = planning': '🧭 Free sailing · N = schedule', ' · ⚠ schade: lekkage onderweg, repareer op de werf': ' · ⚠ damage: leaking underway, repair at the yard', '⚠️ Lekkage! Lading loopt weg – minder schade = minder verlies. Werf: W op de minimap': '⚠️ Leak! Cargo is running out – less damage = less loss. Yard: W on the minimap', '⚠️ Maar {0} t afgeleverd door lekkage': '⚠️ Only {0} t delivered due to leakage', '🔧 Gerepareerd. M = los': '🔧 Repaired. M = cast off', '🔧 Werf repareert… schade {0} (3 🪙/pt)': '🔧 Yard repairing… damage {0} (3 🪙/pt)', '🔧 Werf: geen goud voor reparatie': '🔧 Yard: no gold for repairs', '🔴 {0} dicht · C = oproepen': '🔴 {0} closed · C = call', 'SPOED': 'URGENT', 'GETIJ': 'TIDE', 'LANG': 'LONG', 'KORT': 'SHORT', 'vaste klant': 'regular client', 'laden bij': 'load at', 'reputatie': 'reputation', '+25% op tijd': '+25% if on time', 'vóór HW {0}': 'before HW {0}', 'ETA {0}': 'ETA {0}', '🌊 vóór HW {0}': '🌊 before HW {0}', '⏱ ETA {0}': '⏱ ETA {0}', 'nog {0} min': '{0} min left', '{0} min te laat': '{0} min late', 'Opdrachtenbeurs': 'Job board', 'Kies met 1 / 2 / 3 of tik. Wat jij laat liggen, pakken de concurrenten.': 'Choose with 1 / 2 / 3 or tap. Whatever you leave, the rivals take.', 'Dagdoel': 'Daily goal', '{0} klussen op tijd en schadevrij': '{0} jobs on time and damage-free', 'Ranglijst': 'Leaderboard', 'nog geen scores': 'no scores yet', '📋 Kies een opdracht (1 / 2 / 3)': '📋 Choose a job (1 / 2 / 3)', '✅ Klus klaar! Opdrachtenbeurs over {0} s (N = nu)': '✅ Job done! Job board in {0} s (N = now)', '🏆 Dagdoel gehaald: +300 goud!': '🏆 Daily goal reached: +300 gold!', ' +{0} op tijd': ' +{0} on time', ' (te laat: korting)': ' (late: reduced)', '✅ Klaar!{0} 🪙 +{1} vracht{2}{3} = {4} goud{5}. B = winkel': '✅ Done!{0} 🪙 +{1} freight{2}{3} = {4} gold{5}. B = shop', 'Opdracht {0}: {1} t voor {2} ({3}). Laden bij {4}. {5}': 'Job {0}: {1} t for {2} ({3}). Load at {4}. {5}', 'ROER KLEMT': 'RUDDER JAMMED', 'WIND': 'WIND', '💥 Drijvende container geraakt': '💥 Hit the drifting container', 'klussen': 'jobs', 'Opdracht': 'Job', 'Totaal': 'Total', 'Vaart': 'Speed', 'Koers': 'Heading', 'Telegraaf': 'Telegraph', 'Roer': 'Rudder', 'Stroom': 'Current', 'Lading': 'Cargo', 'Schade': 'Damage', 'Tijd': 'Time', 'Beste score': 'Best score',
   'midscheeps': 'amidships', 'bakboord ': 'port ', 'stuurboord ': 'starboard ',
   'vol achteruit': 'full astern', 'half achteruit': 'half astern', 'langzaam achteruit': 'slow astern', 'stop': 'stop', 'zeer langzaam': 'dead slow', 'langzaam': 'slow', 'half': 'half', 'vol': 'full', 'vol vooruit': 'full ahead',
   'NIEUWE WATERWEG · getijdenrivier': 'NIEUWE WATERWEG · tidal river',
@@ -208,22 +208,34 @@ let offers = [], offer = null, boardOpen = false, day = { jobs: 0, onTime: 0, cl
 function estTime(tm, b) { // ruwe reistijd in sim-s: boot → terminal → ligplaats, laden, bunkeren
   const q = w2sn(boat.x, boat.y), t = termCenter(tm), c = { s: b.axis === 's' ? (b.a0 + b.a1) / 2 : b.c, n: b.axis === 's' ? b.c : (b.a0 + b.a1) / 2 };
   const d = (Math.hypot(t.s - q.s, t.n - q.n) + Math.hypot(c.s - t.s, c.n - t.n)) * 1.3 / SCALE; return d / 5.5 + 60 + up('pomp') + 45; }
-function makeOffers() {
-  const pool = berths.filter(b => b !== ship || berths.length < 3); const picks = [];
-  while (picks.length < Math.min(3, pool.length)) { const b = pool[Math.floor(Math.random() * pool.length)]; if (!picks.includes(b)) picks.push(b); }
-  const kinds = MAP.tide ? ['kort', 'getij', 'spoed'] : ['kort', 'lang', 'spoed'];
-  offers = picks.map((b, i) => { const tm = terminals[Math.floor(Math.random() * terminals.length)], target = pickTarget(), kind = kinds[i], client = clientOf(b), est = estTime(tm, b);
-    let deadline, mult; if (kind === 'kort') { deadline = tideT + est * 1.7; mult = 1; } else if (kind === 'lang') { deadline = tideT + est * 2.2; mult = 1.25; } else if (kind === 'spoed') { deadline = tideT + est * 1.15; mult = 1.6; }
-    else { deadline = nextHW(tideT + est * 1.05); mult = 1.35; }
-    const pay = Math.round(target * 0.6 * mult * (b.gate ? 1.3 : 1) * tariff(client)); return { ship: b, terminal: tm, target, kind, client, deadline: b.gate ? deadline + 120 : deadline, est, pay, vip: repOf(client) >= 75 }; });
+function newOffer(kind) { // één klus voor de planning
+  const pool = berths.filter(b => b !== ship && !offers.some(o => o.ship === b)); if (!pool.length) return null;
+  const b = pool[Math.floor(Math.random() * pool.length)], tm = terminals[Math.floor(Math.random() * terminals.length)], target = pickTarget(), client = clientOf(b), est = estTime(tm, b);
+  // starttijd verspreid over de komende uren: de planning is een rooster, geen stapel
+  const slot = tideT + est * (0.9 + Math.random() * 2.2);
+  let deadline, mult; if (kind === 'kort') { deadline = slot + est * 0.8; mult = 1; } else if (kind === 'lang') { deadline = slot + est * 1.3; mult = 1.25; } else if (kind === 'spoed') { deadline = tideT + est * 1.15; mult = 1.6; } else { deadline = nextHW(slot); mult = 1.35; }
+  const pay = Math.round(target * 0.6 * mult * (b.gate ? 1.3 : 1) * tariff(client));
+  return { ship: b, terminal: tm, target, kind, client, deadline: b.gate ? deadline + 120 : deadline, est, pay, vip: repOf(client) >= 75, id: Math.random() };
 }
+function planTick() { // vervallen klussen eruit, aanvullen tot zes, op tijd sorteren
+  offers = offers.filter(o => o !== offer && o.deadline - tideT > -30 && !o.taken);
+  const kinds = MAP.tide ? ['kort', 'getij', 'spoed', 'kort', 'lang', 'getij'] : ['kort', 'lang', 'spoed', 'kort', 'lang', 'kort'];
+  let guard = 0; while (offers.length < 6 && guard++ < 20) { const k = kinds[offers.length % kinds.length]; if (k === 'spoed' && offers.some(o => o.kind === 'spoed')) { const o = newOffer('kort'); if (o) offers.push(o); continue; } const o = newOffer(k); if (o) offers.push(o); else break; }
+  offers.sort((a, b) => a.deadline - b.deadline);
+}
+function makeOffers() { planTick(); }
 function acceptOffer(i) {
   const o = offers[i]; if (!o) return; offer = o; closeBoard(); state.boardShown = false;
   routeCache = null; mission = berths.indexOf(o.ship); ship = o.ship; dock = ship.dock; terminal = o.terminal; boat.target = o.target; boat.cargo = 0;
   state.phase = 'load'; state.holdT = 0; state.bunkerT = 0; state.elapsed = 0; score = 0; state.inZone = false; state.doneT = 0; state.slowWas = true; state.vtsDone = false; state.leakWarned = false; state.deliver = 0;
   say(tf('Opdracht {0}: {1} t voor {2} ({3}). Laden bij {4}. {5}', missionCount + 1, boat.target, ship.name, tr(ship.where), terminal.name, deadlineText()), 8);
-  // concurrenten pakken wat jij laat liggen
-  offers.forEach((x, j) => { if (j === i || x.ship.gate) return; const idle = rivals.filter(r => r.mode === 'idle'); if (idle.length) { const r = idle[Math.floor(Math.random() * idle.length)], m = MAP; setTimeout(() => { if (running && MAP === m && r.mode === 'idle') rivalStartJob(r, x.ship, false); }, 2000 + Math.random() * 5000); } });
+  offers = offers.filter(x => x !== o); rivalsTakeOne();
+}
+function rivalsTakeOne() { // concurrenten pakken af en toe een klus uit de planning
+  const cands = offers.filter(x => !x.ship.gate && !x.taken); if (!cands.length || Math.random() < 0.35) return;
+  const idle = rivals.filter(r => r.mode === 'idle'); if (!idle.length) return; const x = cands[Math.floor(Math.random() * cands.length)], r = idle[Math.floor(Math.random() * idle.length)], m = MAP;
+  x.taken = r.name || 'concurrent'; setTimeout(() => { if (running && MAP === m && r.mode === 'idle') rivalStartJob(r, x.ship, false); }, 2000 + Math.random() * 5000);
+  setTimeout(() => { offers = offers.filter(y => y !== x); }, 20000);
 }
 function deadlineText() { if (!offer || !offer.deadline) return ''; const left = offer.deadline - tideT; const at = clockStr(clock + left * CLOCK_RATE); return offer.kind === 'getij' ? tf('🌊 vóór HW {0}', at) : tf('⏱ ETA {0}', at); }
 function timeLeftText() { if (!offer || !offer.deadline) return ''; const left = offer.deadline - tideT; const m = Math.ceil(Math.abs(left) / 60 * CLOCK_RATE); return left >= 0 ? tf('nog {0} min', m) : `<span style="color:#ff6b6b">${tf('{0} min te laat', m)}</span>`; }
@@ -234,15 +246,17 @@ let sessionId = Date.now();
 function updateRank() { if (MAP.id === 'training') return; let r = readRank().filter(e => e.id !== sessionId); r.push({ id: sessionId, score: totalScore, jobs: day.jobs, date: new Date().toISOString().slice(0, 10) }); r.sort((a, b) => b.score - a.score); r = r.slice(0, 5); try { localStorage.setItem(rankKey(), JSON.stringify(r)); } catch (e) {} }
 const DAYGOAL = { jobs: 3, clean: true };
 function showBoard() {
-  if (MAP.id === 'training') return; makeOffers(); boardOpen = true; const el = document.getElementById('board'); el.style.display = 'flex';
-  const en = lang === 'en'; const rows = offers.map((o, i) => { const left = o.deadline - tideT, at = clockStr(clock + left * CLOCK_RATE), mins = Math.round(left / 60 * CLOCK_RATE);
-    return `<div class="offer" data-i="${i}"><div class="offer-k">${i + 1}</div><div class="offer-body"><b>${o.target} t → ${o.ship.name}</b> <span class="tag">${kindLabel(o.kind)}</span>${o.ship.gate ? ' <span class="tag" style="background:#9ad">🔒 ' + o.ship.gate + '</span>' : ''}${o.vip ? ' <span class="tag vip">★ ' + tr('vaste klant') + '</span>' : ''}<br><span class="dim">${tr(o.ship.where)} · ${tr('laden bij')} ${o.terminal.name}</span><br>${o.client} · ${tr('reputatie')} ${Math.round(repOf(o.client))}<br><b>🪙 ${o.pay}</b> ${tr('+25% op tijd')} · ${o.kind === 'getij' ? tf('vóór HW {0}', at) : tf('ETA {0}', at)} <span class="dim">(${mins} min)</span></div></div>`; }).join('');
+  if (MAP.id === 'training') return; planTick(); boardOpen = true; const el = document.getElementById('board'); el.style.display = mapBig ? 'none' : 'flex';
+  const en = lang === 'en'; let idx = 0;
+  const rows = offers.map(o => { const left = o.deadline - tideT, at = clockStr(clock + left * CLOCK_RATE), mins = Math.round(left / 60 * CLOCK_RATE), k = o.taken ? '' : ++idx;
+    return `<div class="offer${o.taken ? ' taken' : ''}" data-i="${o.taken ? -1 : k - 1}"><div class="offer-k">${o.taken ? '🚫' : k}</div><div class="offer-t">${o.kind === 'getij' ? 'HW' : 'ETA'}<br><b>${at}</b><br><span class="dim">${mins} min</span></div><div class="offer-body"><b>${o.target} t → ${o.ship.name}</b> <span class="tag">${kindLabel(o.kind)}</span>${o.ship.gate ? ' <span class="tag" style="background:#9ad">🔒 ' + o.ship.gate + '</span>' : ''}${o.vip ? ' <span class="tag vip">★ ' + tr('vaste klant') + '</span>' : ''}${o.taken ? ' <span class="tag" style="background:#c0392b;color:#fff">' + o.taken + '</span>' : ''}<br><span class="dim">${tr(o.ship.where)} · ${tr('laden bij')} ${o.terminal.name}</span><br>${o.client} · ${tr('reputatie')} ${Math.round(repOf(o.client))} · <b>🪙 ${o.pay}</b> <span class="dim">${tr('+25% op tijd')}</span></div></div>`; }).join('');
   const rank = readRank(); const rankHtml = rank.length ? rank.map((e, i) => `${i + 1}. ${e.score} <span class="dim">(${e.jobs} ${tr('klussen')}, ${e.date})</span>`).join('<br>') : tr('nog geen scores');
   const goal = `${tr('Dagdoel')}: ${tf('{0} klussen op tijd en schadevrij', DAYGOAL.jobs)} · ${Math.min(day.onTime, day.clean)}/${DAYGOAL.jobs}${day.goalDone ? ' ✅ +300' : ''}`;
-  el.innerHTML = `<div class="panel"><h2>📋 ${tr('Opdrachtenbeurs')} <span class="dim" style="font-weight:400;font-size:14px">${clockStr(clock)} · ${tideInfo()}</span></h2>${rows}<div class="dim" style="margin-top:8px">${tr('Kies met 1 / 2 / 3 of tik. Wat jij laat liggen, pakken de concurrenten.')}</div><div class="rank"><b>${goal}</b><br><b>${tr('Ranglijst')} ${MAP.name}</b><br>${rankHtml}</div></div>`;
-  el.querySelectorAll('.offer').forEach(d => d.onclick = () => acceptOffer(+d.dataset.i));
+  el.innerHTML = `<div class="panel"><h2>📋 ${tr('Planning')} <span class="dim" style="font-weight:400;font-size:14px">${clockStr(clock)} · ${tideInfo()}</span></h2>${rows}<div class="dim" style="margin-top:8px">${tr('Kies met 1 / 2 / 3… of tik. Klussen vervallen op hun tijd; de concurrenten pakken er af en toe een.')}</div><button id="boardLater">${tr('Nu even niet (Esc) · N = planning')}</button><div class="rank"><b>${goal}</b><br><b>${tr('Ranglijst')} ${MAP.name}</b><br>${rankHtml}</div></div>`;
+  el.querySelectorAll('.offer').forEach(d => d.onclick = () => { const k = +d.dataset.i; if (k >= 0) acceptOffer(offers.indexOf(offers.filter(o => !o.taken)[k])); }); const lb = document.getElementById('boardLater'); if (lb) lb.onclick = () => dismissBoard();
 }
 function closeBoard() { boardOpen = false; document.getElementById('board').style.display = 'none'; }
+function dismissBoard() { closeBoard(); state.boardShown = true; if (state.phase !== 'done') { state.phase = 'done'; state.doneT = 0; } say(tr('Vrij varen. N = planning, M = vast aan een wachtplaats'), 4); }
 function pickMission() {
   routeCache = null; offer = null;
   let i; do { i = MAP.id === 'training' ? 0 : Math.floor(Math.random() * berths.length); } while (i === mission && berths.length > 1);
@@ -586,7 +600,7 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowDown') teleStep(-1);
   if (e.key === 'r' || e.key === 'R') reset();
   if ((e.key === 'n' || e.key === 'N') && state.phase === 'done') { if (MAP.id === 'training') startGame(true); else if (!boardOpen) { state.boardShown = true; missionCount++; showBoard(); } }
-  if (boardOpen && ['1', '2', '3'].includes(e.key)) { acceptOffer(+e.key - 1); e.preventDefault(); return; }
+  if (boardOpen && ['1', '2', '3', '4', '5', '6'].includes(e.key)) { const free = offers.filter(o => !o.taken); const o = free[+e.key - 1]; if (o) acceptOffer(offers.indexOf(o)); e.preventDefault(); return; }
   if ((e.key === 'b' || e.key === 'B') && running) toggleShop();
   if ((e.key === 'm' || e.key === 'M') && running) toggleMooring();
   if ((e.key === 'h' || e.key === 'H') && running) { SND.init(); SND.horn(); }
@@ -598,7 +612,7 @@ addEventListener('keydown', e => {
   if (e.key === 'p' || e.key === 'P') { SND.init(); say(tr(SND.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit'), 1.2); }
   if (e.key === 'g' || e.key === 'G') { SND.init(); const mu = SND.toggle(); if (mu && 'speechSynthesis' in window) speechSynthesis.cancel(); say(tr(mu ? '🔇 Geluid uit' : '🔊 Geluid aan'), 1.2); }
   if (e.key === 'l' || e.key === 'L') { setLang(lang === 'nl' ? 'en' : 'nl'); renderMapMenu(); renderContinue(); }
-  if (e.key === 'Escape' && running) openMenu();
+  if (e.key === 'Escape' && running) { if (boardOpen) dismissBoard(); else openMenu(); }
   if (e.key === 't' || e.key === 'T') { warp = warp === 1 ? 2 : 1; say(tr(warp === 2 ? '⏩ Snelvaart 2× (T = uit)' : 'Normale tijd'), 1.5); }
   if (e.key.startsWith('Arrow')) e.preventDefault();
 });
@@ -618,7 +632,7 @@ function reset() {
   const p = sn2w(startPos.s, startPos.n);
   boat = { x: p.x, y: p.y, hdg: TH + startPos.hdgOff, vx: 0, vy: 0, r: 0, tele: 0, teleIdx: 3, rudderCmd: 0, rudder: 0, bow: 0, L: 110, B: 11, damage: 0, cargo: 0, target: 800, fatigue: 0 };
   state = { phase: 'load', holdT: 0, bunkerT: 0, elapsed: 0 }; moored = null;
-  score = 0; totalScore = 0; missionCount = 0; mission = -1; pickMission(); day = { jobs: 0, onTime: 0, clean: 0, goalDone: false, gold: 0 }; sessionId = Date.now(); clock = 6 * 3600 + Math.floor(Math.random() * 8) * 3600;
+  score = 0; totalScore = 0; missionCount = 0; mission = -1; offers = []; pickMission(); day = { jobs: 0, onTime: 0, clean: 0, goalDone: false, gold: 0 }; sessionId = Date.now(); clock = 6 * 3600 + Math.floor(Math.random() * 8) * 3600;
   if (MAP.id !== 'training') setTimeout(() => { if (running && state.phase === 'load' && boat.cargo === 0) showBoard(); }, 600);
   trainingLeftBerth = false; trainingMoved = false; playerLabelUntil = performance.now() + 18000;
   Object.keys(keys).forEach(k => keys[k] = false); warp = 1; mapBig = false; document.body.classList.remove('bigmap', 'help');
@@ -860,6 +874,7 @@ function eventTick(dt) {
 }
 function logic(dt) {
   const b = boat; state.elapsed += dt; eventTick(dt); weatherTick(dt); vtsTick(dt); gateTick(dt);
+  if (boardOpen) { state.boardRefresh = (state.boardRefresh || 0) + dt; if (state.boardRefresh > 6) { state.boardRefresh = 0; showBoard(); } }
   if (b.blackout > 0) { b.blackout -= dt; if (b.blackout <= 0) { b.blackout = 0; b.engDir = 0; say(lang === 'en' ? '✅ Engine restarted' : '✅ Motor draait weer', 3); } }
   if (b.jamT > 0) { b.jamT -= dt; if (b.jamT <= 0) { b.jamT = 0; say(lang === 'en' ? '✅ Steering gear free again' : '✅ Stuurmachine weer vrij', 3); } }
   if (b.damage >= 100 && state.phase !== 'sunk') { moored = null; state.phase = 'sunk'; state.sinkT = 0; b.tele = 0; b.teleIdx = 3; const loss = MAP.id === 'training' ? 0 : Math.round(career.gold / 2); career.gold -= loss; SND.sink(); saveCareer(); say(tf('🫧 Gezonken! Verzekering betaalt de helft: −{0} goud. Nieuwe boot volgt…', loss)); }
@@ -1384,7 +1399,7 @@ function objective() {
     case 'load': { const g = nearGate(); if (g && g.state === 'closed') return tf('🔴 {0} dicht · C = oproepen', g.name); } return tf('→ Laden bij {0} · {1} m', terminal.name, d(sn2w((terminal.s0 + terminal.s1) / 2, (terminal.n0 + terminal.n1) / 2))) + (offer ? ` · ${deadlineText()} (${timeLeftText()})` : '');
     case 'sail': { const g = nearGate(); if (g && g.state === 'closed') return tf('🔴 {0} dicht · C = oproepen', g.name); } return (state.inZone ? tf('→ Langszij {0}: vaart eruit, M = vast', ship.name) : tf('→ Naar {0} · {1} m', ship.name, d(sn2w((dock.s0 + dock.s1) / 2, (dock.n0 + dock.n1) / 2)))) + (offer ? ` · ${deadlineText()} (${timeLeftText()})` : '');
     case 'bunker': return tf('⛽ Bunkeren… {0}%', Math.round(100 * (1 - b.cargo / Math.max(1, b.target))));
-    case 'done': return boardOpen ? tr('📋 Kies een opdracht (1 / 2 / 3)') : tf('✅ Klus klaar! Opdrachtenbeurs over {0} s (N = nu)', Math.max(0, Math.ceil(4 - (state.doneT || 0))));
+    case 'done': return boardOpen ? tr('📋 Kies een opdracht (1 / 2 / 3)') : state.boardShown ? tr('🧭 Vrij varen · N = planning') : tf('✅ Klus klaar! Opdrachtenbeurs over {0} s (N = nu)', Math.max(0, Math.ceil(4 - (state.doneT || 0))));
     case 'sunk': return tr('🫧 Gezonken – nieuwe boot volgt');
   }
   return '';
