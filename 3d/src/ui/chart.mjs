@@ -1,52 +1,109 @@
-import { land, basins } from '../maps/amsterdam.mjs';
-import { HARBOR, routePoints, trafficAt, terminals, berths } from '../game/harbor.mjs';
+import { MAP, land, basins, terminals, waits, customers } from '../maps/index.mjs';
+import { routePoints } from '../game/harbor.mjs';
 import { target } from '../game/simulation.mjs';
+// Harbour chart: land, route, traffic, rivals, gates, terminals (T), waiting places
+// (P, W = yard) and seagoing ships. North up, cropped to the water.
+const zs = basins.flatMap((b) => [b.z0, b.z1]).concat([-MAP.riverHalf, MAP.riverHalf]);
+const Z0 = Math.max(MAP.zMin, Math.min(...zs) - 120),
+  Z1 = Math.min(MAP.zMax, Math.max(...zs) + 120);
 export function createChart(canvas) {
-  const W = HARBOR.halfWidth;
+  const W = MAP.halfWidth;
   const map = canvas.getContext('2d');
-  return function chart(s) {
-    const scale = 184 / (W * 2),
-      project = (x, z) => [100 + x * scale, 50 + z * scale];
+  const scale = Math.min(192 / (W * 2), 94 / (Z1 - Z0)),
+    ox = 100 - 0,
+    oz = 50 - ((Z0 + Z1) / 2) * scale;
+  const project = (x, z) => [ox + x * scale, oz + z * scale];
+  return function chart(s, world) {
     map.setTransform(3, 0, 0, 3, 0, 0);
     map.clearRect(0, 0, 200, 100);
     map.fillStyle = '#21434a';
     map.fillRect(0, 0, 200, 100);
     for (const l of land) {
       const [x, y] = project(l.x0, l.z0);
-      map.fillStyle = l.kind === 'north' ? '#657d65' : '#829084';
-      map.fillRect(x, y, (l.x1 - l.x0) * scale, (l.z1 - l.z0) * scale);
+      map.fillStyle =
+        l.kind === 'pillar'
+          ? '#c8c8c8'
+          : ['north', 'park', 'island', 'base'].includes(l.kind)
+            ? '#657d65'
+            : '#829084';
+      map.fillRect(
+        x,
+        y,
+        Math.max(0.5, (l.x1 - l.x0) * scale),
+        Math.max(0.5, (l.z1 - l.z0) * scale),
+      );
     }
-    map.strokeStyle = '#c5e4b8';
-    map.setLineDash([2, 2]);
-    map.beginPath();
-    routePoints(s, target(s)).forEach((p, i) => {
-      const [x, y] = project(p.x, p.z);
-      i ? map.lineTo(x, y) : map.moveTo(x, y);
-    });
-    map.stroke();
-    map.setLineDash([]);
+    for (const g of world.gates) {
+      const [x, y] = project(g.x0, g.z0);
+      map.fillStyle = g.state === 'open' ? '#2ecc71' : g.state === 'prep' ? '#f1c40f' : '#e74c3c';
+      map.fillRect(
+        x - 0.5,
+        y - 0.5,
+        Math.max(1.2, (g.x1 - g.x0) * scale),
+        Math.max(1.2, (g.z1 - g.z0) * scale),
+      );
+    }
+    const t = target(s);
+    if (t && !s.moored) {
+      map.strokeStyle = '#c5e4b8';
+      map.lineWidth = 0.6;
+      map.setLineDash([2, 2]);
+      map.beginPath();
+      routePoints(s, t).forEach((p, i) => {
+        const [x, y] = project(p.x, p.z);
+        i ? map.lineTo(x, y) : map.moveTo(x, y);
+      });
+      map.stroke();
+      map.setLineDash([]);
+    }
+    map.font = '3.6px sans-serif';
+    map.textAlign = 'center';
     for (const b of basins) {
       const [x, y] = project((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
       map.save();
       map.translate(x, y);
       map.rotate(-Math.PI / 2);
-      map.fillStyle = '#dce7dc';
-      map.font = '4px sans-serif';
-      map.textAlign = 'center';
-      map.fillText(b.name, 0, 0);
+      map.fillStyle = 'rgba(220,231,220,.75)';
+      map.fillText(b.name, 0, 1);
       map.restore();
     }
-    for (const b of trafficAt(s.clock)) {
+    for (const b of customers) {
+      const [x, y] = project(b.shipX, b.shipZ);
+      map.fillStyle = b === t ? '#8ae5c2' : b.color;
+      const L = b.length * scale,
+        B = 2.2;
+      if (b.h) map.fillRect(x - L / 2, y - B / 2, L, B);
+      else map.fillRect(x - B / 2, y - L / 2, B, L);
+    }
+    const tag = (p, txt, col) => {
+      const [x, y] = project(p.x, p.z);
+      map.fillStyle = col;
+      map.fillRect(x - 2.2, y - 2.2, 4.4, 4.4);
+      map.fillStyle = '#10262c';
+      map.font = 'bold 3.6px sans-serif';
+      map.fillText(txt, x, y + 1.3);
+    };
+    for (const tm of terminals) tag(tm, 'T', tm === t ? '#ffe46b' : '#d6c48a');
+    for (const w of waits) tag(w, w.yard ? 'W' : 'P', w.yard ? '#ffd54a' : '#9fd0ff');
+    for (const b of world.traffic) {
       const [x, y] = project(b.x, b.z);
       map.fillStyle = '#e9ab76';
       map.beginPath();
-      map.arc(x, y, 1.3, 0, 7);
+      map.arc(x, y, 1.2, 0, 7);
       map.fill();
     }
-    for (const t of [...terminals, ...berths]) {
-      const [x, y] = project(t.x, t.z);
-      map.fillStyle = t === target(s) ? '#edeca4' : '#90c6ad';
-      map.fillRect(x - 1.5, y - 2, 3, 4);
+    for (const r of world.rivals) {
+      if (r.mode === 'sunk') continue;
+      const [x, y] = project(r.x, r.z);
+      map.fillStyle = r.color;
+      map.beginPath();
+      map.arc(x, y, 1.6, 0, 7);
+      map.fill();
+    }
+    for (const f of world.events.flotsam) {
+      const [x, y] = project(f.x, f.z);
+      map.fillStyle = '#ff7043';
+      map.fillRect(x - 0.8, y - 0.8, 1.6, 1.6);
     }
     const [x, y] = project(s.x, s.z);
     map.save();
@@ -60,9 +117,9 @@ export function createChart(canvas) {
     map.fill();
     map.restore();
     map.fillStyle = '#eee3c4';
-    map.font = '5px sans-serif';
+    map.font = '4px sans-serif';
     map.textAlign = 'left';
-    map.fillRect(10, 94, 500 * scale, 0.6);
-    map.fillText('500 m', 10, 91);
+    map.fillRect(6, 95, 500 * scale, 0.6);
+    map.fillText('500 m', 6, 93);
   };
 }

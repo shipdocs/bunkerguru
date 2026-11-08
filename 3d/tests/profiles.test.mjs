@@ -23,6 +23,8 @@ test('current boat has the original 110 x 11 m dimensions; profile controls the 
 test('longer ships inherit proportionally slower yaw under identical helm and flow', () => {
   const states = Object.keys(PROFILES).map((shipId) => ({
     ...fresh(),
+    handling: 'arcade',
+    timeScale: 2,
     shipId,
     moored: false,
     x: 0,
@@ -36,7 +38,15 @@ test('longer ships inherit proportionally slower yaw under identical helm and fl
   assert(states[0].r / states[1].r > 1 && states[0].r / states[1].r < 1.3);
 });
 test('long hull reaches quay earlier, without changing input constants', () => {
-  const a = { ...fresh(), shipId: 'compact', x: HARBOR.halfWidth - 27, z: 0, h: Math.PI / 2 },
+  const a = {
+      ...fresh(),
+      handling: 'arcade',
+      timeScale: 2,
+      shipId: 'compact',
+      x: HARBOR.halfWidth - 27,
+      z: 0,
+      h: Math.PI / 2,
+    },
     b = { ...a, shipId: 'legacy' };
   hullContacts(a, 0.01);
   hullContacts(b, 0.01);
@@ -44,19 +54,39 @@ test('long hull reaches quay earlier, without changing input constants', () => {
   assert(b.x < HARBOR.halfWidth - 27);
 });
 test('sliding along a wall preserves tangential speed', () => {
-  const s = { ...fresh(), x: HARBOR.halfWidth - 2, z: 0, h: 0, u: 3, v: 1 };
+  const s = {
+    ...fresh(),
+    handling: 'arcade',
+    timeScale: 2,
+    x: HARBOR.halfWidth - 2,
+    z: 0,
+    h: 0,
+    u: 3,
+    v: 1,
+  };
   hullContacts(s, 0.01);
   assert(Math.abs(s.u - 3) < 1e-12);
   assert(s.v <= 0);
   assert(s.x <= HARBOR.halfWidth - 3.75);
 });
 test('1x and 3x remain distinct, while new careers default to playable 2x', () => {
-  const a = { ...fresh(), timeScale: 1, moored: false, x: 0, z: 0, u: 4, rudder: 1, rudderCmd: 1 },
+  const a = {
+      ...fresh(),
+      handling: 'arcade',
+      timeScale: 2,
+      timeScale: 1,
+      moored: false,
+      x: 0,
+      z: 0,
+      u: 4,
+      rudder: 1,
+      rudderCmd: 1,
+    },
     b = { ...a, timeScale: 3 };
   for (let i = 0; i < 60; i++) {
     vesselStep(a, 1 / 60, { right: true });
     vesselStep(b, 1 / 60, { right: true });
   }
   assert(b.h > a.h * 2);
-  assert.equal(fresh().timeScale, 2);
+  assert.equal(fresh().timeScale, 3);
 });

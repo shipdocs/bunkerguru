@@ -43,7 +43,18 @@ function oracle() {
   return { b, tick: ctx.physics };
 }
 test('explicit legacy comparison matches original source over throttle, helm, release, reverse and bow-thruster sequence', () => {
-  const s = { ...fresh(), x: 0, z: 0, cargo: 500, moored: false, timeScale: 3, shipId: 'legacy' },
+  const s = {
+      ...fresh(),
+      handling: 'arcade',
+      timeScale: 2,
+      x: 0,
+      z: 0,
+      cargo: 500,
+      target: 500,
+      moored: false,
+      timeScale: 3,
+      shipId: 'legacy',
+    },
     o = oracle();
   for (let i = 0; i < 4200; i++) {
     const dt = 1 / 60;
@@ -74,6 +85,8 @@ test('released partial helm stays set, opposite input adjusts it and explicit am
   for (const sign of [-1, 1]) {
     const s = {
       ...fresh(),
+      handling: 'arcade',
+      timeScale: 2,
       timeScale: 1,
       x: 0,
       z: 0,

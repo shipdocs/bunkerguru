@@ -29,6 +29,11 @@ export class HarborAudio {
       pumping: s.pumping,
     });
   }
+  // One-shot effects of the 2D game: hit, alarm, coin, sink, rope, radio…
+  fx(name, ...args) {
+    if (!this.sound || this.muted || !this.active) return;
+    this.sound[name]?.(...args);
+  }
   clutch(reversing) {
     if (this.active && !this.muted) this.sound?.clutch(reversing);
   }

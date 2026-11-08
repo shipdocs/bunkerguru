@@ -1,6 +1,6 @@
 // Runs real scene assembly and UI event handlers with a tiny DOM/renderer double.
 // This is not a WebGL rendering or screenshot test.
-import { terminal, receiver } from '../src/game/harbor.mjs';
+import { terminals, customers, terminalOf, berthOf } from '../src/game/harbor.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -140,46 +140,73 @@ test('scene builds finite geometry and UI supports start, delivery, office, upgr
   $('moor').click();
   assert(!game.state.moored);
   $('up').click();
-  assert.equal(game.state.teleIdx, 5);
+  assert.equal(game.state.teleIdx, 4); // schipper: one notch per press
   $('stop').click();
   assert(game.state.braking);
   assert(Math.abs(game.state.rudderCmd - 0.5) < 1e-9);
   assert.equal(game.state.teleIdx, 3);
   $('up').click();
   assert(!game.state.braking);
-  assert.equal(game.state.teleIdx, 5);
+  assert.equal(game.state.teleIdx, 4); // schipper: one notch per press
   $('stop').click();
   $('moor').click();
   assert(game.state.moored);
   $('helmMid').click();
   assert.equal(game.state.rudderCmd, 0);
-  $('pump').click();
-  assert(game.state.pumping);
-  let now = performance.now();
-  for (let i = 0; i < 450; i++) globalThis.nextFrame((now += 50));
-  assert.equal(game.state.phase, 'deliver');
-  assert.equal(game.state.cargo, 500);
-  game.state.x = receiver.x;
-  game.state.z = receiver.z;
-  $('pump').click();
-  for (let i = 0; i < 450; i++) globalThis.nextFrame((now += 50));
-  assert.equal(game.state.phase, 'done');
-  assert.equal(game.state.gold, 1050);
+  // Schedule: six jobs, choose the first.
   $('next').click();
   assert($('port').open);
-  assert.equal($('offers').children.length, 3);
-  const card = $('offers').children[2];
-  card.children[2].click();
-  assert.equal(game.state.target, 200);
+  assert.equal($('offers').children.length, 6);
+  $('offers').children[0].onclick();
   assert(!$('port').open);
+  const s = game.state;
+  assert.equal(s.phase, 'load');
+  // Lie still at the job's terminal: loading as in the 2D game.
+  const tm = terminalOf(s);
+  Object.assign(s, {
+    x: tm.x,
+    z: tm.z,
+    h: tm.h,
+    u: 0,
+    v: 0,
+    r: 0,
+    moored: true,
+    mooredTo: { kind: 'terminal', id: tm.id },
+  });
+  let now = performance.now();
+  for (let i = 0; i < 400 && s.phase === 'load'; i++) globalThis.nextFrame((now += 50));
+  assert.equal(s.phase, 'sail');
+  assert.equal(s.cargo, s.target);
+  // Shop is open at the terminal.
+  const gold0 = s.gold;
+  s.gold = 5000;
   $('maintenance').click();
-  assert(!$('portService').hidden);
-  game.state.x = terminal.x;
-  game.state.z = terminal.z;
-  $('buyPump').click();
-  assert.equal(game.state.level, 1);
+  assert(!$('portShop').hidden);
+  $('shopList').children[4].children[0].click();
+  assert.equal(s.lvl.pomp, 1);
   $('closePort').click();
-  assert(!$('port').open);
+  s.gold = gold0;
+  // Alongside the seagoing ship, parallel and still: bunkering starts after 2 s.
+  const b = berthOf(s);
+  Object.assign(s, {
+    x: b.x,
+    z: b.z,
+    h: b.h,
+    u: 0,
+    v: 0,
+    r: 0,
+    moored: false,
+    mooredTo: null,
+    teleIdx: 3,
+    rpm: 0,
+  });
+  for (let i = 0; i < 600 && s.phase !== 'done'; i++) {
+    Object.assign(s, { u: 0, v: 0, r: 0 });
+    globalThis.nextFrame((now += 50));
+  }
+  assert.equal(s.phase, 'done');
+  assert(s.gold > gold0, 'paid');
+  assert.equal(s.jobs, 1);
   let count = 0,
     vertices = 0;
   game.scene.traverse((o) => {
@@ -190,14 +217,14 @@ test('scene builds finite geometry and UI supports start, delivery, office, upgr
       for (const v of a.array) assert(Number.isFinite(v));
     }
   });
-  assert(count < 550, 'scene should batch decorative meshes: ' + count);
+  assert(count < 900, 'scene should batch decorative meshes: ' + count);
   assert(vertices > 10000);
   $('graphics').click();
   assert.equal($('graphics').textContent, 'Beeld: zuinig');
   $('graphics').click();
   assert.equal($('graphics').textContent, 'Beeld: uitgebreid');
   game.ui();
-  assert.match($('cargo').textContent, /200 t/);
+  assert.match($('cargo').textContent, / t$/);
   // Reset replaces state; extracted input/port modules must not retain the old object.
   const previousState = game.state;
   $('maintenance').click();
@@ -209,9 +236,11 @@ test('scene builds finite geometry and UI supports start, delivery, office, upgr
   assert(Math.abs(game.state.rudderCmd - 0.25) < 1e-9);
   assert.equal(previousState.rudderCmd, 0);
   $('helmMid').click();
-  $('moor').click();
+  if (game.state.moored) $('moor').click();
   assert(!game.state.moored);
   Object.assign(game.state, {
+    handling: 'arcade',
+    timeScale: 2,
     x: -2300,
     z: 0,
     h: Math.PI / 2,

@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fresh, step } from '../src/game/simulation.mjs';
+import { fresh } from '../src/game/simulation.mjs';
+import { vesselStep } from '../src/game/vessel.mjs';
 import { HarborAudio } from '../src/audio/harbor-audio.mjs';
 test('pneumatic clutch fires once on engaging and once on reversing, not on every throttle change', () => {
-  const s = { ...fresh(), moored: false, x: 0, z: 0 },
+  const s = { ...fresh(), handling: 'arcade', timeScale: 2, moored: false, x: 0, z: 0 },
     events = [];
   const run = (n) => {
-    for (let i = 0; i < n * 20; i++) step(s, 0.05, {}, (r) => events.push(r));
+    for (let i = 0; i < n * 20; i++) vesselStep(s, 0.05, {}, undefined, (r) => events.push(r));
   };
   s.teleIdx = 4;
   run(4);

@@ -4,14 +4,14 @@ import { createWater } from './water.mjs';
 import { createShipFactory } from './ship-model.mjs';
 import { createHarborScenery } from './scenery.mjs';
 import { batchVessel } from './scene-batch.mjs';
-import { land, basins, waterAt } from '../maps/amsterdam.mjs';
-import { terminals, berths, trafficAt } from '../game/harbor.mjs';
+import { MAP, land, basins, waterAt, labels, terminals, waits, customers } from '../maps/index.mjs';
 import { profileOf } from '../game/ship-profile.mjs';
 import { renderYaw } from '../game/vessel.mjs';
 import { cameraRange } from './camera.mjs';
 export function createWorld({
   canvas,
   state: s,
+  world: sim,
   quality,
   createRenderer = (options) => new T.WebGLRenderer(options),
 }) {
@@ -27,8 +27,8 @@ export function createWorld({
   renderer.toneMappingExposure = 1.12;
   const scene = new T.Scene();
   scene.background = new T.Color('#b8dce3');
-  scene.fog = new T.FogExp2('#c1d9d3', 0.00055);
-  const camera = new T.PerspectiveCamera(44, 1, 0.5, 5000);
+  scene.fog = new T.FogExp2('#c1d9d3', 0.00045);
+  const camera = new T.PerspectiveCamera(44, 1, 0.5, 6000);
   scene.add(new T.HemisphereLight('#e2f2ff', '#78906e', 2));
   const sun = new T.DirectionalLight('#ffdfac', 2.8);
   sun.position.set(-220, 220, 160);
@@ -46,15 +46,26 @@ export function createWorld({
   scene.add(sun);
   const primitives = createPrimitives(scene);
   const { mesh, box, cyl, textSprite } = primitives;
-  const waterMat = createWater(mesh);
+  const waterMat = createWater(mesh, MAP);
   const ship = createShipFactory(scene, primitives);
   const terrain = new T.Group();
+  const landColor = (k) =>
+    ['north', 'park', 'island', 'base'].includes(k)
+      ? '#8ba372'
+      : ['town', 'town2', 'city'].includes(k)
+        ? '#c2b9a0'
+        : k === 'tanks'
+          ? '#b6b8a0'
+          : k === 'pillar'
+            ? '#c9c9c4'
+            : '#b9b8a3';
   for (const l of land) {
+    if (l.kind === 'pillar') continue;
     box(
       l.x1 - l.x0,
       7,
       l.z1 - l.z0,
-      ['north', 'park'].includes(l.kind) ? '#8ba372' : l.kind === 'tanks' ? '#b6b8a0' : '#b9b8a3',
+      landColor(l.kind),
       (l.x0 + l.x1) / 2,
       0.5,
       (l.z0 + l.z1) / 2,
@@ -62,54 +73,142 @@ export function createWorld({
     );
   }
   batchVessel(terrain);
-  terrain.children[0].name = 'terrain-surface';
+  if (terrain.children[0]) terrain.children[0].name = 'terrain-surface';
   scene.add(terrain);
-  const scenery = createHarborScenery(scene);
+  const scenery = createHarborScenery(scene, quality);
   for (const b of basins)
     textSprite(
       b.name,
       (b.x0 + b.x1) / 2,
       12,
-      (b.z0 + b.z1) / 2,
+      b.labelZ ?? (b.z0 + b.z1) / 2,
       Math.min(110, b.x1 - b.x0) * 0.7,
       '#dce4d2',
     );
-  for (const t of terminals) textSprite(t.name, t.anchorX, 14, t.z, 42);
-  textSprite('NOORDZEEKANAAL', 0, 12, 0, 150, '#dce4d2');
-  for (const [x, name] of [
-    [-2470, 'IJMUIDEN · KAARTGRENS'],
-    [2470, 'AMSTERDAM · KAARTGRENS'],
-  ]) {
-    textSprite(name, x, 14, 0, 80);
-    for (const z of [-100, -50, 0, 50, 100]) {
-      cyl(2, 1, '#d4b77a', x, 1, z);
-      cyl(0.4, 4, '#d4b77a', x, 3, z);
-    }
+  for (const l of labels)
+    textSprite(l.text, l.x, 16, l.z, Math.max(40, (l.size || 14) * 6), '#f4efd8');
+  for (const l of land)
+    if (l.label) textSprite(l.label, (l.x0 + l.x1) / 2, 18, (l.z0 + l.z1) / 2, 60, '#f4efd8');
+  // Terminal strips (yellow quay edge) and waiting places (blue P, yellow W = yard).
+  for (const t of [...terminals, ...waits]) {
+    const col = t.kind === 'terminal' ? '#e8c64a' : t.yard ? '#f0b429' : '#4d8fd6';
+    const w = t.x1 - t.x0,
+      d = t.z1 - t.z0;
+    const strip = box(w, 0.3, d, col, t.x, 0.4, t.z);
+    strip.material = new T.MeshBasicMaterial({
+      color: col,
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: false,
+    });
+    strip.castShadow = false;
+    textSprite(
+      (t.kind === 'terminal' ? '⛽ ' : t.yard ? 'W 🔧 ' : 'P ') + t.name,
+      t.x,
+      14,
+      t.z,
+      48,
+      t.kind === 'terminal' ? '#ffe9a0' : '#d8ecff',
+    );
   }
+  for (const side of [-1, 1])
+    for (const x of [-MAP.halfWidth + 30, MAP.halfWidth - 30]) {
+      for (const z of [-0.7, -0.35, 0, 0.35, 0.7].map((f) => f * MAP.riverHalf)) {
+        cyl(2, 1, '#d4b77a', x, 1, z);
+        cyl(0.4, 4, '#d4b77a', x, 3, z);
+      }
+      void side;
+    }
+  textSprite(MAP.name.toUpperCase() + ' · KAARTGRENS', -MAP.halfWidth + 30, 14, 0, 90);
   const vesselProfile = profileOf(s),
     zoomLimits = cameraRange(vesselProfile);
   const boat = ship(vesselProfile.length, vesselProfile.beam, '#ba6539', true, vesselProfile);
-  for (const b of berths) {
+  for (const b of customers) {
     const m = ship(b.length, b.beam, b.color);
     m.position.set(b.shipX, 0, b.shipZ);
     m.rotation.y = renderYaw(b.h);
-    textSprite(b.name, b.shipX, 20, b.shipZ, 34);
+    textSprite(b.name, b.shipX, 22, b.shipZ, 40);
   }
-  const trafficMeshes = trafficAt(s.clock).map((b, i) => {
-    const m = ship(b.length, b.beam, b.color, i === 3);
-    textSprite(b.name, 0, 13, 0, 20, '#e8e3bd', m);
+  const trafficMeshes = sim.traffic.map((b) => {
+    const m = ship(b.length, b.beam, b.color, b.length < 80);
+    textSprite(b.name, 0, 14, 0, 22, '#e8e3bd', m);
     return m;
   });
-
-  for (let x = -2200; x < 2400; x += 650)
-    for (const side of [-1, 1]) {
-      const z = side * 110;
-      if (waterAt(x, z)) {
-        cyl(1.5, 1, side < 0 ? '#c87554' : '#6eaf86', x, 1, z);
-        cyl(0.3, 3, '#d8d7b8', x, 3, z);
-      }
+  const rivalMeshes = sim.rivals.map((r) => {
+    const m = ship(110, 11, r.color, true, vesselProfile);
+    textSprite(r.name.toUpperCase(), 0, 15, 0, 26, '#ffd9cf', m);
+    return m;
+  });
+  // Movable bridges and lock gates: a coloured barrier that slides away when open.
+  const gateMeshes = sim.gates.map((g) => {
+    const grp = new T.Group();
+    const along = g.x1 - g.x0 > g.z1 - g.z0;
+    const len = along ? g.x1 - g.x0 : g.z1 - g.z0;
+    const deck = box(
+      along ? len : 6,
+      4,
+      along ? 6 : len,
+      g.kind === 'brug' ? '#c9453a' : '#2b2f3a',
+      0,
+      4,
+      0,
+      grp,
+    );
+    const lamp = mesh(
+      new T.SphereGeometry(2.2, 10, 8),
+      new T.MeshBasicMaterial({ color: '#e74c3c' }),
+      0,
+      12,
+      0,
+      grp,
+    );
+    grp.position.set((g.x0 + g.x1) / 2, 0, (g.z0 + g.z1) / 2);
+    textSprite(g.name, 0, 20, 0, 40, '#ffe9a0', grp);
+    scene.add(grp);
+    return { g, grp, deck, lamp, along, len };
+  });
+  // Drifting containers (incident).
+  const flotsamGeo = new T.BoxGeometry(12, 3, 2.5),
+    flotsamMat = new T.MeshStandardMaterial({ color: '#d35400' });
+  const flotsamMeshes = [];
+  function updateDynamic(world, time) {
+    for (const [i, b] of world.traffic.entries()) {
+      trafficMeshes[i].position.set(b.x, 0, b.z);
+      trafficMeshes[i].rotation.y = renderYaw(b.h);
     }
-
+    for (const [i, r] of world.rivals.entries()) {
+      const m = rivalMeshes[i];
+      const sinking = r.mode === 'sunk' ? Math.min(1, r.sinkT / 12) : 0;
+      m.position.set(r.x, Math.sin(time * 1.1 + i) * 0.07 - sinking * 8, r.z);
+      m.rotation.set(sinking * 0.3, renderYaw(r.h), 0);
+      m.visible = sinking < 1;
+    }
+    for (const gm of gateMeshes) {
+      const open = gm.g.state === 'open' ? 1 : 0;
+      const k = (gm.k = (gm.k ?? 0) + (open - (gm.k ?? 0)) * 0.05);
+      if (gm.g.kind === 'brug') {
+        gm.deck.rotation[gm.along ? 'z' : 'x'] = k * 1.2;
+        gm.deck.position.y = 4 + k * 12;
+      } else gm.deck.scale.set(gm.along ? 1 - k * 0.8 : 1, 1, gm.along ? 1 : 1 - k * 0.8);
+      gm.lamp.material.color.set(
+        gm.g.state === 'open' ? '#2ecc71' : gm.g.state === 'prep' ? '#f1c40f' : '#e74c3c',
+      );
+    }
+    const fl = world.events.flotsam;
+    while (flotsamMeshes.length < fl.length)
+      flotsamMeshes.push(mesh(flotsamGeo, flotsamMat, 0, 0.8, 0));
+    flotsamMeshes.forEach((m, i) => {
+      m.visible = i < fl.length;
+      if (m.visible) {
+        m.position.set(fl[i].x, 0.6 + Math.sin(time * 2 + i) * 0.3, fl[i].z);
+        m.rotation.y = fl[i].rot;
+      }
+    });
+    // Fog incident: thick fog, otherwise light haze.
+    const fog = world.events.fog > 0 ? 0.0045 : 0.00045;
+    scene.fog.density += (fog - scene.fog.density) * 0.02;
+  }
+  void waterAt;
   return {
     renderer,
     scene,
@@ -119,8 +218,10 @@ export function createWorld({
     scenery,
     boat,
     trafficMeshes,
+    rivalMeshes,
     vesselProfile,
     zoomLimits,
     primitives,
+    updateDynamic,
   };
 }

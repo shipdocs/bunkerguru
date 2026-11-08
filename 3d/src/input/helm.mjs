@@ -1,27 +1,37 @@
 import { bindWheel } from './wheel.mjs';
 import { tempoLabel, nextTempo } from '../game/time-scale.mjs';
-import { act, pump, clamp } from '../game/simulation.mjs';
+import { act, clamp } from '../game/simulation.mjs';
 import { stopShip } from '../game/vessel.mjs';
 import { bindKeyboard, nextTelegraph } from './keyboard.mjs';
 // Input changes the command. Releasing a key must never centre the persistent helm.
-export function bindHelm({ $, keys, getState, isPlaying, hasStarted, toast, save }) {
+export function bindHelm({
+  $,
+  keys,
+  getState,
+  isPlaying,
+  hasStarted,
+  toast,
+  save,
+  actions = {},
+  sound,
+}) {
   function moor() {
     if (!isPlaying()) return;
-    toast(act(getState()));
+    const was = getState().moored,
+      msg = act(getState());
+    if (getState().moored !== was) sound?.('rope');
+    toast(msg);
     save();
   }
   function throttle(v) {
     if (!isPlaying()) return;
     if (getState().moored) {
-      toast('Gooi eerst de trossen los.');
+      toast('⚓ Trossen zitten vast – eerst M = los');
       return;
     }
-    if (getState().damage >= 100) {
-      toast('Schip beschadigd. Gebruik hulp → terug naar terminal.');
-      return;
-    }
+    if (getState().phase === 'sunk') return;
     getState().braking = false;
-    getState().teleIdx = nextTelegraph(getState().teleIdx, v);
+    getState().teleIdx = nextTelegraph(getState().teleIdx, v, getState().handling !== 'arcade');
   }
   function setHelm(degrees) {
     if (!isPlaying() || document.querySelector('dialog[open]')) return;
@@ -41,7 +51,9 @@ export function bindHelm({ $, keys, getState, isPlaying, hasStarted, toast, save
   function brake() {
     if (!isPlaying() || document.querySelector('dialog[open]')) return;
     stopShip(getState());
-    toast('Afstoppen');
+    toast(
+      getState().handling === 'arcade' ? 'Afstoppen' : 'Afstoppen: volle kracht achteruit tot stil',
+    );
   }
   $('stop').onclick = brake;
   $('helmMid').onclick = () => {
@@ -64,10 +76,6 @@ export function bindHelm({ $, keys, getState, isPlaying, hasStarted, toast, save
   $('up').onclick = () => throttle(1);
   $('down').onclick = () => throttle(-1);
   $('moor').onclick = moor;
-  $('pump').onclick = () => {
-    toast(pump(getState()));
-    save();
-  };
   bindKeyboard(
     window,
     keys,
@@ -75,9 +83,15 @@ export function bindHelm({ $, keys, getState, isPlaying, hasStarted, toast, save
       ahead: () => throttle(1),
       astern: () => throttle(-1),
       stop: brake,
+      midships: () => {
+        if (!isPlaying()) return;
+        centreHelm();
+        toast('Roer midscheeps');
+      },
       moor,
       camera: () => $('cam').click(),
       pause: () => $('pause').click(),
+      ...actions,
     },
     () => !!document.querySelector('dialog[open]') || !hasStarted(),
   );

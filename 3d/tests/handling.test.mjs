@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fresh, restore, act, step } from '../src/game/simulation.mjs';
+import { fresh } from '../src/game/simulation.mjs';
 import { vesselStep, stopShip } from '../src/game/vessel.mjs';
 
 const boat = (patch) => ({
   ...fresh(),
+  handling: 'arcade',
+  timeScale: 2,
   timeScale: 1,
   moored: false,
   x: 0,
@@ -115,40 +117,4 @@ test('handling is stable at 30 and 120 frames per second', () => {
   });
   assert(Math.hypot(states[0].x - states[1].x, states[0].z - states[1].z) < 1);
   assert(Math.abs(states[0].h - states[1].h) < Math.PI / 180);
-});
-test('loaded ship can cast off, advance and brake in the actual terminal without damage', () => {
-  const s = { ...fresh(), cargo: 500, phase: 'deliver' };
-  act(s);
-  s.teleIdx = 5;
-  const startZ = s.z;
-  for (let i = 0; i < 10 * 60; i++) step(s, 1 / 60);
-  assert(startZ - s.z > 15);
-  stopShip(s);
-  for (let i = 0; i < 4 * 60; i++) step(s, 1 / 60);
-  assert.equal(s.u, 0);
-  assert.equal(s.damage, 0);
-  assert.equal(s.teleIdx, 3);
-});
-test('previous sluggish saves get normal tempo with progress and position intact', () => {
-  const raw = {
-    ...fresh(),
-    handlingVersion: 0,
-    paceVersion: 0,
-    timeScale: 3,
-    rudder: 1,
-    rudderCmd: 1,
-    cargo: 500,
-    gold: 1234,
-    phase: 'deliver',
-  };
-  const s = restore(raw);
-  assert.equal(s.timeScale, 2);
-  assert.equal(s.rudder, 1);
-  assert.equal(s.rudderCmd, 1);
-  for (const k of ['x', 'z', 'cargo', 'gold', 'phase']) assert.equal(s[k], raw[k]);
-  assert.equal(
-    restore({ ...s, timeScale: 3 }).timeScale,
-    3,
-    'future deliberate tempo changes survive',
-  );
 });

@@ -1,5 +1,5 @@
 import * as T from '../../vendor/three.js';
-import { land, shoreSegments, basins, basinBoundsAt } from '../maps/amsterdam.mjs';
+import { MAP, land, shoreSegments, basins, decor, roads, bridges } from '../maps/index.mjs';
 import { GeometryBatch } from './scene-batch.mjs';
 
 const C = {
@@ -76,9 +76,9 @@ export function truckPose(route, time) {
   return { x: route.x + x, z: route.z + z, h: Math.atan2(-dx, -dz) };
 }
 
-export function createHarborScenery(scene) {
+export function createHarborScenery(scene, quality = { light: false }) {
   const root = new T.Group();
-  root.name = 'Westpoort scenery';
+  root.name = MAP.name + ' scenery';
   scene.add(root);
   const material = new T.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
   const tiles = new Map(),
@@ -213,144 +213,140 @@ export function createHarborScenery(scene) {
         }
       }
   }
-  // Smaller, deliberate neighbourhoods leave clear roads and green courtyards.
-  const occupied = new Set();
-  for (const l of land) {
-    const north = l.kind === 'north' || l.kind === 'park',
-      spacing = north ? 100 : 110;
-    const x0 = Math.max(-2480, l.x0),
-      x1 = Math.min(2480, l.x1),
-      z0 = Math.max(-1200, l.z0),
-      z1 = Math.min(1200, l.z1);
-    for (let x = x0 + 65; x < x1 - 45; x += spacing)
-      for (let z = z0 + 65; z < z1 - 45; z += spacing) {
-        const key = Math.round(x / 80) + ':' + Math.round(z / 80);
-        if (occupied.has(key) || !landContains(x, z, 90, 90)) continue;
-        occupied.add(key);
-        stats.parcels++;
-        footprints.push({ x, z, width: 90, depth: 90, kind: l.kind });
-        if (north) {
-          box(88, 0.15, 85, rnd() > 0.5 ? C.grass : C.grassDark, x, 4.1, z);
-          box(84, 0.18, 5, C.concrete, x, 4.21, z + 27);
-          if (rnd() > 0.25) {
-            house(x - 19, z - 7, ['#75a292', '#e1c393', '#b9bba4'][Math.floor(rnd() * 3)]);
-            house(x + 17, z + 2, C.cream, 14);
-          }
-          for (const [dx, dz] of [
-            [-31, 30],
-            [30, -25],
-            [0, -32],
-          ])
-            tree(x + dx, z + dz, 0.85 + rnd() * 0.35);
-        } else if (l.kind === 'tanks') {
-          tankFarm(x, z);
-        } else if (l.kind === 'containers') {
-          if (rnd() < 0.55) containerYard(x, z);
-          else warehouse(x, z, rnd() > 0.5 ? C.blue : '#c3bda4');
-        } else {
-          house(x - 20, z - 12, C.cream, 18);
-          house(x + 18, z - 12, C.red, 16);
-          house(x, z + 22, C.blue, 18);
-          tree(x + 32, z + 28, 1.2);
-        }
-      }
-  }
-  // Quays have real edge treatment, fenders, bollards, service roads and lamps.
-  for (const [i, p] of shoreSegments.entries()) {
-    const landX = p.x - p.nx * 3,
-      landZ = p.z - p.nz * 3,
-      industrial = p.z > 0;
-    box(p.width, 6, p.depth, '#557579', p.x, 1, p.z);
-    box(p.width, 0.45, p.depth, C.concrete, p.x, 4.15, p.z);
-    if (i % 2 === 0) {
-      cylinder(0.65, 1.1, C.gold, landX, 4.8, landZ, true);
-      box(2.1, 0.4, 1.1, C.dark, landX, 5.35, landZ, 0, true);
-    }
-    if (i % 2 === 1) {
+  const green = (k) => ['north', 'park', 'island', 'base', 'town', 'town2'].includes(k);
+  // Decoration from the 2D map, thinned so phones stay smooth. Same seed → same harbour.
+  const keep = { house: 0.4, tree: 0.35, container: 0.45, block: 0.7, tank: 0.7 };
+  const density = quality.light ? 0.5 : 1;
+  const cranes = [];
+  for (const d of decor) {
+    const k = keep[d.type];
+    if (k !== undefined && rnd() > k * density) continue;
+    const x = d.x,
+      z = d.z;
+    if (d.type === 'tank') {
+      const r = Math.max(6, Math.min(14, d.r || 9)),
+        h = 9 + r * 0.6;
+      cylinder(r, h, '#dedbc3', x, 4 + h / 2, z);
+      shape(coneGeo, C.cream, x, 4.5 + h, z, r, 1.6, r);
+      cylinder(r * 1.005, 1.2, rnd() > 0.5 ? C.blue : C.red, x, 4 + h * 0.65, z, true);
+    } else if (d.type === 'container') {
+      const levels = 1 + Math.floor(rnd() * 3),
+        color = d.col || palette[Math.floor(rnd() * palette.length)];
+      for (let i = 0; i < levels; i++) box(12.2, 2.9, 5.8, color, x, 5.55 + i * 3, z);
+    } else if (d.type === 'house') {
+      const wide = 8 + rnd() * 3;
       box(
-        p.nx ? 1.2 : 3,
-        2.5,
-        p.nx ? 3 : 1.2,
-        C.dark,
-        p.x + p.nx * 0.9,
-        1.4,
-        p.z + p.nz * 0.9,
-        0,
-        true,
+        wide,
+        7,
+        10,
+        ['#e1c393', '#c98c6a', '#b9bba4', '#f2e6c9', '#75a292'][Math.floor(rnd() * 5)],
+        x,
+        7.5,
+        z,
       );
-    }
-    if (industrial) {
-      const rx = p.x - p.nx * 22,
-        rz = p.z - p.nz * 22,
-        w = p.nx ? 13 : p.width,
-        d = p.nz ? 13 : p.depth;
-      if (landContains(rx, rz, w, d)) {
-        box(w, 0.15, d, C.asphalt, rx, 4.18, rz);
-        box(p.nx ? 0.25 : 5, 0.06, p.nz ? 0.25 : 5, C.stripe, rx, 4.3, rz, 0, true);
-      }
-      if (i % 4 === 0 && landContains(landX - p.nx * 5, landZ - p.nz * 5, 4, 4)) {
-        cylinder(0.3, 12, C.steel, landX - p.nx * 5, 10, landZ - p.nz * 5, true);
-        box(
-          p.nx ? 4 : 1.2,
-          0.4,
-          p.nz ? 4 : 1.2,
-          C.cream,
-          landX - p.nx * 3,
-          16,
-          landZ - p.nz * 3,
-          0,
-          true,
+      shape(roofGeo, C.roof, x, 11, z, wide + 1.2, 4, 11);
+    } else if (d.type === 'block') {
+      const w = Math.max(10, Math.min(30, d.w || 16)),
+        dd = Math.max(10, Math.min(30, d.d || 16)),
+        h = 8 + rnd() * 26;
+      box(w, h, dd, d.col || C.cream, x, 4 + h / 2, z);
+      box(w * 0.92, 0.6, dd * 0.92, C.glass, x, 4 + h + 0.3, z, 0, true);
+    } else if (d.type === 'tree') tree(x, z, 0.75 + rnd() * 0.45);
+    else if (d.type === 'tower') {
+      const h = (d.h || 100) * 0.9;
+      cylinder(5, h, d.col || '#d9d7bd', x, 4 + h / 2, z);
+      for (let y = h - 28; y < h; y += 14) cylinder(5.05, 7, C.red, x, 4 + y, z);
+    } else if (d.type === 'stadium') {
+      cylinder(60, 18, '#c7c7c7', x, 13, z);
+      cylinder(45, 18.5, C.grass, x, 13.2, z);
+    } else if (d.type === 'crane') {
+      // Portal crane on the quay edge, boom over the water (yaw points at the water).
+      const yaw = d.yaw ?? 0,
+        fx = Math.sin(yaw),
+        fz = -Math.cos(yaw),
+        px = -fz,
+        pz = fx;
+      for (const side of [-1, 1]) {
+        box(4, 2, 4, C.steel, x + px * side * 8, 5, z + pz * side * 8);
+        beam(
+          [x + px * side * 8, 6, z + pz * side * 8],
+          [x + px * side * 5, 31, z + pz * side * 5],
+          0.85,
+          C.gold,
         );
       }
-    } else if (i % 3 === 0 && landContains(p.x - p.nx * 12, p.z - p.nz * 12, 10, 10))
-      tree(p.x - p.nx * 12, p.z - p.nz * 12, 1.2);
-  }
-  // Portal cranes: heavy feet on the quay; overhead booms leave navigation free.
-  const cranes = [];
-  for (const b of basins.filter((b) => b.z0 > 0).slice(0, 5))
-    for (const side of [-1, 1]) {
-      const z = b.z0 + 190,
-        edges = basinBoundsAt(b, z),
-        x = side < 0 ? edges.x0 - 9 : edges.x1 + 9;
-      if (!landContains(x, z, 12, 24)) continue;
-      for (const dz of [-9, 9]) {
-        box(8, 2, 4, C.steel, x, 5, z + dz);
-        beam([x, 6, z + dz], [x, 31, z + dz * 0.55], 0.85, C.gold);
-      }
-      box(10, 3, 17, C.gold, x, 31, z);
-      const tip = x - side * 30;
-      beam([x, 33, z], [tip, 44, z], 1.1, C.gold);
-      beam([x, 40, z], [tip, 44, z], 0.3, C.steel, true);
+      box(10, 3, 10, C.gold, x, 31, z);
+      const tip = [x + fx * 30, 44, z + fz * 30];
+      beam([x - fx * 6, 33, z - fz * 6], tip, 1.1, C.gold);
+      beam([x, 43, z], tip, 0.3, C.steel, true);
       beam([x, 33, z], [x, 43, z], 0.8, C.gold);
-      box(5, 5, 5, C.cream, x - side * 3, 35, z + 6);
-      box(5.1, 2, 5.1, C.glass, x - side * 3, 36, z + 6, 0, true);
-      cranes.push({ x: tip, z, phase: rnd() * 6 });
+      box(5, 5, 5, C.cream, x + fx * 3, 35, z + fz * 3);
+      cranes.push({ x: tip[0], z: tip[2], phase: rnd() * 6 });
     }
-  // Hemweg's distinctive twin stacks and low turbine hall.
-  warehouse(710, 850, C.cream);
-  for (const [x, h] of [
-    [680, 120],
-    [740, 100],
-  ]) {
-    cylinder(5, h, '#d9d7bd', x, 4 + h / 2, 760);
-    for (let y = h - 28; y < h; y += 14) cylinder(5.05, 7, C.red, x, 4 + y, 760);
+    stats.parcels++;
   }
-  // Service traffic only on land. The entire swept road corridor is checked.
-  for (const l of land.filter((l) => l.z0 === 140 && l.x1 - l.x0 > 190))
-    for (const x of [l.x0 + 23, l.x1 - 23]) {
-      const route = {
-        x,
-        z: 480,
-        length: 340,
-        radius: 5,
-        speed: 5 + rnd() * 2,
-        offset: rnd() * 700,
-      };
-      if (landContains(route.x, route.z, 28, route.length + 30)) {
-        routes.push(route);
-        box(24, 0.16, route.length + 28, C.asphalt, route.x, 4.2, route.z);
+  // Ground cover: lawns on green land, concrete on industrial land.
+  for (const l of land) {
+    if (l.kind === 'pillar') continue;
+    const x0 = Math.max(-MAP.halfWidth, l.x0),
+      x1 = Math.min(MAP.halfWidth, l.x1),
+      z0 = Math.max(MAP.zMin, l.z0),
+      z1 = Math.min(MAP.zMax, l.z1);
+    if (x1 - x0 < 30 || z1 - z0 < 30) continue;
+    for (let x = x0 + 60; x < x1 - 40; x += 160)
+      for (let z = z0 + 60; z < z1 - 40; z += 160) {
+        if (!landContains(x, z, 90, 90)) continue;
+        footprints.push({ x, z, width: 90, depth: 90, kind: l.kind });
+        if (green(l.kind)) box(70, 0.15, 70, rnd() > 0.5 ? C.grass : C.grassDark, x, 4.1, z);
+        else box(80, 0.15, 80, C.concrete, x, 4.1, z);
+      }
+  }
+  // Roads of the 2D map, on land only.
+  for (const r of roads)
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const a = r.pts[i],
+        b = r.pts[i + 1],
+        len = Math.hypot(b.x - a.x, b.z - a.z),
+        n = Math.ceil(len / 40),
+        alongX = Math.abs(b.x - a.x) > Math.abs(b.z - a.z);
+      for (let k = 0; k < n; k++) {
+        const x = a.x + ((b.x - a.x) * (k + 0.5)) / n,
+          z = a.z + ((b.z - a.z) * (k + 0.5)) / n;
+        if (landContains(x, z, alongX ? 40 : 12, alongX ? 12 : 40))
+          box(
+            alongX ? len / n + 0.5 : Math.max(8, r.width),
+            0.18,
+            alongX ? Math.max(8, r.width) : len / n + 0.5,
+            C.asphalt,
+            x,
+            4.22,
+            z,
+          );
       }
     }
+  // Fixed bridges: high deck across the water; the pillars collide.
+  for (const br of bridges) {
+    const span = br.z1 - br.z0,
+      zc = (br.z0 + br.z1) / 2;
+    box(26, 3, span + 60, br.color, br.x, 34, zc);
+    box(27, 1.2, span + 60, C.cream, br.x, 36, zc, 0, true);
+    for (const p of br.pillars) box(9, 34, 9, '#c9c9c4', br.x, 17, p);
+    for (const tz of br.towers) {
+      box(12, 60, 12, br.color, br.x, 30, tz);
+      box(6, 6, 6, C.cream, br.x, 62, tz, 0, true);
+    }
+    if (br.pylon !== null && br.pylon !== undefined) {
+      beam([br.x, 34, br.pylon], [br.x, 140, br.pylon - 30], 2.4, br.color);
+      for (let i = 1; i <= 6; i++)
+        beam(
+          [br.x, 135 - i * 4, br.pylon - 28 + i * 2],
+          [br.x, 35, br.pylon - 40 - i * 24],
+          0.25,
+          br.color,
+          true,
+        );
+    }
+  }
   // Flush and release construction arrays; retain only the GPU geometry.
   for (const tile of tiles.values()) {
     const geometry = tile.batch.geometry(),
@@ -413,14 +409,11 @@ export function createHarborScenery(scene) {
   birds.instanceMatrix.setUsage(T.DynamicDrawUsage);
   birds.frustumCulled = false;
   root.add(birds);
-  const flockCenters = [
-    { x: -270, z: 580 },
-    { x: -1790, z: 450 },
-    { x: -850, z: 190 },
-    { x: 450, z: 200 },
-    { x: 1200, z: -180 },
-    { x: 1850, z: 80 },
-  ];
+  const flockCenters = basins
+    .slice(0, 6)
+    .map((b) => ({ x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 }));
+  if (!flockCenters.length) flockCenters.push({ x: 0, z: 0 });
+
   const cloudGeometry = actorGeometry([
     [leafGeo, '#fff5d9', 0, 0, 0, 34, 11, 15],
     [leafGeo, '#fff5d9', 25, -2, 0, 30, 10, 14],
@@ -429,7 +422,11 @@ export function createHarborScenery(scene) {
   const clouds = [];
   for (let i = 0; i < 14; i++) {
     const m = new T.Mesh(cloudGeometry, material);
-    m.position.set(-2300 + i * 350, 210 + (i % 3) * 30, (i % 2 ? 1 : -1) * (360 + (i % 4) * 100));
+    m.position.set(
+      -MAP.halfWidth + ((i + 0.5) * MAP.halfWidth * 2) / 14,
+      210 + (i % 3) * 30,
+      (i % 2 ? 1 : -1) * (360 + (i % 4) * 100),
+    );
     m.scale.setScalar(1 + (i % 3) * 0.3);
     m.name = 'cloud';
     root.add(m);

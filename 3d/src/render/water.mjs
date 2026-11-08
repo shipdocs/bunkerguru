@@ -14,7 +14,7 @@ color+=vec3(1.,.87,.61)*light*.36;float fog=1.-exp(-distance(cameraPosition,wp)*
 #include <colorspace_fragment>
 }`,
   });
-  const water = mesh(new T.PlaneGeometry(6000, 6000), waterMat);
+  const water = mesh(new T.PlaneGeometry(14000, 14000), waterMat);
   water.rotation.x = -Math.PI / 2;
   water.castShadow = false;
 

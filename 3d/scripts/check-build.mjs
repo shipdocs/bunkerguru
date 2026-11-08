@@ -19,7 +19,7 @@ async function visit(filename) {
         ? [...text.matchAll(/url\(['"]?([^'"\)]+)['"]?\)/g)].map((m) => m[1])
         : [];
   for (const ref of refs) {
-    if (/^(https?:|data:|#)/.test(ref)) continue;
+    if (/^(https?:|data:|#)/.test(ref) || ref.endsWith('/')) continue; // links to other pages
     await visit(path.resolve(path.dirname(filename), ref.split('?')[0]));
   }
 }

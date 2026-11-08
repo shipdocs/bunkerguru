@@ -6,7 +6,7 @@ import { vesselStep, stopShip } from '../src/game/vessel.mjs';
 function setup() {
   const target = new EventTarget(),
     keys = {},
-    s = { ...fresh(), x: 0, z: 0, moored: false };
+    s = { ...fresh(), handling: 'arcade', timeScale: 2, x: 0, z: 0, moored: false };
   const actions = {
     ahead: () => (s.teleIdx = nextTelegraph(s.teleIdx, 1)),
     astern: () => (s.teleIdx = nextTelegraph(s.teleIdx, -1)),
@@ -48,7 +48,7 @@ test('only arrows change telegraph, repeats do not step it again', () => {
   assert.equal(s.teleIdx, 5);
   assert.deepEqual(keys, {});
   send(target, 'keydown', 'KeyW', 'w');
-  send(target, 'keydown', 'KeyS', 's');
+  send(target, 'keydown', 'KeyR', 'r');
   assert.equal(s.teleIdx, 5);
   send(target, 'keydown', 'ArrowDown', 'ArrowDown');
   assert.equal(s.teleIdx, 3);
@@ -65,11 +65,11 @@ test('opposing bow commands cancel and release restores remaining direction', ()
   assert.equal(s.teleIdx, 3);
 });
 
-test('space brakes and useful telegraph settings are bounded and reversible', () => {
+test('S brakes and useful telegraph settings are bounded and reversible', () => {
   const { target, s } = setup();
   s.teleIdx = 8;
   s.u = 4;
-  send(target, 'keydown', 'Space', ' ');
+  send(target, 'keydown', 'KeyS', 's');
   assert(s.braking);
   assert.equal(s.teleIdx, 3);
   let i = 3;
@@ -81,4 +81,8 @@ test('space brakes and useful telegraph settings are bounded and reversible', ()
   assert.deepEqual(selected, [5, 6, 8, 8]);
   for (let n = 0; n < 5; n++) i = nextTelegraph(i, -1);
   assert.equal(i, 0);
+  // Schipper: every notch, one per press, bounded.
+  assert.equal(nextTelegraph(3, 1, true), 4);
+  assert.equal(nextTelegraph(8, 1, true), 8);
+  assert.equal(nextTelegraph(0, -1, true), 0);
 });

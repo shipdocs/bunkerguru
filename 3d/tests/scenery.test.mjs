@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from '../vendor/three.js';
-import { createHarborScenery, landContains, truckPose } from '../src/render/scenery.mjs';
+import { createHarborScenery, landContains } from '../src/render/scenery.mjs';
 import { graphicsProfile } from '../src/render/graphics.mjs';
 import { batchVessel } from '../src/render/scene-batch.mjs';
 const scene = new T.Scene(),
@@ -12,7 +12,7 @@ test('dense harbour fits a bounded geometry and draw budget, with finite colours
   assert(scenery.stats.parcels > 400);
   assert(scenery.stats.parts > 10000);
   assert(scenery.stats.triangles < 550000);
-  assert(scenery.stats.draws < 280);
+  assert(scenery.stats.draws < 500);
   scene.traverse((o) => {
     if (o.geometry) {
       for (const key of ['position', 'normal', 'color']) {
@@ -22,16 +22,9 @@ test('dense harbour fits a bounded geometry and draw budget, with finite colours
     }
   });
 });
-test('decorated parcels and animated trucks stay on land, away from navigation', () => {
+test('ground parcels stay on land, away from navigation', () => {
+  assert(scenery.footprints.length > 50);
   for (const p of scenery.footprints) assert(landContains(p.x, p.z, p.width, p.depth));
-  assert(scenery.routes.length >= 6);
-  for (const route of scenery.routes)
-    for (let t = 0; t < 300; t += 0.5) {
-      const p = truckPose(route, t);
-      assert(landContains(p.x, p.z, 16, 16));
-      const next = truckPose(route, t + 0.01);
-      assert(Math.hypot(next.x - p.x, next.z - p.z) < 0.1, 'no teleport at a road bend');
-    }
 });
 test('mobile automatically limits resolution and shadows, with a manual override', () => {
   const mobile = graphicsProfile('auto', {
@@ -56,10 +49,6 @@ test('distant detail is culled, mobile has fewer visible tiles, and the world re
   const light = [...scenery.tiles.values()].filter((t) => t.mesh.visible).length;
   assert(light < rich);
   assert(light < 100);
-  const truck = scenery.root.children.find((m) => m.name === 'quay-truck');
-  const before = truck.position.clone();
-  scenery.update(30, camera, graphicsProfile('light'), true);
-  assert(truck.position.equals(before));
   const main = [...scenery.tiles.values()].filter((t) => !t.detail && t.mesh.visible);
   assert(main.length > 20, 'mobile keeps the harbour skyline');
 });

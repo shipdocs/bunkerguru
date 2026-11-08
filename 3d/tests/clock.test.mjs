@@ -5,11 +5,13 @@ import {
   MAX_FRAME_SECONDS,
   SIMULATION_STEP,
 } from '../src/app/simulation-clock.mjs';
-import { fresh, step } from '../src/game/simulation.mjs';
+import { fresh } from '../src/game/simulation.mjs';
+import { vesselStep } from '../src/game/vessel.mjs';
 
 function cruise(fps, timeScale = 1) {
   const s = {
     ...fresh(),
+    handling: 'arcade',
     moored: false,
     x: -2300,
     z: 0,
@@ -22,7 +24,11 @@ function cruise(fps, timeScale = 1) {
   };
   const clock = createSimulationClock(),
     start = { x: s.x, z: s.z };
-  for (let i = 0; i < fps * 10; i++) clock.advance(1 / fps, true, (dt) => step(s, dt));
+  for (let i = 0; i < fps * 10; i++)
+    clock.advance(1 / fps, true, (dt) => {
+      vesselStep(s, dt);
+      s.clock += dt * s.timeScale;
+    });
   return { distance: Math.hypot(s.x - start.x, s.z - start.z), clock: s.clock, s };
 }
 test('25.92 km/h covers 72 metres in ten real seconds at 5, 10, 15, 30, 60 and 120 FPS', () => {

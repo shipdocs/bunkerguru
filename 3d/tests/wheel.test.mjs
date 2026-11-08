@@ -88,15 +88,15 @@ test('touching the hub does not jump the angle; Home explicitly centres it', () 
   t.element.dispatchEvent(event);
   assert.equal(t.value(), 0);
 });
-test('existing careers migrate once to 2x, then keep explicitly selected 1x or 3x', () => {
-  const old = { ...fresh(), paceVersion: 0, timeScale: 1, gold: 4567, rudderCmd: 0.4 };
+test('careers keep their tempo, money and helm; tempo cycles 1×, 2×, 3× (2D pace) and 6×', () => {
+  const old = { ...fresh(), timeScale: 1, gold: 4567, rudderCmd: 0.4 };
   const updated = restore(old);
-  assert.equal(updated.timeScale, 2);
+  assert.equal(updated.timeScale, 1);
   assert.equal(updated.gold, 4567);
   assert.equal(updated.rudderCmd, 0.4);
-  for (const timeScale of [1, 2, 3])
+  for (const timeScale of [1, 2, 3, 6])
     assert.equal(restore({ ...updated, timeScale }).timeScale, timeScale);
   assert.equal(nextTempo(2), 3);
-  assert.equal(nextTempo(3), 1);
-  assert.equal(nextTempo(1), 2);
+  assert.equal(nextTempo(3), 6);
+  assert.equal(nextTempo(6), 1);
 });

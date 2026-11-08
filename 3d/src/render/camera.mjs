@@ -1,7 +1,7 @@
 import { profileOf } from '../game/ship-profile.mjs';
 export const cameraRange = (p) => ({
   min: Math.max(70, p.length * 1.45),
-  max: Math.max(440, p.length * 5),
+  max: Math.max(1400, p.length * 12),
   initial: Math.max(160, p.length * 3.1),
 });
 export const CAMERA_MODES = ['follow', 'free', 'top'];

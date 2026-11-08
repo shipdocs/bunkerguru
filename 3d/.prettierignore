@@ -1,7 +1,8 @@
 dist/
 node_modules/
 vendor/
-src/maps/amsterdam-source.mjs
+src/maps/classic/
 src/audio/legacy-audio.mjs
 tests/legacy-physics.cjs
 package-lock.json
+src/audio/radio.mjs

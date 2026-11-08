@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#102b35" />
-    <title>Bunkerguru — Havenlicht</title>
+    <title>Bunkerguru 3D</title>
     <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body>
@@ -16,8 +16,11 @@
           BUNKERGURU<small>HAVENLICHT <b>3D</b></small>
         </div>
       </div>
-      <div class="location">AMSTERDAM · WESTPOORT <span id="vesselInfo">110 × 11 m · 2×</span></div>
-      <div class="wallet"><small>BEDRIJFSKAS</small><strong id="gold">€ 300</strong></div>
+      <div class="location">
+        <span id="mapName">AMSTERDAM WESTPOORT</span> <span id="vesselInfo">110 × 11 m · 3×</span>
+        <span id="clockInfo"></span>
+      </div>
+      <div class="wallet"><small>GOUD</small><strong id="gold">300 🪙</strong></div>
     </header>
     <aside class="mission glass" id="missionPanel">
       <button
@@ -30,8 +33,8 @@
         ⌄
       </button>
       <div class="eyebrow">BUNKEROPDRACHT <span id="job">01</span></div>
-      <h1 id="missionTitle">Een haven vol mogelijkheden.</h1>
-      <p id="missionText">Laad 500 ton bij de terminal en lever aan MT AFRIKA.</p>
+      <h1 id="missionTitle">Vrij varen</h1>
+      <p id="missionText">Open de planning (N) en kies een klus.</p>
       <p id="deadline" class="deadline"></p>
       <div class="stages">
         <span id="stage1">01 Laden</span><i></i><span id="stage2">02 Varen</span><i></i
@@ -39,10 +42,9 @@
       </div>
       <div class="progress"><div id="progress"></div></div>
       <div class="missionFoot">
-        <span id="cargo">0 / 500 t</span><span>Opbrengst <b id="reward">€ 750</b></span>
+        <span id="cargo">0 / 800 t</span><span>Opbrengst <b id="reward">–</b></span>
       </div>
-      <button id="pump" class="primary">Start laden <span>↗</span></button
-      ><button id="next" class="primary" hidden>Volgende opdracht →</button>
+      <button id="next" class="primary">Planning openen (N) →</button>
       <div id="dockGuide"></div>
     </aside>
     <nav class="view glass">
@@ -55,8 +57,11 @@
     <div class="harborBar glass" id="harborPanel">
       <span id="career"></span>
       <div>
-        <button id="office">Opdrachten</button><button id="maintenance">Onderhoud</button
+        <button id="office" title="Planning (N)">Planning</button
+        ><button id="maintenance" title="Winkel aan de terminal (B)">Winkel</button
+        ><button id="gateBtn" title="Brug of sluis oproepen (C)">Brug/sluis</button
         ><button id="horn" title="Scheepshoorn (H)">Hoorn</button
+        ><button id="radioBtn" title="Marifoon aan/uit (V)">Marifoon</button
         ><button id="audio">Geluid aan</button>
       </div>
       <small id="vts"></small>
@@ -67,6 +72,7 @@
     </nav>
     <div id="label" class="destination"></div>
     <div id="toast" role="status" aria-live="polite"></div>
+    <div id="radio" aria-live="polite"></div>
     <aside class="chart glass" id="chartPanel">
       <div class="eyebrow">HAVENKAART <span>TIK OM TE VERGROTEN · N ↑</span></div>
       <canvas
@@ -75,7 +81,9 @@
         height="300"
         aria-label="Havenkaart met schip en bestemming"
       ></canvas>
-      <div class="legend"><span>● Jouw schip</span><span>● Bestemming</span></div>
+      <div class="legend">
+        <span>● Jouw schip</span><span class="lgRival">● Concurrent</span><span>● Bestemming</span>
+      </div>
     </aside>
     <footer class="glass">
       <div class="readout">
@@ -139,91 +147,90 @@
       <button id="moor" class="anchor">⚓<span>Trossen los</span><kbd>M</kbd></button>
     </footer>
     <div class="bottomHint">
-      ↑ ↓ machine &nbsp; ← → roer &nbsp; Q E boegschroef &nbsp; spatie afstoppen &nbsp; M afmeren
-      &nbsp; C camera &nbsp; slepen om rond te kijken
+      ↑ ↓ telegraaf &nbsp; ← → roer &nbsp; spatie midscheeps &nbsp; Q E boeg &nbsp; S afstoppen
+      &nbsp; M afmeren &nbsp; N planning &nbsp; B winkel &nbsp; C brug/sluis &nbsp; K kaart &nbsp; T
+      snelvaart &nbsp; F camera
     </div>
     <dialog id="intro">
-      <div class="eyebrow">WELKOM AAN BOORD</div>
-      <h2>Jouw schip.<br />Jouw haven.</h2>
+      <div class="eyebrow">WELKOM AAN BOORD · BUNKERGURU 3D</div>
+      <h2>Jouw bunkerboot.<br />Jouw haven.</h2>
       <p>
-        Bouw je bunkerbedrijf op in Amsterdam Westpoort. Je vaart een tanker van 110 × 11 meter met
-        1.200 ton tankcapaciteit; de opdrachten zijn deelpartijen. Vaar over het Noordzeekanaal naar
-        zes klanten in de havens van Westpoort en Zaandam. Twee laadterminals en tien zijhavens,
-        gebaseerd op de oude Amsterdam-kaart. Lever vijf opdrachten voor een bonus van € 1.000;
-        daarna kun je vrij doorspelen. Je voortgang wordt automatisch bewaard in deze browser.
+        Je vaart een bunkertanker van 110 × 11 m. Laad bij de terminal van je klus (geel), vaar naar
+        het zeeschip en kom netjes langszij in de groene zone. Let op stroming, getij, verkeer en de
+        concurrenten Bunker Bert en Truus Tank. Kies een haven:
       </p>
+      <div id="mapList" class="mapList"></div>
       <ol>
-        <li><b>Laad aan de terminal.</b> Je ligt al vast. Druk op ‘Start laden’.</li>
         <li>
-          <b>Gooi los en vaar.</b> Eén keer ↑ of ＋ om te gaan varen; nogmaals voor meer vaart. ↓ of
-          − schakelt terug. ←/→ om te sturen. Het roer blijft staan als je loslaat. Zet het zelf
-          midscheeps met de 0°-knop. Spatie of de knop Afstoppen remt het schip af. Q/E bedient de
-          boegschroef.
+          <b>Telegraaf</b> ↑/↓: één stand per tik. De motor volgt traag; omkeren gaat via de
+          keerkoppeling.
         </li>
         <li>
-          <b>Meer langszij af.</b> In de groene zone, parallel en onder 2 km/u: M. Start daarna
-          bunkeren.
+          <b>Roer</b> ←/→ of het stuurwiel. Het roer blijft staan; spatie of 0° zet het midscheeps.
+          Q/E boegschroef (alleen bij weinig vaart).
+        </li>
+        <li>
+          <b>Langszij</b>: vaart eruit, koers parallel, dan M = trossen vast. Aan de terminal laad
+          je door stil te liggen.
+        </li>
+        <li>
+          <b>Planning</b> (N): zes klussen met ETA of hoogwater. Op tijd en schadevrij = bonus en
+          reputatie.
+        </li>
+        <li>
+          <b>Winkel</b> (B, aan een terminal): motor, boegschroef, tanks, fenders, pomp.
+          <b>Werf</b> (W): reparatie. <b>Wachtplaats</b> (P): rusten.
         </li>
       </ol>
-      <p class="muted">
-        De volgcamera draait achter je schip mee. Slepen schakelt naar vrij rondkijken. Scrollen
-        zoomt. C wisselt tussen volgcamera, vrije camera en bovenaanzicht. Op telefoon stel je de
-        roerhoek door aan het stuurwiel te draaien. Het stuurwiel blijft staan als je loslaat. Tik
-        op 0° om het roer midscheeps te zetten. Met Afstoppen rem je af. Je ziet zowel de ingestelde
-        als de werkelijke roerhoek.
-      </p>
       <button class="primary" id="start">Aan boord →</button
+      ><button class="subtle" id="handling">Vaargedrag: schipper</button
+      ><button class="subtle" id="tempo">Vaartempo 3× · zoals 2D</button
       ><button class="subtle" id="graphics">Beeld: automatisch</button>
       <p class="graphicsHint">
-        Automatisch kiest een lichte weergave op je telefoon. Loopt het spel stroef? Tik op Beeld
-        voor de zuinige stand.
+        Schipper = het vaarmodel van het 2D-spel (massatraagheid, drift, stroom). Arcade = geholpen
+        en vergevingsgezind. Loopt het stroef? Tik op Beeld voor de zuinige stand.
       </p>
-      <button class="subtle" id="tempo">Vaartempo 2× · spelen</button
-      ><button class="subtle" id="rescue">Terug naar terminal · € 100</button
-      ><button class="subtle" id="upgrade">Pompsnelheid verhogen · € 500</button
-      ><small class="credit"
-        >Gebaseerd op shipdocs/bunkerguru · Havenlicht · Westpoort-editie</small
-      >
+      <button class="subtle" id="rescue">Pechhulp · terug naar start · 100 🪙</button>
+      <small class="credit"><a href="../">← Klassieke 2D-versie</a> · shipdocs/bunkerguru</small>
     </dialog>
     <dialog id="port" class="port">
-      <div class="eyebrow">WESTPOORT · HAVENKANTOOR</div>
-      <h2>Goede zaken.<br />Goede vaart.</h2>
+      <div class="eyebrow" id="portEyebrow">HAVENKANTOOR</div>
+      <h2 id="portTitle">Planning</h2>
       <p id="portStats"></p>
-      <p id="careerDetails"></p>
       <div class="tabs">
-        <button id="tabJobs">Opdrachten</button><button id="tabService">Onderhoud</button>
+        <button id="tabJobs">Planning</button><button id="tabShop">Winkel</button
+        ><button id="tabService">Haven</button>
       </div>
       <section id="portJobs">
-        <p>
-          Kies na iedere levering een nieuwe klant. Spoedtijd loopt alleen tijdens het spelen; op 3×
-          verstrijkt de tijd ook driemaal zo snel.
-        </p>
+        <p id="planInfo"></p>
         <div id="offers"></div>
+        <p id="rank" class="muted"></p>
+      </section>
+      <section id="portShop" hidden>
+        <p id="shopInfo"></p>
+        <div id="shopList"></div>
+        <p id="shopMessage" role="status"></p>
       </section>
       <section id="portService" hidden>
         <p id="serviceState"></p>
-        <p>
-          Meer af aan Amsterdam Westpoortterminal voor reparatie of een nieuwe pomp. Reparatie kost
-          € 3 per schadepunt.
-        </p>
-        <button id="repair" class="primary"></button><button id="buyPump" class="primary"></button>
-        <p id="serviceMessage" role="status"></p>
+        <h3>Andere haven</h3>
+        <div id="mapList2" class="mapList"></div>
         <hr />
         <h3>Pech op het water?</h3>
         <p>
-          Pechhulp brengt je hersteld terug voor maximaal € 100. Je lading vervalt en de huidige
-          opdracht begint opnieuw. Ook zonder geld kun je verder.
+          Pechhulp sleept je naar het startpunt van de haven voor 100 🪙. Je klus blijft staan, de
+          lading vervalt.
         </p>
-        <button id="tow" class="subtle">Pechhulp inschakelen · maximaal € 100</button>
+        <button id="tow" class="subtle">Pechhulp inschakelen · 100 🪙</button>
         <hr />
         <button id="restart" class="subtle">Nieuwe carrière beginnen</button>
         <div id="resetConfirm" hidden>
-          <p>Je geld, opdrachten en upgrades worden gewist. Zeker weten?</p>
+          <p>Je goud, klussen, reputatie en upgrades worden gewist. Zeker weten?</p>
           <button id="confirmReset">Ja, opnieuw beginnen</button
           ><button id="cancelReset">Annuleren</button>
         </div>
       </section>
-      <button id="closePort" class="primary">Terug aan boord →</button>
+      <button id="closePort" class="primary">Nu even niet · vrij varen →</button>
     </dialog>
     <div id="failure" hidden>
       De 3D-weergave kon niet starten. Probeer een browser met WebGL en ingeschakelde
