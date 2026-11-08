@@ -10,7 +10,7 @@ MAPS.push({
   tide: { ebbMax: 3.5, floodMax: 3.0, period: 540 },
   lanes: { down: -30, up: 20, mouth: 110 },
   i18n: {
-    'westwand Deurganckdok': 'west wall of the Deurganckdok', 'Scheldekaai bij Lillo, rechteroever': 'Scheldt quay at Lillo, right bank', 'Kallo-steiger, linkeroever': 'Kallo jetty, left bank',
+    'westwand Deurganckdok': 'west wall of the Deurganckdok', 'in de Kallosluis, oproepen met C': 'inside the Kallo lock, call with C', 'Scheldekaai bij Lillo, rechteroever': 'Scheldt quay at Lillo, right bank', 'Kallo-steiger, linkeroever': 'Kallo jetty, left bank',
     'westwand Kanaaldok, via de Royerssluis': 'west wall of the Kanaaldok, via the Royers lock', 'Scheldekaaien voor de stad': 'Scheldt quays in front of the city', 'Hobokense kade, voorbij Petroleum Zuid': 'Hoboken quay, past Petroleum Zuid',
     'SCHELDE · getijdenrivier': 'SCHELDT · tidal river',
   },
@@ -41,11 +41,13 @@ MAPS.push({
     land.push({ poly: quad(1150, 1330, RH - 40, RH + 40), kind: 'island', col: '#8fcf6f', label: 'Fort Liefkenshoek' });
     return {
       land, basins: lBasins.concat(rBasins),
+      gates: [{ axis: 'n', n: RH + 50, s0: 1950, s1: 2070, name: 'Kallosluis', kind: 'sluis', prepT: 40, openT: 90 }], // sluisdeur in de monding van de Kallosluis
       terminals: [
         { s0: 836, s1: 900, n0: 400, n1: 1300, name: 'Terminal Deurganckdok' },
         { s0: 4000, s1: 4064, n0: -660, n1: -220, name: 'Terminal Petroleum Zuid' },
       ],
       berths: [
+        { name: 'MV WAASLAND', col: '#1abc9c', axis: 'n', a0: 330, a1: 550, c: 1950 + 28, side: +1, where: 'in de Kallosluis, oproepen met C', gate: 'Kallosluis' },
         { name: 'MV DEURGANCK', col: '#e74c3c', axis: 'n', a0: 400, a1: 1000, c: 300 + 28, side: +1, where: 'westwand Deurganckdok' },
         { name: 'MV LILLO', col: '#2c7fb8', axis: 's', a0: 1500, a1: 1950, c: -RH + 28, side: +1, where: 'Scheldekaai bij Lillo, rechteroever' },
         { name: 'MT KALLO', col: '#27ae60', axis: 's', a0: 1400, a1: 1800, c: RH - 28, side: -1, where: 'Kallo-steiger, linkeroever' },

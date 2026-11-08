@@ -73,11 +73,11 @@ MAPS.push({
         { name: 'WATERTAXI', col: '#f1c40f', s: 500, n: -20, v: 7.0, len: 50 },
         { name: 'SLB DUW', col: '#2c3e50', s: 350, n: 1000, v: -4.0, len: 90, axis: 'n', nMin: RH + 100, nMax: 1250 },
       ],
+      gates: [{ s: 3220, n0: 150, n1: RH, name: 'Koninginnebrug', kind: 'brug', prepT: 30, openT: 70, col: '#888' }], // basculebrug over de Koningshaven: oproepen met C
       bridges: [
         { s: 2420, n0: -RH, n1: RH, name: 'Erasmusbrug', pillars: [200], pylon: 200, col: '#dfe6ee' },
         { s: 2750, n0: -RH, n1: 40, name: 'Willemsbrug', pillars: [-200], col: '#e74c3c' },
         { s: 2980, n0: 150, n1: RH, name: 'De Hef', towers: [150, RH], col: '#555' },
-        { s: 3220, n0: 150, n1: RH, name: 'Koninginnebrug', col: '#888' },
         { s: 4150, n0: -RH, n1: RH, name: 'Van Brienenoordbrug', pillars: [-190, 190], col: '#2c7fb8' },
       ],
       waits: [
