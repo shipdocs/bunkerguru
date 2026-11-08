@@ -9,7 +9,9 @@ import {
   waterRoute,
   landAt,
 } from '../../src/maps/index.mjs';
-import { fresh, step, createWorldState } from '../../src/game/simulation.mjs';
+import { fresh, step, createWorldState, mooringCandidate } from '../../src/game/simulation.mjs';
+import { hullContacts } from '../../src/game/collisions.mjs';
+import { quickJob } from '../../src/game/harbor.mjs';
 const out = {
   id: MAP.id,
   problems: [],
@@ -39,6 +41,41 @@ for (const b of customers) {
       }
     }
 }
+// moor.py: lie still alongside every terminal, waiting place and seagoing ship —
+// the hull must fit without touching, and M (make fast) must be accepted.
+for (const [i, b] of customers.entries()) {
+  const p = {
+    ...fresh(),
+    x: b.x,
+    z: b.z,
+    h: b.h,
+    moored: false,
+    phase: 'sail',
+    job: { berth: i, terminal: 0 },
+  };
+  const x0 = p.x,
+    z0 = p.z;
+  hullContacts(p, 0);
+  if (Math.hypot(p.x - x0, p.z - z0) > 0.01) bad(b.name + ': bunker spot touches a quay or ship');
+  if (!mooringCandidate(p).ok) bad(b.name + ': cannot make fast (' + mooringCandidate(p).why + ')');
+}
+for (const t of [...terminals, ...waits]) {
+  const off = t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7);
+  const p = {
+    ...fresh(),
+    x: t.alongZ ? t.x + off : t.x,
+    z: t.alongZ ? t.z : t.z + off,
+    h: t.h,
+    moored: false,
+    phase: 'free',
+  };
+  const x0 = p.x,
+    z0 = p.z;
+  hullContacts(p, 0);
+  if (Math.hypot(p.x - x0, p.z - z0) > 0.01) bad(t.name + ': quay spot does not fit the hull');
+  if (!mooringCandidate(p).ok) bad(t.name + ': cannot make fast');
+}
+void quickJob;
 const s = fresh(),
   world = createWorldState(s);
 const fx = { say() {}, sound() {}, radio() {}, board() {}, done() {} };

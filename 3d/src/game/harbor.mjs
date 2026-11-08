@@ -261,7 +261,10 @@ export function routePoints(s, t) {
     Math.hypot(routeCache.x - s.x, routeCache.z - s.z) > 30
   ) {
     const goal = { x: t.x, z: t.z };
-    routeCache = { t, x: s.x, z: s.z, pts: waterRoute({ x: s.x, z: s.z }, goal, 12) };
+    // Prefer wide clearance (a 110 m hull sweeps wide in bends); narrow only if needed.
+    const wide = waterRoute({ x: s.x, z: s.z }, goal, 30);
+    const ok = wide.length > 2 || Math.hypot(goal.x - s.x, goal.z - s.z) < 400;
+    routeCache = { t, x: s.x, z: s.z, pts: ok ? wide : waterRoute({ x: s.x, z: s.z }, goal, 12) };
   }
   const pts = routeCache.pts.slice();
   pts[0] = { x: s.x, z: s.z };

@@ -1,5 +1,9 @@
 # Vessel rules — Bunkerguru 3D
 
+**Update (schipper):** normal gameplay now uses `src/game/sim-vessel.mjs`, the exact `physics()` of the 2D game (`engine.js`): DYN 0.4 inertia, rudder side force and drift, slow two-stroke rpm, pneumatic reversing clutch, current shear over the hull, wind. `tests/schipper.test.mjs` extracts `physics()` from `../engine.js` and compares step by step (still water, and with current, wind and cargo). Do not change `sim-vessel.mjs` without changing `engine.js` (or the reverse). One simulated second equals one physics second of the 2D game; tempo 3× equals the 2D game's `TIME = 3`. AFSTOPPEN in schipper mode puts the engine full astern via the clutch until the ship lies still, then STOP — no magic brake. Collision damage, cooldown (0.6 s 2D = 1.8 simulated s) and fender upgrade follow `engine.js`.
+
+The **arcade** handling described below remains available as a player option (`state.handling = 'arcade'`).
+
 These rules apply to all current and future ships. One profile is the source of truth; do not compensate for a ship's size with unrelated constants in rendering, input or collisions.
 
 ## Units and current vessel

@@ -1,68 +1,54 @@
-# Bunkerguru — Havenlicht
+# Bunkerguru 3D
 
-Een 3D-bunkerspel in Amsterdam Westpoort, geïnspireerd op `shipdocs/bunkerguru`. De browser draait lokale Three.js-modules; er zijn geen CDN's, accounts in het spel of backend nodig. De Sites-publicatie kan wel een ChatGPT-toegangspoort hebben.
-
-## Ontwikkelen
-
-Gebruik Node.js 22 of nieuwer.
-
-```sh
-npm ci
-npm run dev
-```
-
-Open `http://localhost:4173`. Wijzigingen in `src/`, `public/` en `vendor/` bouwen automatisch opnieuw; vernieuw daarna de browser. Met `PORT` kun je een andere poort kiezen. In de beheerde Sites-omgeving start je de preview via `sites-preview start <checkout>`.
-
-```sh
-npm run check         # alle speltests, build, bestandsverwijzingen en integratietest op de build
-npm run format        # consistente opmaak van eigen code, tests en documentatie
-npm run format:check  # controle zonder wijzigingen
-npm run build         # alleen de publiceerbare bestanden maken
-```
-
-**Bewerk `src/` en `public/`, niet `dist/`.** `dist/` wordt volledig opnieuw opgebouwd en staat niet in Git. De build heeft geen bundler of runtime-afhankelijkheden nodig. Prettier is alleen een ontwikkelhulpmiddel; de versie staat vast in `package-lock.json`.
-
-## Waar pas ik iets aan?
-
-| Onderdeel                                 | Bestand of map                                                        |
-| ----------------------------------------- | --------------------------------------------------------------------- |
-| Opstarten, pauze en hoofdloop             | `src/app/create-game.mjs`                                             |
-| Tijdverloop en snelheid bij lage FPS      | `src/app/simulation-clock.mjs`                                        |
-| Opgeslagen spel en voorkeuren             | `src/app/storage.mjs`, `src/game/state.mjs`                           |
-| Roer, toetsen en aanraakknoppen           | `src/input/wheel.mjs`, `src/input/helm.mjs`, `src/input/keyboard.mjs` |
-| Vaargevoel, gas, afstoppen en boegschroef | `src/game/play-vessel.mjs`                                            |
-| Scheepsafmetingen en tankinhoud           | `src/game/ship-profile.mjs`                                           |
-| Opdrachten, beloningen en onderhoud       | `src/game/harbor.mjs`                                                 |
-| Laden, afmeren en spelstappen             | `src/game/simulation.mjs`                                             |
-| Vaarwater en havenbreedtes                | `src/maps/waterway-layout.mjs`, `src/maps/amsterdam.mjs`              |
-| Gebouwen, bomen, kranen en omgevingsleven | `src/render/scenery.mjs`                                              |
-| Scheepsmodel, water en volgcamera         | `src/render/ship-model.mjs`, `water.mjs`, `camera.mjs`                |
-| Scherminformatie, havenkantoor en kaart   | `src/ui/`                                                             |
-| HTML, kleuren en mobiele indeling         | `public/index.html`, `public/styles/`                                 |
-| Geluid                                    | `src/audio/`                                                          |
-
-Lees [de architectuur](docs/ARCHITECTURE.md) voor modulegrenzen en [de scheepsregels](VESSEL_RULES.md) voordat je afmetingen, besturing, botsingen of camera verandert. [De snelheidscontrole](docs/SPEED.md) beschrijft de FPS-fout en de meetbare regressietests.
+De 3D-versie (Three.js) van [Bunkerguru](../README.md), te spelen op `/3d/`. Zelfde spel als de 2D-versie: dezelfde kaarten, hetzelfde vaarmodel, dezelfde regels. Alleen de weergave is 3D.
 
 ## Spelen
 
-Je begint vast aan de terminal. Laad 500 ton, gooi los, vaar naar MT AFRIKA en maak parallel vast binnen 25 m en onder 2 km/u. Bunker de lading om betaald te worden. Daarna biedt het havenkantoor gewone, spoed- en kleine opdrachten aan, verdeeld over zes klanten. Vijf leveringen leveren eenmaal € 1.000 bonus op. Reparaties en pompupgrades zijn bij de laadterminals beschikbaar; pechhulp voorkomt dat je vastloopt zonder geld.
+Kies een haven (Amsterdam, Rotterdam, Europoort, Antwerpen of de Oefenhaven). Open de planning (N), neem een klus aan, laad bij de gele terminal door er stil te liggen, vaar naar het zeeschip en kom langszij in de groene zone (parallel, vaart eruit, M = vast). Bunkeren gaat dan vanzelf.
 
-- ↑/↓ of +/−: achteruit, stop, langzaam, half en vol vooruit.
-- ←/→: roerhoek aanpassen. **Loslaten houdt de hoek vast**, ook wanneer je het stuurwiel op mobiel of met de muis draait. Alleen 0° zet het roer midscheeps.
-- Spatie of Afstoppen: afremmen tot stilstand, met behoud van de roerstand. Gas geven beëindigt het afstoppen.
-- Q/E: boegschroef; M: vastmaken/losgooien; H: hoorn; C: camera.
-- Slepen: rondkijken; scrollen: zoomen; Escape: pauze.
+- ↑/↓ telegraaf, één stand per tik (vol achteruit … vol vooruit). De motor volgt traag; omkeren gaat via de keerkoppeling.
+- ←/→ of stuurwiel: roer. Het roer blijft staan; spatie of 0° = midscheeps. Q/E boegschroef (werkt alleen bij weinig vaart).
+- S of AFSTOPPEN: volle kracht achteruit tot stil, dan STOP. M vastmaken/losgooien.
+- N planning · B winkel (aan een terminal) · C brug/sluis oproepen · K grote kaart · T snelvaart 6× · H hoorn · V marifoon · G geluid · P muziek · F camera · Esc pauze.
 
-De actieve tanker is 110 × 11 m met 1.200 ton tankinhoud. Het vaarmodel is bewust speels en geholpen, geen vaarsimulator. Scheepslengte en lading beïnvloeden het varen licht. Standaard speeltempo is 2×: de haven passeert twee keer zo snel als bij het eerdere 1×. Via Vaartempo kies je 1× (rustig), 2× (spelen) of 3× (snel). Verkeer, overslag en opdrachtklokken gebruiken dezelfde factor.
+Op de kaart: T = terminal, P = wachtplaats (rusten tegen vermoeidheid), W = werf (reparatie, 3 🪙 per punt). Boven 40 schade lek je lading. Klussen zijn kort, lang, spoed of getij (vóór hoogwater). Op tijd en schadevrij geeft bonus en reputatie bij de rederij. Bunker Bert en Truus Tank varen ook klussen, pakken er soms een van de planning af en racen af en toe mee naar jouw schip: wie het eerst langszij ligt, krijgt de klus.
 
-Voortgang wordt in dezelfde browser bewaard, iedere drie seconden tijdens het spelen en bij belangrijke acties. De bestaande opslagcodes blijven gelijk. Hervatten stopt de machine, maar bewaart roerstand, voortgang en huidige positie. Oudere kaarten worden veilig gemigreerd. Pauze, dialoogvensters en een verborgen tabblad stoppen de simulatie. Geen cloudsynchronisatie.
+Vaargedrag **schipper** (standaard) is het 2D-vaarmodel; **arcade** is geholpen en vergevingsgezind (startscherm). Vaartempo 3× is het tempo van het 2D-spel.
 
-## Beeld en grenzen
+## Ontwikkelen
 
-De cartoonhaven gebruikt samengevoegde geometrie en detailniveaus. Automatisch kiest op telefoons de lichte stand; via Beeld kun je die aanpassen. De bouwstap voegt de CSS-lagen samen om extra mobiele verzoeken te vermijden. Er zijn geen nieuwe runtime-afhankelijkheden toegevoegd.
+Node.js 22 of nieuwer. `index.html` werkt direct vanuit de repository (GitHub Pages); `npm run build` maakt daarnaast een losse `dist/`.
 
-De kaart is schematisch: hoofdwater 190–280 m, haveningangen 60–220 m en binnenhavens tot 420 m. Alle zes klanten, beide terminals, draaiplekken en botsingen worden met de volledige scheepsromp getest. Verkeer volgt vaste routes. Er zijn nog geen sluizen, bruggen, andere kaarten, scheepsaankopen, wind/stroom, multiplayer of cloudsaves.
+```sh
+npm ci
+npm run dev          # http://localhost:4173
+npm run check        # tests, build, bestandsverwijzingen, integratietest op de build
+npm run format       # prettier
+node scripts/sync-maps.mjs   # na een wijziging in ../maps/*.js
+```
 
-De tests controleren spelgedrag, oorspronkelijke fysica, geometrie, opslag, bediening en de echte applicatie-opbouw met een vervangende renderer. Ze controleren ook de daadwerkelijk gebouwde bestanden. De testbrowser kan hier geen WebGL-context maken: echte 3D-proefvaarten en prestaties op een fysieke telefoon zijn niet geverifieerd.
+| Onderdeel                              | Bestand                                                   |
+| -------------------------------------- | --------------------------------------------------------- |
+| Kaarten (kopie van `../maps/*.js`)     | `src/maps/classic/`, omzetting `src/maps/classic-map.mjs` |
+| Water, stroom, getij, route-advies     | `src/maps/index.mjs`                                      |
+| Vaarmodel schipper / arcade            | `src/game/sim-vessel.mjs`, `src/game/play-vessel.mjs`     |
+| Spelstap, afmeren, laden, bunkeren     | `src/game/simulation.mjs`                                 |
+| Planning, winkel, betaling, reputatie  | `src/game/harbor.mjs`                                     |
+| Verkeer, bruggen/sluizen, concurrenten | `src/game/traffic.mjs`, `gates.mjs`, `rivals.mjs`         |
+| Incidenten en VTS                      | `src/game/events.mjs`                                     |
+| Opslag en migratie                     | `src/game/state.mjs`, `src/app/storage.mjs`               |
+| 3D-wereld, decor, schepen              | `src/render/`                                             |
+| HUD, havenkantoor, kaart               | `src/ui/`, `index.html`, `styles/`                        |
+| Geluid en marifoon                     | `src/audio/`                                              |
 
-Three.js r160 staat met MIT-licentie in `vendor/`. De oorspronkelijke kaart en geluidsbron worden apart bewaard; deze Sites-repository staat los van `shipdocs/bunkerguru`.
+Zie [architectuur](docs/ARCHITECTURE.md) en [scheepsregels](VESSEL_RULES.md).
+
+## Tests
+
+- `tests/schipper.test.mjs` haalt `physics()` uit `../engine.js` en vergelijkt het 3D-vaarmodel stap voor stap, ook met stroom en wind. Verandert het 2D-vaarmodel, dan faalt deze test tot het 3D-model mee is.
+- `tests/maps.test.mjs` controleert per kaart: alle terminals, wachtplaatsen en klanten liggen op water, passen de romp en accepteren vastmaken; routes lopen niet over land; 30 minuten verkeer en concurrenten blijven op het water en maken klussen af.
+- `tests/ui-smoke.test.mjs` bouwt de echte scène en speelt een klus via de echte knoppen.
+
+Niet getest: echte WebGL-prestaties op een telefoon. Nog niet overgezet: Engels, muziek-/volumepaneel, weerbeelden (regen), ranglijst.
+
+Three.js r160 staat met MIT-licentie in `vendor/`.

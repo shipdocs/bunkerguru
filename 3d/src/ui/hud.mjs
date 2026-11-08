@@ -65,7 +65,7 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
     ).join('');
     $('cargo').textContent = Math.round(s.cargo) + ' / ' + s.target + ' t';
     $('progress').style.width = Math.min(100, (s.cargo / Math.max(1, s.target)) * 100) + '%';
-    const heading = Math.round(((s.h * 180) / Math.PI + 360) % 360);
+    const heading = Math.round(((((s.h * 180) / Math.PI) % 360) + 360) % 360);
     $('status').textContent =
       (s.moored
         ? 'Vastgemaakt'

@@ -8,6 +8,14 @@
 
 De publicatie blijft statisch. `.openai/hosting.json` wijst naar `dist/`; de Sites-workflow bouwt vóór het verpakken met `npm run build`. Tests gebruiken rechtstreeks `src/`, en `npm run test:built` voert de applicatie-integratietest nogmaals uit op `dist/`. Zo kunnen verouderde buildbestanden geen groen testresultaat maskeren.
 
+## Overgezet uit het 2D-spel
+
+De kaarten staan als kopie in `src/maps/classic/` (gemaakt door `scripts/sync-maps.mjs` uit `../maps/*.js`). `src/maps/classic-map.mjs` doet hetzelfde als `loadMap` in `engine.js`: K-schaal, terminals/wachtplaatsen/ligplaatsen tegen hun kade, en zet alles om naar meters (x langs de rivier, zee aan −x; z dwars, noord = −z). Eén kaart is actief per paginalading (`?map=`, of de laatst gekozen); wisselen herlaadt de pagina. `src/maps/index.mjs` levert water, stroom/getij en route-advies (A\* op 24 m).
+
+Tijd: `s.clock` telt gesimuleerde seconden. De 2D-timers (laden, pompen, vermoeidheid, getij, deadlines) liepen op echte seconden terwijl de fysica 3× zo snel liep; daarom rekent `harbor.mjs` met `LOGIC = 1/3`. Op tempo 3× voelt alles precies als het 2D-spel.
+
+Runtime-wereld (`createWorldState`): verkeer, bruggen/sluizen, concurrenten en incidenten. Alleen geld en positie van de concurrenten worden bewaard.
+
 ## Verantwoordelijkheden
 
 - **`game/`** bevat spelstaat, spelregels, vaarmodel en botsingen. Het heeft geen DOM, WebGL of browseropslag nodig. `state.mjs` is de enige plek voor nieuwe spelvelden en opslagmigratie. `simulation.mjs` voert acties en simulatiestappen uit.
