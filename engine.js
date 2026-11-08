@@ -791,6 +791,27 @@ function drawNight(t) { // schemer en nacht: donkerblauwe waas, vaarlichten op s
   for (const tm of terminals) { const c = sn2w((tm.s0 + tm.s1) / 2, (tm.n0 + tm.n1) / 2); if (vis(c.x, c.y)) glow(c.x, c.y, 160, 'rgba(255,245,210,A)', 0.45); }
   ctx.restore();
 }
+// ---------- verkeersbegeleiding (VTS) die meetelt ----------
+// Bij een havenmond waar een zeeschip langs gaat komen: "wacht tot X gepasseerd is". Opvolgen = punten en reputatie, negeren = reputatie kwijt.
+const VTS = { act: null, cd: 0, bonus: 0 };
+function vtsTick(dt) {
+  if (MAP.id === 'training' || state.phase === 'sunk' || moored) return; if (VTS.cd > 0) VTS.cd -= dt;
+  const p = w2sn(boat.x, boat.y), en = lang === 'en';
+  if (VTS.act) { const a = VTS.act; a.T -= dt; const sh = a.sh; const passed = Math.sign(sh.s - a.ms) !== a.side0 && Math.abs(sh.s - a.ms) > 60;
+    const inZone = p.s > a.z.s0 && p.s < a.z.s1 && Math.abs(p.n) > a.z.nMin && Math.abs(p.n) < RIVER_HALF && Math.sign(p.n) === a.bside;
+    if (inZone && !passed) { VTS.act = null; VTS.cd = 90; if (offer) addRep(offer.client, -6); say(en ? '📻 VTS: you ignored the instruction! Reputation −6' : '📻 VTS: aanwijzing genegeerd! Reputatie −6', 5); RADIO.say([{ who: MAP.radio.sectors[0], spk: 0, text: en ? 'Bunkerguru, you did not wait as instructed. This will be reported.' : 'Bunkerguru, u heeft niet gewacht zoals aangegeven. Dit wordt gemeld.' }]); return; }
+    if (passed) { VTS.act = null; VTS.cd = 60; VTS.bonus += 60; if (offer) addRep(offer.client, 1); say(en ? `📻 VTS: thank you, ${sh.name} has passed, you may proceed. +60 pts` : `📻 VTS: dank u, ${sh.name} is gepasseerd, u kunt doorvaren. +60 pt`, 4); RADIO.say([{ who: MAP.radio.sectors[0], spk: 0, text: en ? 'Bunkerguru, thank you for waiting, fairway is clear, proceed.' : 'Bunkerguru, bedankt voor het wachten, vaarwater is vrij, u kunt doorvaren.' }]); return; }
+    if (a.T <= 0) { VTS.act = null; VTS.cd = 60; } return; }
+  if (VTS.cd > 0) return;
+  // kandidaat: een havenmond binnen 700 px waar ik nog niet in de monding lig, en een zeeschip dat die mond binnen 10–40 s passeert
+  for (const bz of basins) { const bside = bz.n0 >= RIVER_HALF - 1 ? 1 : bz.n1 <= -RIVER_HALF + 1 ? -1 : 0; if (!bside) continue; const ms = (bz.s0 + bz.s1) / 2, mn = bside * RIVER_HALF;
+    const d = Math.hypot(p.s - ms, p.n - mn); if (d > 700 || d < 120) continue; const z = { s0: bz.s0 - 80, s1: bz.s1 + 80, nMin: RIVER_HALF - 150 };
+    if (p.s > z.s0 && p.s < z.s1 && Math.abs(p.n) > z.nMin && Math.abs(p.n) < RIVER_HALF && Math.sign(p.n) === bside) continue; // lig al in de monding: dan geen aanwijzing meer
+    for (const sh of traffic) { if (sh.axis === 'n' || !sh.v) continue; const ds = ms - sh.s, vs = sh.v * SCALE * TIME; if (Math.sign(ds) !== Math.sign(vs)) continue; const eta = Math.abs(ds) / Math.abs(vs); if (eta < 8 || eta > 40) continue;
+      VTS.act = { sh, z, ms, bside, side0: Math.sign(sh.s - ms), T: eta + 25 }; const who = MAP.radio.sectors[0];
+      say(en ? `📻 VTS: wait at the ${bz.name} until ${sh.name} has passed` : `📻 VTS: wacht bij de ${bz.name} tot ${sh.name} gepasseerd is`, 6); SND.alarm(1);
+      RADIO.say([{ who, spk: 0, text: en ? `Bunkerguru, ${who}, ${sh.name} is approaching the ${bz.name}. Wait outside the entrance until she has passed.` : `Bunkerguru, ${who}, ${sh.name} nadert de ${bz.name}. Wacht buiten de monding tot hij gepasseerd is.` }]); return; } }
+}
 // ---------- willekeurige incidenten ----------
 // elke 5–9 sim-minuten één: motorstoring, roer klemt, mistbank, windvlaag, drijvende container, zeeschip met storing in de geul
 const EV = { next: 300 + Math.random() * 240, fog: 0, wind: null, flotsam: [], stall: null };
@@ -815,7 +836,7 @@ function eventTick(dt) {
   else { const cands = traffic.filter(tr => tr.axis !== 'n' && tr.v !== 0); if (cands.length) { const sh = cands[Math.floor(Math.random() * cands.length)]; EV.stall = { sh, v: sh.v, T: 100 + Math.random() * 60 }; sh.v = 0; SND.alarm(2); say(en ? `⚠️ ${sh.name} has engine trouble and is stopped in the fairway` : `⚠️ ${sh.name} heeft motorstoring en ligt stil in de vaargeul`, 6); RADIO.say([{ who: sh.name, spk: 2, text: en ? `All ships, ${sh.name}, engine failure, I am stopped in the fairway, pass with care.` : `Alle schepen, hier ${sh.name}, motorstoring, ik lig stil in de vaargeul, voorzichtig passeren.` }]); } else EV.next = 30; }
 }
 function logic(dt) {
-  const b = boat; state.elapsed += dt; eventTick(dt); weatherTick(dt);
+  const b = boat; state.elapsed += dt; eventTick(dt); weatherTick(dt); vtsTick(dt);
   if (b.blackout > 0) { b.blackout -= dt; if (b.blackout <= 0) { b.blackout = 0; b.engDir = 0; say(lang === 'en' ? '✅ Engine restarted' : '✅ Motor draait weer', 3); } }
   if (b.jamT > 0) { b.jamT -= dt; if (b.jamT <= 0) { b.jamT = 0; say(lang === 'en' ? '✅ Steering gear free again' : '✅ Stuurmachine weer vrij', 3); } }
   if (b.damage >= 100 && state.phase !== 'sunk') { moored = null; state.phase = 'sunk'; state.sinkT = 0; b.tele = 0; b.teleIdx = 3; const loss = MAP.id === 'training' ? 0 : Math.round(career.gold / 2); career.gold -= loss; SND.sink(); saveCareer(); say(tf('🫧 Gezonken! Verzekering betaalt de helft: −{0} goud. Nieuwe boot volgt…', loss)); }
@@ -842,7 +863,7 @@ function logic(dt) {
     if (state.bunkerT >= BT) {
       state.phase = 'done';
       const timeScore = Math.max(0, 900 - Math.round(state.elapsed) * 3);
-      score = Math.max(0, 1000 + timeScore - Math.round(b.damage) * 10); totalScore += score;
+      score = Math.max(0, 1000 + timeScore - Math.round(b.damage) * 10) + VTS.bonus; VTS.bonus = 0; totalScore += score;
       if (MAP.id !== 'training' && totalScore > bestScore) { bestScore = totalScore; try { localStorage.setItem('bunker_best', bestScore); } catch (e) {} }
       const base = offer ? offer.pay : Math.round(b.target * 0.6), late = offer && offer.deadline ? tideT - offer.deadline : -1, onTime = late <= 0;
       const pay = onTime ? base : Math.round(base * Math.max(0.5, 1 - late / Math.max(60, offer.est))), bonus = onTime ? Math.round(base * 0.25) : 0, clean = b.damage < 0.5 ? 150 : 0;
