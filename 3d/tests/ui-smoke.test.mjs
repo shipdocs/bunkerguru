@@ -79,8 +79,8 @@ test('scene builds finite geometry and UI supports start, delivery, office, upgr
     innerHeight: 768,
     devicePixelRatio: 1,
     localStorage: {
-      getItem() {
-        return null;
+      getItem(key) {
+        return key === 'bunkerguru3d-map' ? 'amsterdam' : null;
       },
       setItem() {},
     },

@@ -25,7 +25,13 @@ export function selectedMapId() {
     try {
       id = globalThis.localStorage?.getItem(MAP_KEY);
     } catch {}
-  return DEFS[id] ? id : 'amsterdam';
+  if (DEFS[id]) return id;
+  // New players start with the practice voyage, as in the 2D game.
+  let known = false;
+  try {
+    known = !!globalThis.localStorage?.getItem('bunkerguru3d-v1');
+  } catch {}
+  return known || !globalThis.document ? 'amsterdam' : 'training';
 }
 export const MAP = buildClassic(DEFS[selectedMapId()]);
 export const {
