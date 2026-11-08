@@ -1,0 +1,211 @@
+.harborBar {
+  position: absolute;
+  left: 28px;
+  top: 455px;
+  width: 302px;
+  padding: 13px 15px;
+  font-size: 10px;
+}
+.harborBar > span {
+  display: block;
+  color: var(--lime);
+  line-height: 1.5;
+}
+.harborBar > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 9px 0;
+}
+.harborBar button {
+  background: #ffffff0b;
+  border: 1px solid #ffffff20;
+  border-radius: 5px;
+  padding: 7px;
+  font-size: 10px;
+}
+.harborBar small {
+  display: block;
+  line-height: 1.5;
+  color: #b6cac7;
+}
+.deadline {
+  font-size: 10px;
+  color: #d6dbb5;
+  margin: 10px 0;
+}
+#dockGuide {
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--lime);
+  margin-top: 8px;
+}
+.port {
+  width: 620px;
+  max-width: calc(100% - 24px);
+  max-height: 90dvh;
+  overflow: auto;
+}
+.port h2 {
+  font-size: 30px;
+}
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+.tabs button {
+  flex: 1;
+  padding: 10px;
+  background: #ffffff08;
+  border: 1px solid #ffffff26;
+  border-radius: 6px;
+}
+.tabs .selected {
+  color: var(--lime);
+  border-color: var(--lime);
+}
+.offer {
+  border: 1px solid #ffffff20;
+  background: #ffffff04;
+  border-radius: 9px;
+  padding: 14px;
+  margin: 10px 0;
+}
+.offer h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.offer p {
+  margin: 8px 0 12px;
+}
+.offer button:disabled {
+  background: #60716a;
+  color: #dee8df;
+  font-size: 10px;
+}
+.port > .primary {
+  margin-top: 18px;
+}
+#portService > .primary {
+  margin-top: 10px;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #ffffff20;
+  margin: 18px 0;
+}
+dialog {
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+#resetConfirm button {
+  background: #ffffff15;
+  border: 1px solid #ffffff40;
+  padding: 9px;
+  border-radius: 5px;
+  margin-right: 6px;
+}
+@media (min-width: 801px) and (max-height: 800px) {
+  .harborBar {
+    top: 106px;
+    left: 350px;
+    width: 260px;
+  }
+  .mission {
+    padding: 16px;
+  }
+  .chart {
+    bottom: 182px;
+  }
+}
+@media (max-width: 800px) {
+  .harborBar {
+    left: 16px;
+    top: auto;
+    bottom: 175px;
+    width: 240px;
+    padding: 10px;
+  }
+  .harborBar small {
+    font-size: 9px;
+  }
+  .mission {
+    max-height: calc(100dvh - 370px);
+    overflow: auto;
+  }
+  .harborBar button {
+    padding: 6px;
+  }
+  .harborBar > div {
+    margin: 5px 0;
+  }
+}
+@media (max-width: 540px) {
+  .harborBar {
+    left: 12px;
+    bottom: 205px;
+    width: 225px;
+  }
+  .harborBar > span {
+    font-size: 9px;
+  }
+  .harborBar small {
+    display: none;
+  }
+  .mission {
+    max-height: calc(100dvh - 390px);
+  }
+  .chart {
+    bottom: 205px;
+    width: 106px;
+  }
+  .harborBar button {
+    font-size: 9px;
+  }
+  .port h2 {
+    font-size: 26px;
+  }
+}
+@media (max-height: 550px) {
+  .chart {
+    display: none;
+  }
+  .mission {
+    width: 220px;
+    max-height: calc(100dvh - 180px);
+  }
+  .harborBar {
+    left: 255px;
+    top: 84px;
+    bottom: auto;
+    width: 240px;
+  }
+  .harborBar small {
+    display: none;
+  }
+  footer {
+    bottom: 10px;
+    padding: 8px;
+  }
+  .bottomHint {
+    display: none;
+  }
+  header {
+    top: 10px;
+  }
+  .view {
+    top: 80px;
+  }
+}
+@media (min-width: 801px) {
+  .harborBar {
+    top: 106px;
+    left: 350px;
+    bottom: auto;
+    width: 260px;
+  }
+  .mission {
+    max-height: calc(100dvh - 300px);
+    overflow-y: auto;
+  }
+}

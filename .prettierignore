@@ -1,0 +1,7 @@
+dist/
+node_modules/
+vendor/
+src/maps/amsterdam-source.mjs
+src/audio/legacy-audio.mjs
+tests/legacy-physics.cjs
+package-lock.json
