@@ -21,3 +21,14 @@ Validation: `node --test tests/navigation.cjs` covers detours, unreachable targe
 Graphics use a shared top-down style for buildings, tanks, trees and cranes, with consistent shadows. The district layout keeps buildings off roads and water, groups industrial buildings and container yards, and adds pipe racks to tank parks. Water uses a muted gradient and subtle animated waves instead of the repeating high-contrast image texture. The original ship detail remains visible under selective orange hull accents.
 
 The canvas backing store follows device pixel density up to 2×, with a six-megapixel target budget, while controls, camera, map hit targets and simulation coordinates stay in CSS/world pixels. Run `node --test tests/navigation.cjs tests/graphics.cjs` for geometry/layout checks and `node tests/graphics-browser.cjs` for all four harbours, DPR3 rendering, rotation, map taps and missing-image fallback.
+
+## Nieuw (nov 2026)
+- **Opdrachtenbeurs**: drie klussen (kort / getij of lang / spoed) met ETA of tijvenster; op tijd = +25 %, te laat = korting. Toetsen 1/2/3. Wat je laat liggen, pakken de concurrenten.
+- **Reputatie per rederij**: tarief ×0,8–×1,2; vaste klanten vanaf 75.
+- **Dagdoel en ranglijst** per kaart (lokaal opgeslagen).
+- **Weer en dag/nacht**: weerbericht via VHF, staande wind, regen en buien, vaarlichten en kadeverlichting 's nachts.
+- **Sluis en brug**: Kallosluis (Antwerpen) en Koninginnebrug (Rotterdam) oproepen met **C**.
+- **VTS**: wacht-aanwijzingen bij havenmonden; opvolgen levert punten, negeren kost reputatie.
+- **Schade blijft**: lekkage boven 40 schade, reparatie alleen op de werf (W op de kaart, 3 goud/pt).
+- **Incidenten**: blackout, roer klemt, mist, windvlaag, drijvende container, zeeschip met storing; met alarm.
+- **Motor**: langzaamloper met keerkoppeling (pneumatisch), tyfoon 80 Hz, 60° roer, meer massatraagheid.

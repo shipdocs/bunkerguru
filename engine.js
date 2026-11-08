@@ -1318,7 +1318,7 @@ function drawInstruments() {
   ctx.textAlign = 'left';
 }
 let mapBig = false, miniRect = { x: 0, y: 0, w: 0, h: 0 };
-function toggleBigMap() { mapBig = !mapBig; document.body.classList.toggle('bigmap', mapBig); }
+function toggleBigMap() { mapBig = !mapBig; document.body.classList.toggle('bigmap', mapBig); if (boardOpen) document.getElementById('board').style.display = mapBig ? 'none' : 'flex'; } // grote kaart gaat vóór de opdrachtenbeurs
 cv.addEventListener('pointerdown', e => { const r = miniRect, x = e.clientX, y = e.clientY; if (mapBig || (x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 8 && y <= r.y + r.h + 8)) { toggleBigMap(); e.preventDefault(); } });
 function drawMinimap() {
   let mw = COMPACT ? 140 : 220, mh = Math.round(mw * H / W), mx = VW - mw - (COMPACT ? 8 : 12), my = COMPACT ? 56 : 12;
@@ -1532,7 +1532,7 @@ function chosenMap() { let id = null; try { id = localStorage.getItem('bunker_ma
 function startGame(skipTraining = false) { SND.init(); RADIO.reset(); const firstVoyage = !skipTraining && !trainingCompleted && career.jobs === 0; loadMap(firstVoyage ? MAPS.find(m => m.id === 'training') : chosenMap()); reset(); overlay.style.display = 'none'; running = true; paused = false; last = performance.now(); maybeRace(); }
 function renderContinue() { const s = readSave(), btn = document.getElementById('cont'); if (!btn) return; if (!s) { btn.style.display = 'none'; return; } const m = MAPS.find(x => x.id === s.map), d = new Date(s.at);
   btn.style.display = ''; btn.innerHTML = `▶ ${tr('Verder varen')}<br><span style="font-size:11px;font-weight:400">${m.name} · ${s.wait || ''} · ${d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'nl-NL')} ${d.toLocaleTimeString(lang === 'en' ? 'en-GB' : 'nl-NL', { hour: '2-digit', minute: '2-digit' })}</span>`; }
-function openMenu() { running = false; renderMapMenu(); renderContinue(); overlay.style.display = 'flex'; }
+function openMenu() { running = false; closeBoard(); renderMapMenu(); renderContinue(); overlay.style.display = 'flex'; }
 renderMapMenu(); loadMap(chosenMap()); reset(); requestAnimationFrame(frame);
 document.querySelectorAll('.langbtn').forEach(b => b.onclick = () => setLang(b.dataset.l));
 applyLangHTML();
