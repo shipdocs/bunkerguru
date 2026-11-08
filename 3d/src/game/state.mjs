@@ -79,7 +79,9 @@ export function restore(raw) {
   if (['schipper', 'arcade'].includes(raw.handling)) s.handling = raw.handling;
   if (TEMPOS.includes(raw.timeScale)) s.timeScale = raw.timeScale;
   if (typeof raw.trainingDone === 'boolean') s.trainingDone = raw.trainingDone;
-  if (Array.isArray(raw.rivals)) s.rivals = raw.rivals;
+  // Rivals keep their money everywhere, their position only on the same map.
+  if (Array.isArray(raw.rivals))
+    s.rivals = raw.rivals.map((r) => (raw.mapId === MAP.id ? r : { gold: r?.gold, jobs: r?.jobs }));
   if (isNum(raw.rudderCmd)) s.rudderCmd = clamp(raw.rudderCmd, -1, 1);
   s.rudder = isNum(raw.rudder) ? clamp(raw.rudder, -1, 1) : s.rudderCmd;
   // Voyage state only on the same map and save version.
