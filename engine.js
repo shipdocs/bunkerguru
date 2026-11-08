@@ -705,7 +705,7 @@ function physics(dt) {
   const maxThrust = up('motor') * massK * DYN, thrust = Math.sign(b.rpm) * Math.pow(Math.abs(b.rpm), 1.6) * maxThrust * (b.rpm < 0 ? 0.7 : 1); // niet-lineair: lage standen blijven traag, vol gas ~31 km/h
   const du = thrust - (0.08 * u * Math.abs(u) + 0.05 * u) * DYN;
   const dv = -1.2 * v * Math.abs(v) - 0.9 * v;
-  if (EV.wind) { const k = 1.4 - 0.7 * (b.cargo / Math.max(1, b.target)), c = Math.cos(b.hdg), sn = Math.sin(b.hdg); wu = (EV.wind.x * c + EV.wind.y * sn) * k * 0.35; wv = (-EV.wind.x * sn + EV.wind.y * c) * k * 0.35; }
+  { const wxx = WX.wind.x + (EV.wind ? EV.wind.x : 0), wyy = WX.wind.y + (EV.wind ? EV.wind.y : 0); if (wxx || wyy) { const k = 1.4 - 0.7 * (b.cargo / Math.max(1, b.target)), c = Math.cos(b.hdg), sn = Math.sin(b.hdg); wu = (wxx * c + wyy * sn) * k * 0.35; wv = (-wxx * sn + wyy * c) * k * 0.35; } }
   const flow = Math.max(-4, Math.min(6, u + (b.rpm > 0 ? b.rpm * 2.0 : 0))); // plafond: geen tolboot op volle vaart
   // roer tot 60°: roerkracht ~ sin(hoek), genormeerd zodat 35° gelijk blijft aan vroeger; bij grote hoeken extra weerstand (vaartverlies)
   const rudDeg = b.rudder * RUD_MAX, rudEff = Math.sin(rudDeg * Math.PI / 180) / Math.sin(35 * Math.PI / 180), rudDrag = Math.pow(Math.abs(b.rudder), 2) * 0.35;
@@ -758,6 +758,39 @@ function physics(dt) {
 
 // ---------- spel-logica ----------
 function inSN(b, z) { const { s, n } = w2sn(b.x, b.y); return s > z.s0 && s < z.s1 && n > z.n0 && n < z.n1; }
+// ---------- weer en dag/nacht ----------
+const WX = { kind: 'helder', T: 0, wind: { x: 0, y: 0 }, bft: 2, dirTxt: 'ZW', next: 200 + Math.random() * 200 };
+const WINDS = ['N', 'NO', 'O', 'ZO', 'Z', 'ZW', 'W', 'NW'], WINDS_EN = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+function darkness() { const h = (clock % 86400) / 3600; if (h >= 7 && h < 20) return 0; if (h >= 22 || h < 5) return 1; if (h >= 20) return (h - 20) / 2; return 1 - (h - 5) / 2; }
+function weatherTick(dt) {
+  WX.next -= dt; if (WX.next > 0) return; WX.next = 480 + Math.random() * 420; // elke 8–15 sim-minuten een nieuw weerbeeld
+  const r = Math.random(); WX.kind = r < 0.5 ? 'helder' : r < 0.75 ? 'bewolkt' : r < 0.9 ? 'regen' : 'buien';
+  const di = Math.floor(Math.random() * 8), bft = WX.kind === 'buien' ? 6 + Math.floor(Math.random() * 2) : WX.kind === 'regen' ? 4 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 4);
+  const a = di * Math.PI / 4 + Math.PI / 2 + Math.PI, f = Math.max(0, bft - 3) * 0.17; // wind uit richting di: kracht pas voelbaar vanaf 4 Bft
+  WX.wind = { x: Math.cos(a) * f, y: Math.sin(a) * f }; WX.bft = bft; WX.dirTxt = (lang === 'en' ? WINDS_EN : WINDS)[di];
+  const en = lang === 'en', kindTxt = en ? { helder: 'clear', bewolkt: 'overcast', regen: 'rain', buien: 'squally showers' }[WX.kind] : WX.kind;
+  RADIO.say([{ who: MAP.radio.sectors[0], spk: 0, text: en ? `Weather report: wind ${WX.dirTxt} force ${bft}, ${kindTxt}${bft >= 6 ? ', strong gusts on the river' : ''}.` : `Weerbericht: wind ${WX.dirTxt} ${bft}, ${kindTxt}${bft >= 6 ? ', harde vlagen op de rivier' : ''}.` }]);
+  say(en ? `🌤 Weather: ${kindTxt}, wind ${WX.dirTxt} ${bft}` : `🌤 Weer: ${kindTxt}, wind ${WX.dirTxt} ${bft}`, 4);
+}
+function drawNight(t) { // schemer en nacht: donkerblauwe waas, vaarlichten op schepen, kadeverlichting, schijnwerpers op de terminals
+  const dk = darkness(), rain = WX.kind === 'regen' ? 0.18 : WX.kind === 'buien' ? 0.26 : WX.kind === 'bewolkt' ? 0.08 : 0;
+  if (rain > 0) { ctx.fillStyle = `rgba(60,70,90,${rain})`; ctx.fillRect(cam.x, cam.y, VW, VH); }
+  if (WX.kind === 'regen' || WX.kind === 'buien') { // regenstrepen, met de wind mee
+    ctx.strokeStyle = 'rgba(220,230,255,.35)'; ctx.lineWidth = 1; ctx.beginPath(); const n = WX.kind === 'buien' ? 260 : 150, wx = WX.wind.x * 14, wy = 1;
+    for (let i = 0; i < n; i++) { const x = cam.x + ((i * 173.3 + t * 900) % VW), y = cam.y + ((i * 97.1 + t * 1400 + i * 13) % VH); ctx.moveTo(x, y); ctx.lineTo(x + wx * 1.5 - 2, y + 14); } ctx.stroke(); }
+  if (dk <= 0.01) return;
+  ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = `rgba(${Math.round(255 - 185 * dk)},${Math.round(255 - 172 * dk)},${Math.round(255 - 105 * dk)},1)`; ctx.fillRect(cam.x, cam.y, VW, VH); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const glow = (x, y, r, col, a) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col.replace('A', (a * dk).toFixed(2))); g.addColorStop(1, col.replace('A', '0')); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); };
+  const vis = (x, y) => x > cam.x - 200 && x < cam.x + VW + 200 && y > cam.y - 200 && y < cam.y + VH + 200;
+  const navLights = (x, y, hdg, len, beam) => { if (!vis(x, y)) return; const c = Math.cos(hdg), sn = Math.sin(hdg); const fx = x + c * len * 0.3, fy = y + sn * len * 0.3; // zijlichten rood bb / groen sb, toplicht wit, heklicht wit
+    glow(fx - sn * beam / 2, fy + c * beam / 2, 14, 'rgba(255,40,40,A)', 0.9); glow(fx + sn * beam / 2, fy - c * beam / 2, 14, 'rgba(40,255,80,A)', 0.9); glow(x - c * len * 0.42, y - sn * len * 0.42, 16, 'rgba(255,240,200,A)', 0.9); glow(x + c * len * 0.1, y + sn * len * 0.1, 22, 'rgba(255,250,220,A)', 0.5); };
+  navLights(boat.x, boat.y, boat.hdg, toPx(boat.L), toPx(boat.B)); for (const r of rivals) if (r.mode !== 'sunk') navLights(r.x, r.y, r.hdg, 2 * RL, 2 * RB); for (const tr of traffic) navLights(tr.cx, tr.cy, tr.hdg, tr.len, SH);
+  for (const b of berths) { if (!vis(b.cx, b.cy)) continue; const c = Math.cos(b.hdg), sn = Math.sin(b.hdg); for (let k = -0.4; k <= 0.4; k += 0.2) glow(b.cx + c * b.len * k, b.cy + sn * b.len * k, 18, 'rgba(255,230,170,A)', 0.55); }
+  for (const e of shore) { if (!vis(e.p.x, e.p.y) && !vis(e.q.x, e.q.y)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y); for (let k = 70; k < len; k += 140) glow(e.p.x + (e.q.x - e.p.x) * k / len - e.nx * 14, e.p.y + (e.q.y - e.p.y) * k / len - e.ny * 14, 26, 'rgba(255,200,110,A)', 0.5); }
+  for (const tm of terminals) { const c = sn2w((tm.s0 + tm.s1) / 2, (tm.n0 + tm.n1) / 2); if (vis(c.x, c.y)) glow(c.x, c.y, 160, 'rgba(255,245,210,A)', 0.45); }
+  ctx.restore();
+}
 // ---------- willekeurige incidenten ----------
 // elke 5–9 sim-minuten één: motorstoring, roer klemt, mistbank, windvlaag, drijvende container, zeeschip met storing in de geul
 const EV = { next: 300 + Math.random() * 240, fog: 0, wind: null, flotsam: [], stall: null };
@@ -782,7 +815,7 @@ function eventTick(dt) {
   else { const cands = traffic.filter(tr => tr.axis !== 'n' && tr.v !== 0); if (cands.length) { const sh = cands[Math.floor(Math.random() * cands.length)]; EV.stall = { sh, v: sh.v, T: 100 + Math.random() * 60 }; sh.v = 0; SND.alarm(2); say(en ? `⚠️ ${sh.name} has engine trouble and is stopped in the fairway` : `⚠️ ${sh.name} heeft motorstoring en ligt stil in de vaargeul`, 6); RADIO.say([{ who: sh.name, spk: 2, text: en ? `All ships, ${sh.name}, engine failure, I am stopped in the fairway, pass with care.` : `Alle schepen, hier ${sh.name}, motorstoring, ik lig stil in de vaargeul, voorzichtig passeren.` }]); } else EV.next = 30; }
 }
 function logic(dt) {
-  const b = boat; state.elapsed += dt; eventTick(dt);
+  const b = boat; state.elapsed += dt; eventTick(dt); weatherTick(dt);
   if (b.blackout > 0) { b.blackout -= dt; if (b.blackout <= 0) { b.blackout = 0; b.engDir = 0; say(lang === 'en' ? '✅ Engine restarted' : '✅ Motor draait weer', 3); } }
   if (b.jamT > 0) { b.jamT -= dt; if (b.jamT <= 0) { b.jamT = 0; say(lang === 'en' ? '✅ Steering gear free again' : '✅ Stuurmachine weer vrij', 3); } }
   if (b.damage >= 100 && state.phase !== 'sunk') { moored = null; state.phase = 'sunk'; state.sinkT = 0; b.tele = 0; b.teleIdx = 3; const loss = MAP.id === 'training' ? 0 : Math.round(career.gold / 2); career.gold -= loss; SND.sink(); saveCareer(); say(tf('🫧 Gezonken! Verzekering betaalt de helft: −{0} goud. Nieuwe boot volgt…', loss)); }
@@ -1314,7 +1347,7 @@ function objective() {
 function drawHUD() {
   const b = boat, sp = Math.hypot(b.vx, b.vy) * 3.6;
   const obj = objective().replace(/(\d+) m(?=$|[ ·])/g, '<span class="distance">$1 m</span>');
-  const details = statsExpanded ? `<div class="hud-details">🕐 ${clockStr(clock)} · 🪙 ${Math.round(career.gold)} · ${tr('klussen')} ${career.jobs}${offer ? ' · ' + offer.client + ' ★' + Math.round(repOf(offer.client)) : ''}<br>${tr('Koers')} ${Math.round((b.hdg * 180 / Math.PI + 450) % 360)}° · ${tr('Roer')} ${Math.round(b.rudder * RUD_MAX)}°<br>${tideInfo()}<br>${tr('Schade')} ${Math.round(b.damage)}/100 · ${tr('Vermoeidheid')} ${Math.round(b.fatigue)}%<br>${tr('Totaal')} ${totalScore} · ${tr('Beste score')} ${bestScore}<br>${MAP.id === 'training' ? '' : rivals.map(r => `${r.name}: ${Math.round(r.gold)} 🪙`).join('<br>')}<br>${tr('I = hulp')}</div>` : '';
+  const details = statsExpanded ? `<div class="hud-details">🕐 ${clockStr(clock)} · 🌤 ${WX.dirTxt} ${WX.bft} Bft · 🪙 ${Math.round(career.gold)} · ${tr('klussen')} ${career.jobs}${offer ? ' · ' + offer.client + ' ★' + Math.round(repOf(offer.client)) : ''}<br>${tr('Koers')} ${Math.round((b.hdg * 180 / Math.PI + 450) % 360)}° · ${tr('Roer')} ${Math.round(b.rudder * RUD_MAX)}°<br>${tideInfo()}<br>${tr('Schade')} ${Math.round(b.damage)}/100 · ${tr('Vermoeidheid')} ${Math.round(b.fatigue)}%<br>${tr('Totaal')} ${totalScore} · ${tr('Beste score')} ${bestScore}<br>${MAP.id === 'training' ? '' : rivals.map(r => `${r.name}: ${Math.round(r.gold)} 🪙`).join('<br>')}<br>${tr('I = hulp')}</div>` : '';
   const evs = (boat.blackout > 0 ? `<span style="color:#ff6b6b;font-weight:700">BLACKOUT ${Math.ceil(boat.blackout)}s</span> · ` : '') + (boat.jamT > 0 ? `<span style="color:#ff6b6b;font-weight:700">${tr('ROER KLEMT')}</span> · ` : '') + (EV.wind ? `<span style="color:#ffd54a;font-weight:700">${tr('WIND')}</span> · ` : '');
   const html = `<div class="objective">${obj}</div>${evs}${sp.toFixed(1)} km/h · ${tr(TELE[b.teleIdx].n)}${moored ? ' · ⚓' : ''}${warp === 2 ? ' · ⏩' : ''}<br>${tr('Lading')} ${Math.round(b.cargo)} / ${b.target} t → ${ship.name}${b.damage >= 40 ? `<br>⚠ ${tr('Schade')} ${Math.round(b.damage)}/100` : ''}${b.fatigue >= 80 ? `<br>⚠ ${tr('Vermoeidheid')} ${Math.round(b.fatigue)}%` : ''}${details}`;
   if (hud.innerHTML !== html) hud.innerHTML = html;
@@ -1358,7 +1391,7 @@ function frame(now) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.setTransform(renderRatio, 0, 0, renderRatio, 0, 0);
   ctx.save(); ctx.setTransform(renderRatio * zoom, 0, 0, renderRatio * zoom, -Math.round((cam.x + sx) * zoom * renderRatio), -Math.round((cam.y + sy) * zoom * renderRatio));
-  drawWater(t); drawLand(t); for (const b of berths) drawShip(b, t, b === ship && state.phase !== 'done'); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawNavigationRoute(); drawFlotsam(); drawMooring(); drawBoat(t); drawCurrentArrow(); drawPlayerLabel(); drawBridges();
+  drawWater(t); drawLand(t); for (const b of berths) drawShip(b, t, b === ship && state.phase !== 'done'); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawNavigationRoute(); drawFlotsam(); drawMooring(); drawBoat(t); drawCurrentArrow(); drawPlayerLabel(); drawBridges(); drawNight(t);
   ctx.restore();
   VW = SVW; VH = SVH;
   if (running && !paused && MAP.id !== 'training') RADIO.tick(now / 1000, radioChatter, lang);
