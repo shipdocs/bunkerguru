@@ -87,7 +87,7 @@ MAPS.push({
       ],
       channels: [{ s0: CH0, s1: CH1, n0: RH, n1: 2600, cs: 0, cn: -0.8 }], // Oude Maas stroomt naar de hoofdrivier
       waits: [
-        { name: 'Wachtplaats Botlek', s0: 1000, s1: 1062, n0: 690, n1: 930 },
+        { name: 'Wachtplaats Botlek', yard: true, s0: 1000, s1: 1062, n0: 690, n1: 930 },
         { name: 'Wachtplaats Maassluis', s0: 1000, s1: 1450, n0: -RH + 10, n1: -RH + 44 },
       ],
       rivals: [{ s: 1100, n: 500, hdgOff: -Math.PI / 2 }, { s: CH1 - 60, n: 900, hdgOff: Math.PI / 2 }],

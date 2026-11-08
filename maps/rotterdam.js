@@ -81,7 +81,7 @@ MAPS.push({
         { s: 4150, n0: -RH, n1: RH, name: 'Van Brienenoordbrug', pillars: [-190, 190], col: '#2c7fb8' },
       ],
       waits: [
-        { name: 'Wachtplaats Maashaven', s0: 1536, s1: 1598, n0: 400, n1: 860 },
+        { name: 'Wachtplaats Maashaven', yard: true, s0: 1536, s1: 1598, n0: 400, n1: 860 },
         { name: 'Wachtplaats Boompjes', s0: 2470, s1: 2700, n0: -250, n1: -216 },
       ],
       rivals: [{ s: 1420, n: 500, hdgOff: -Math.PI / 2 }, { s: 600, n: 700, hdgOff: -Math.PI / 2 }],

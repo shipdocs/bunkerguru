@@ -62,7 +62,7 @@ MAPS.push({
         { name: 'SLB UNION', col: '#2c3e50', s: 600, n: 1300, v: -4.5, len: 90, axis: 'n', nMin: RH + 100, nMax: 1350 },
       ],
       waits: [
-        { name: 'Wachtplaats Deurganckdok', s0: 300, s1: 362, n0: 1050, n1: 1350 },
+        { name: 'Wachtplaats Deurganckdok', yard: true, s0: 300, s1: 362, n0: 1050, n1: 1350 },
         { name: 'Wachtplaats Kallo', s0: 2150, s1: 2550, n0: RH - 44, n1: RH - 10 },
       ],
       rivals: [{ s: 700, n: 700, hdgOff: -Math.PI / 2 }, { s: 2350, n: 100, hdgOff: 0 }],

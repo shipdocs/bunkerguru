@@ -60,7 +60,7 @@ MAPS.push({
         { name: 'SLB TITAN', col: '#2c3e50', s: 1200, n: 900, v: -4.5, len: 90, axis: 'n', nMin: RH + 100, nMax: 1050 },
       ],
       waits: [
-        { name: 'Wachtplaats Amerikahaven', s0: 900, s1: 962, n0: 400, n1: 1000 },
+        { name: 'Wachtplaats Amerikahaven', yard: true, s0: 900, s1: 962, n0: 400, n1: 1000 },
         { name: 'Wachtplaats Hempont', s0: 3700, s1: 4000, n0: -RH + 10, n1: -RH + 44 },
       ],
       rivals: [{ s: 1250, n: 600, hdgOff: -Math.PI / 2 }, { s: 2100, n: 500, hdgOff: -Math.PI / 2 }],
