@@ -60,7 +60,7 @@ function applyLangHTML() {
   document.querySelectorAll('[data-nl]').forEach(el => { el.innerHTML = lang === 'en' ? el.dataset.en : el.dataset.nl; });
   document.querySelectorAll('.langbtn').forEach(b => b.style.opacity = b.dataset.l === lang ? 1 : 0.45);
 }
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const cv = document.getElementById("c"); let ctx = cv.getContext("2d");
 const hud = document.getElementById('hud'), msgEl = document.getElementById('msg');
 const overlay = document.getElementById('overlay');
 let VW = innerWidth, VH = innerHeight;
@@ -778,6 +778,39 @@ function physics(dt) {
 
 // ---------- spel-logica ----------
 function inSN(b, z) { const { s, n } = w2sn(b.x, b.y); return s > z.s0 && s < z.s1 && n > z.n0 && n < z.n1; }
+// ---------- deeltjes: boegspray, schroefwater, rook, regenspatten ----------
+const PARTS = []; const PMAX = 700;
+function spawn(kind, x, y, vx, vy, life, r, extra) { if (PARTS.length >= PMAX) PARTS.shift(); PARTS.push(Object.assign({ kind, x, y, vx, vy, life, max: life, r }, extra)); }
+function particlesTick(dt) {
+  const b = boat, sp = Math.hypot(b.vx, b.vy), c = Math.cos(b.hdg), sn = Math.sin(b.hdg), L = toPx(b.L), Bw = toPx(b.B);
+  const wnd = { x: WX.wind.x * 18, y: WX.wind.y * 18 };
+  if (state.phase !== 'sunk') {
+    if (sp > 2.2) for (const side of [-1, 1]) if (Math.random() < Math.min(1, dt * (sp - 2) * 12)) spawn('spray', b.x + c * L * 0.42 - sn * side * Bw * 0.5, b.y + sn * L * 0.42 + c * side * Bw * 0.5, toPx(b.vx) * 0.35 - sn * side * (14 + sp * 3) + (Math.random() - 0.5) * 10, toPx(b.vy) * 0.35 + c * side * (14 + sp * 3) + (Math.random() - 0.5) * 10, 0.5 + Math.random() * 0.4, 3 + Math.random() * 3);
+    const pw = Math.abs(b.rpm || 0); if (pw > 0.12 && Math.random() < dt * pw * 60) { const dir = (b.rpm || 0) > 0 ? -1 : 1; spawn('wash', b.x - c * L * 0.5, b.y - sn * L * 0.5, c * dir * (30 + pw * 70) + (Math.random() - 0.5) * 20 - sn * (Math.random() - 0.5) * 30, sn * dir * (30 + pw * 70) + (Math.random() - 0.5) * 20 + c * (Math.random() - 0.5) * 30, 1.2 + Math.random() * 0.8, 5 + pw * 8); }
+    if (b.bow) for (const side of [-1, 1]) if (Math.random() < dt * 30) spawn('wash', b.x + c * L * 0.38 - sn * side * Bw * 0.5, b.y + sn * L * 0.38 + c * side * Bw * 0.5, -sn * side * b.bow * 40 * (side === 1 ? 1 : 1) + (Math.random() - 0.5) * 10, c * side * b.bow * 40 + (Math.random() - 0.5) * 10, 0.8, 4);
+    if (pw > 0.05 && Math.random() < dt * (4 + pw * 8)) spawn('smoke', b.x - c * L * 0.4 - sn * Bw * 0.1, b.y - sn * L * 0.4 + c * Bw * 0.1, wnd.x + (Math.random() - 0.5) * 6, wnd.y + (Math.random() - 0.5) * 6, 2.5 + Math.random() * 2, 3, { g: 0.55 + pw * 0.3 });
+  }
+  for (const r of rivals) if (r.mode !== 'sunk' && r.cur > 0.5 && Math.random() < dt * 5) spawn('smoke', r.x - Math.cos(r.hdg) * RL * 0.8, r.y - Math.sin(r.hdg) * RL * 0.8, wnd.x, wnd.y, 2.5, 3, { g: 0.5 });
+  for (const sh of traffic) if (sh.v && Math.random() < dt * 6 && Math.abs(sh.cx - b.x) < VW && Math.abs(sh.cy - b.y) < VH) spawn('smoke', sh.cx - Math.cos(sh.hdg) * sh.len * 0.36, sh.cy - Math.sin(sh.hdg) * sh.len * 0.36, wnd.x, wnd.y, 3.5, 4, { g: 0.45 });
+  for (const sh of berths) if (Math.random() < dt * 1.2 && Math.abs(sh.cx - b.x) < VW && Math.abs(sh.cy - b.y) < VH) spawn('smoke', sh.cx - Math.cos(sh.hdg) * sh.len * 0.36, sh.cy - Math.sin(sh.hdg) * sh.len * 0.36, wnd.x, wnd.y, 4, 3, { g: 0.35 });
+  if (WX.kind === 'regen' || WX.kind === 'buien') for (let i = 0; i < (WX.kind === 'buien' ? 6 : 3); i++) { const x = cam.x + Math.random() * VW, y = cam.y + Math.random() * VH; if (!land.some(l => inPoly({ x, y }, l.poly))) spawn('drop', x, y, 0, 0, 0.5, 2); }
+  for (let i = PARTS.length - 1; i >= 0; i--) { const q = PARTS[i]; q.life -= dt; if (q.life <= 0) { PARTS.splice(i, 1); continue; } q.x += q.vx * dt; q.y += q.vy * dt; if (q.kind === 'smoke') { q.vx *= 0.985; q.vy *= 0.985; } else if (q.kind !== 'drop') { q.vx *= 0.93; q.vy *= 0.93; } }
+}
+function drawParticles(layer) { // 'water' = spray/wash/druppels onder de schepen, 'air' = rook erboven
+  for (const q of PARTS) { const k = q.life / q.max; if (q.x < cam.x - 50 || q.x > cam.x + VW + 50 || q.y < cam.y - 50 || q.y > cam.y + VH + 50) continue;
+    if (layer === 'air') { if (q.kind !== 'smoke') continue; const gg = Math.round(90 + (q.g || 0.5) * 120); ctx.fillStyle = `rgba(${gg},${gg},${gg + 6},${0.14 * k})`; ctx.beginPath(); ctx.arc(q.x, q.y, q.r + (1 - k) * 12, 0, 7); ctx.fill(); continue; }
+    if (q.kind === 'smoke') continue;
+    if (q.kind === 'drop') { ctx.strokeStyle = `rgba(255,255,255,${0.35 * k})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(q.x, q.y, 2 + (1 - k) * 7, 0, 7); ctx.stroke(); continue; }
+    ctx.fillStyle = `rgba(255,255,255,${(q.kind === 'spray' ? 0.7 : 0.3) * k})`; ctx.beginPath(); ctx.arc(q.x, q.y, q.r + (1 - k) * (q.kind === 'wash' ? 10 : 4), 0, 7); ctx.fill(); }
+}
+// zonnestand uit de spelklok: schaduwrichting en -lengte, kleurzweem bij dageraad en schemer
+function sunVec() { const h = (clock % 86400) / 3600; const dayf = Math.max(0, Math.min(1, (h - 5) / 15)); const ang = Math.PI * (1.15 - dayf * 1.3); const alt = Math.sin(Math.PI * dayf); const len = 4 + (1 - alt) * 10; return { x: Math.cos(ang) * len, y: Math.sin(ang) * len * 0.6 + 3, alt }; }
+function colorGrade() { const h = (clock % 86400) / 3600; let col = null, a = 0;
+  const dawn = h > 5 && h < 8.5 ? 1 - Math.abs(h - 6.6) / 1.9 : 0, dusk = h > 18 && h < 21.5 ? 1 - Math.abs(h - 19.7) / 1.8 : 0; const warm = Math.max(0, Math.max(dawn, dusk));
+  if (warm > 0) { col = `rgba(255,150,70,${(0.26 * warm).toFixed(3)})`; }
+  if (col) { ctx.save(); ctx.globalCompositeOperation = 'overlay'; ctx.fillStyle = col; ctx.fillRect(cam.x, cam.y, VW, VH); ctx.restore(); }
+  if (WX.kind === 'bewolkt' || WX.kind === 'regen' || WX.kind === 'buien') { ctx.save(); ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${WX.kind === 'bewolkt' ? 0.25 : 0.45})`; ctx.fillRect(cam.x, cam.y, VW, VH); ctx.restore(); }
+}
 // ---------- weer en dag/nacht ----------
 const WX = { kind: 'helder', T: 0, wind: { x: 0, y: 0 }, bft: 2, dirTxt: 'ZW', next: 200 + Math.random() * 200 };
 const WINDS = ['N', 'NO', 'O', 'ZO', 'Z', 'ZW', 'W', 'NW'], WINDS_EN = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -805,6 +838,10 @@ function drawNight(t) { // schemer en nacht: donkerblauwe waas, vaarlichten op s
   const vis = (x, y) => x > cam.x - 200 && x < cam.x + VW + 200 && y > cam.y - 200 && y < cam.y + VH + 200;
   const navLights = (x, y, hdg, len, beam) => { if (!vis(x, y)) return; const c = Math.cos(hdg), sn = Math.sin(hdg); const fx = x + c * len * 0.3, fy = y + sn * len * 0.3; // zijlichten rood bb / groen sb, toplicht wit, heklicht wit
     glow(fx - sn * beam / 2, fy + c * beam / 2, 14, 'rgba(255,40,40,A)', 0.9); glow(fx + sn * beam / 2, fy - c * beam / 2, 14, 'rgba(40,255,80,A)', 0.9); glow(x - c * len * 0.42, y - sn * len * 0.42, 16, 'rgba(255,240,200,A)', 0.9); glow(x + c * len * 0.1, y + sn * len * 0.1, 22, 'rgba(255,250,220,A)', 0.5); };
+  // spiegeling van lichten in het water: uitgerekte zachte glow onder elk licht
+  const refl = (x, y, col, ang) => { if (!vis(x, y) || land.some(l => inPoly({ x, y }, l.poly))) return; ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(3.4, 1); glow(0, 0, 11, col, 0.28); ctx.restore(); };
+  for (const b of berths) { if (!vis(b.cx, b.cy)) continue; for (let k = -0.4; k <= 0.4; k += 0.4) refl(b.cx + Math.cos(b.hdg) * b.len * k - Math.sin(b.hdg) * 44, b.cy + Math.sin(b.hdg) * b.len * k + Math.cos(b.hdg) * 44, 'rgba(255,230,170,A)', b.hdg + Math.PI / 2); }
+  for (const e of shore) { if (!vis(e.p.x, e.p.y) && !vis(e.q.x, e.q.y)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y); for (let k = 70; k < len; k += 140) refl(e.p.x + (e.q.x - e.p.x) * k / len + e.nx * 30, e.p.y + (e.q.y - e.p.y) * k / len + e.ny * 30, 'rgba(255,200,110,A)', Math.atan2(e.ny, e.nx)); }
   navLights(boat.x, boat.y, boat.hdg, toPx(boat.L), toPx(boat.B)); for (const r of rivals) if (r.mode !== 'sunk') navLights(r.x, r.y, r.hdg, 2 * RL, 2 * RB); for (const tr of traffic) navLights(tr.cx, tr.cy, tr.hdg, tr.len, SH);
   for (const b of berths) { if (!vis(b.cx, b.cy)) continue; const c = Math.cos(b.hdg), sn = Math.sin(b.hdg); for (let k = -0.4; k <= 0.4; k += 0.2) glow(b.cx + c * b.len * k, b.cy + sn * b.len * k, 18, 'rgba(255,230,170,A)', 0.55); }
   for (const e of shore) { if (!vis(e.p.x, e.p.y) && !vis(e.q.x, e.q.y)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y); for (let k = 70; k < len; k += 140) glow(e.p.x + (e.q.x - e.p.x) * k / len - e.nx * 14, e.p.y + (e.q.y - e.p.y) * k / len - e.ny * 14, 26, 'rgba(255,200,110,A)', 0.5); }
@@ -954,9 +991,15 @@ function makeLandTile() { // fijne korrel voor het land
   return c;
 }
 const patLand = ctx.createPattern(makeLandTile(), 'repeat');
+function makeSwellTile() { // grote zachte deining voor parallax-diepte
+  const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
+  for (let i = 0; i < 9; i++) { const x = (i * 173) % 512, y = (i * 97 + 40) % 512; const rg = g.createRadialGradient(x, y, 0, x, y, 150); rg.addColorStop(0, 'rgba(255,255,255,.10)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; for (const dx of [-512, 0, 512]) for (const dy of [-512, 0, 512]) { g.beginPath(); g.arc(x + dx, y + dy, 150, 0, 7); g.fill(); } }
+  return c;
+}
+const patSwell = ctx.createPattern(makeSwellTile(), 'repeat');
 // ---------- sprites (SpriteCook, map art/) ----------
 const ART = {}, ARTPAT = {}; let artLoaded = 0;
-const ART_NAMES = ['water', 'grass', 'concrete', 'containers', 'crane', 'warehouse', 'chimney', 'fender', 'tank_l', 'tank_m', 'tank_s', 'house_red', 'house_slate', 'house_orange', 'tree_a', 'tree_b', 'church', 'office', 'bollard', 'buoy', 'ship_player', 'ship_rival', 'ship_sea', 'tug'];
+const ART_NAMES = ['ship_tanker', 'ship_bulk', 'ship_ferry', 'water', 'grass', 'concrete', 'containers', 'crane', 'warehouse', 'chimney', 'fender', 'tank_l', 'tank_m', 'tank_s', 'house_red', 'house_slate', 'house_orange', 'tree_a', 'tree_b', 'church', 'office', 'bollard', 'buoy', 'ship_player', 'ship_rival', 'ship_sea', 'tug'];
 for (const n of ART_NAMES) { const im = new Image(); im.onload = () => { artLoaded++; if (n === 'water' || n === 'grass' || n === 'concrete') { const c = document.createElement('canvas'); c.width = c.height = 256; c.getContext('2d').drawImage(im, 0, 0, 256, 256); ARTPAT[n] = ctx.createPattern(c, 'repeat'); } }; im.onerror = () => { ART[n] = null; }; im.src = `art/${n}.${n === 'water' || n === 'grass' || n === 'concrete' ? 'jpg' : 'png'}`; ART[n] = im; }
 const art = n => { const im = ART[n]; return im && im.complete && im.naturalWidth ? im : null; };
 const tinted = {}; // kleurvarianten van een sprite (hue-rotatie), bv. concurrent-schepen
@@ -993,6 +1036,14 @@ function drawWater(tReal) {
   ctx.globalAlpha = 0.16;
   waveLayer(patRA, Math.sin(t * 0.7) * 3, wrap(t * flow, 256), riverPoly, false, RW);
   waveLayer(patRB, 0, wrap(t * flow * 0.6, 192), riverPoly, false, RW); ctx.globalAlpha = 1;
+  // deining (grote zachte vlekken) die langzaam de andere kant op drijft: parallax
+  ctx.save(); ctx.translate(wrap(-t * 4, 512), wrap(t * 2.5, 512)); ctx.fillStyle = patSwell; ctx.fillRect(cam.x - 512, cam.y - 512, VW + 1024, VH + 1024); ctx.restore();
+  // stroomstrepen in de rivier: lange, zwakke vegen die met de stroom meelopen
+  if (Math.abs(current.speed) > 0.3) { ctx.save(); path(riverPoly); ctx.clip(); ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.09, Math.abs(current.speed) * 0.03)})`; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.beginPath();
+    const dsg = current.speed >= 0 ? 1 : -1, SP = 420; for (let n = -RIVER_HALF + 30; n <= RIVER_HALF - 30; n += 46) for (let s = S_MIN + wrap(-t * flow * 1.1 + n * 7, SP); s < S_MAX; s += SP) { const a = sn2w(s, n), b2 = sn2w(s - 120 * dsg, n); if (a.x < cam.x - 150 || a.x > cam.x + VW + 150 || a.y < cam.y - 150 || a.y > cam.y + VH + 150) continue; ctx.moveTo(a.x, a.y); ctx.lineTo(b2.x, b2.y); }
+    ctx.stroke(); ctx.restore(); }
+  // schuimrandje langs de kademuren (beweegt licht)
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 3; ctx.setLineDash([9, 14]); ctx.lineDashOffset = -t * 6; ctx.beginPath(); for (const e of shore) { if (Math.max(e.p.x, e.q.x) < cam.x || Math.min(e.p.x, e.q.x) > cam.x + VW || Math.max(e.p.y, e.q.y) < cam.y || Math.min(e.p.y, e.q.y) > cam.y + VH) continue; ctx.moveTo(e.p.x + e.nx * 4, e.p.y + e.ny * 4); ctx.lineTo(e.q.x + e.nx * 4, e.q.y + e.ny * 4); } ctx.stroke(); ctx.setLineDash([]);
   // glinsters
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 200; i++) { const x = (i * 97.3) % W, y = (i * 61.7 + 30) % H; if (x < cam.x || x > cam.x + VW || y < cam.y || y > cam.y + VH) continue; const tw = Math.sin(t * 2.2 + i * 1.3) * 0.5 + 0.5; if (tw < 0.8) continue; ctx.globalAlpha = (tw - 0.8) * 1.1; ctx.fillRect(x, y, 3 + tw * 3, 1.5); }
@@ -1090,6 +1141,7 @@ function drawLand(t) {
   for (const l of land) { if (l.kind === 'pillar') continue; const li = land.indexOf(l); ctx.save(); path(l.poly); ctx.clip();
     ctx.lineWidth = green(l.kind) ? 10 : (l.kind === 'island' ? 14 : 22); ctx.strokeStyle = green(l.kind) ? 'rgba(220,210,170,.8)' : 'rgba(236,236,230,.92)';
     ctx.beginPath(); for (const e of shore) if (e.li === li && vis(e)) { ctx.moveTo(e.p.x, e.p.y); ctx.lineTo(e.q.x, e.q.y); } ctx.stroke();
+    if (green(l.kind)) { ctx.strokeStyle = 'rgba(110,100,80,.55)'; ctx.lineWidth = 3; ctx.setLineDash([3, 4]); ctx.beginPath(); for (const e of shore) if (e.li === li && vis(e)) { ctx.moveTo(e.p.x - e.nx * 3, e.p.y - e.ny * 3); ctx.lineTo(e.q.x - e.nx * 3, e.q.y - e.ny * 3); } ctx.stroke(); ctx.setLineDash([]); } // stortsteen langs groene oevers
     if (!green(l.kind)) { ctx.strokeStyle = 'rgba(80,80,75,.5)'; ctx.lineWidth = 1.2; ctx.beginPath(); for (const e of shore) if (e.li === li && vis(e)) { ctx.moveTo(e.p.x - e.nx * 11, e.p.y - e.ny * 11); ctx.lineTo(e.q.x - e.nx * 11, e.q.y - e.ny * 11); } ctx.stroke(); }
     ctx.restore(); }
   // wegen: donker asfalt met middenstreep, snelwegen rood
@@ -1102,6 +1154,14 @@ function drawLand(t) {
     if (d.type === 'stadium') stadium(d.x, d.y);
     else BunkerGraphics.prop(ctx, d, d.type === 'crane' ? d.ang : TH);
   }
+  // kranen aan het werk: loopkat heen en weer boven een schip dat aan de kade ligt
+  for (const d of decor) { if (d.type !== 'crane' || d.x < cam.x - 120 || d.x > cam.x + VW + 120 || d.y < cam.y - 120 || d.y > cam.y + VH + 120) continue;
+    const busy = berths.some(b => Math.hypot(b.cx - d.x, b.cy - d.y) < 260) || (moored && moored.to === 'terminal' && Math.hypot(boat.x - d.x, boat.y - d.y) < 220); if (!busy) continue;
+    const ph = (t * 0.35 + d.x * 0.01) % 2, u = ph < 1 ? ph : 2 - ph; ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.ang); ctx.fillStyle = '#d29b5e'; ctx.fillRect(-30 + u * 76, -5, 9, 10); ctx.strokeStyle = 'rgba(40,40,40,.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-26 + u * 76, 0); ctx.lineTo(-26 + u * 76, 14 + Math.sin(t * 3) * 6); ctx.stroke(); ctx.fillStyle = '#457f91'; ctx.fillRect(-32 + u * 76, 12 + Math.sin(t * 3) * 6, 12, 6); ctx.restore(); }
+  // verkeer op de wegen: autootjes langs de wegpolylijnen
+  for (const [ri, r] of roads.entries()) { const hw = r.col === '#e74c3c'; const pts = r.pts.map(p => sn2w(p[0], p[1])); let total = 0; const segs = []; for (let i = 1; i < pts.length; i++) { const L = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); segs.push({ a: pts[i - 1], b: pts[i], L, s0: total }); total += L; }
+    const nCars = Math.max(1, Math.round(total / (hw ? 260 : 520))); for (let k = 0; k < nCars; k++) for (const dir of [1, -1]) { const spd = hw ? 95 : 55; let pos = wrap(dir * t * spd + k * total / nCars + ri * 37 + (dir > 0 ? 0 : total / 2 / nCars), total); const sg = segs.find(g => pos >= g.s0 && pos <= g.s0 + g.L) || segs[segs.length - 1]; if (!sg) continue; const f = (pos - sg.s0) / sg.L, x = sg.a.x + (sg.b.x - sg.a.x) * f, y = sg.a.y + (sg.b.y - sg.a.y) * f; if (x < cam.x - 20 || x > cam.x + VW + 20 || y < cam.y - 20 || y > cam.y + VH + 20) continue; const ang = Math.atan2(sg.b.y - sg.a.y, sg.b.x - sg.a.x), off = (r.w / 4 + 1) * dir;
+      ctx.save(); ctx.translate(x - Math.sin(ang) * off, y + Math.cos(ang) * off); ctx.rotate(ang); ctx.fillStyle = ['#e8e8e8', '#c0392b', '#2c3e50', '#f1c40f', '#7f8c8d'][(k + ri + (dir > 0 ? 0 : 2)) % 5]; ctx.fillRect(-4, -2, 8, 4); ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-1, -2, 2, 4); ctx.restore(); } }
   // bolders en fenders langs de kademuren
   for (const e of shore) { if (!vis(e) || land[e.li].kind === 'pillar' || green(land[e.li].kind)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y), tx = (e.q.x - e.p.x) / len, ty = (e.q.y - e.p.y) / len;
     for (let k = 30; k < len - 20; k += 70) { const x = e.p.x + tx * k - e.nx * 6, y = e.p.y + ty * k - e.ny * 6; ctx.fillStyle = '#2b2f3a'; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, 7); ctx.fill(); ctx.fillStyle = '#6c7380'; ctx.beginPath(); ctx.arc(x - 0.8, y - 0.8, 1.3, 0, 7); ctx.fill(); }
@@ -1187,9 +1247,12 @@ function drawShip(sh, t, active) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-w / 2 + 10, -h * 0.3); ctx.lineTo(-w / 2 - 160 - 200 * k, -h * 1.1); ctx.lineTo(-w / 2 - 160 - 200 * k, h * 1.1); ctx.lineTo(-w / 2 + 10, h * 0.3); ctx.closePath(); ctx.fill();
     drawBowWave(w, h, k, t);
   }
-  ctx.save(); ctx.translate(5, 7); ctx.fillStyle = 'rgba(0,30,60,.3)'; hull(); ctx.fill(); ctx.restore();
-  const sim = w < 140 ? art('tug') : artTint('ship_sea', sh.col, 212);
-  if (sim) { spr(sim, 0, 0, 0, w + 6, w < 140 ? h * 1.15 : h * 1.3); ctx.fillStyle = active ? '#ffd54a' : '#fff'; ctx.font = (active ? 'bold 14px' : 'bold 12px') + ' system-ui'; ctx.textAlign = 'left'; ctx.fillText(sh.name + (active ? '  ◀ ' + tr('HIER') : ''), -w / 2 + 66, h / 2 + 22); ctx.restore();
+  { const sv = sunVec(); ctx.save(); ctx.rotate(-sh.hdg); ctx.translate(sv.x, sv.y); ctx.rotate(sh.hdg); ctx.fillStyle = `rgba(0,30,60,${0.18 + sv.alt * 0.14})`; hull(); ctx.fill(); ctx.restore(); }
+  const kind = sh.kind || (sh.kind = w < 140 ? 'tug' : /^MT\b|TANK|OLIE|PETRO/i.test(sh.name) ? 'tanker' : /TAXI|PONT|VEER|FERRY/i.test(sh.name) ? 'ferry' : (Math.abs(Math.round(sh.cx + sh.cy)) % 3 === 0 ? 'bulk' : 'sea'));
+  const sim = kind === 'tug' ? art('tug') : kind === 'tanker' ? artTint('ship_tanker', sh.col, 140) : kind === 'bulk' ? artTint('ship_bulk', sh.col, 45) : kind === 'ferry' ? art('ship_ferry') : artTint('ship_sea', sh.col, 212);
+  if (sim) { spr(sim, 0, 0, 0, w + 6, kind === 'tug' ? h * 1.15 : kind === 'ferry' ? h * 1.35 : h * 1.3);
+    // vlag op het hek, met de wind mee
+    { const wa = Math.atan2(WX.wind.y, WX.wind.x) - sh.hdg, wf = Math.hypot(WX.wind.x, WX.wind.y); const fl = 8 + wf * 10; ctx.save(); ctx.translate(-w / 2 + 14, -h * 0.35); ctx.rotate(wf > 0.05 ? wa : Math.sin(t * 2) * 0.3); ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(fl, -3 + Math.sin(t * 9) * 1.5); ctx.lineTo(fl, 3 + Math.sin(t * 9 + 1) * 1.5); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#eee'; ctx.fillRect(-1, -1, 2, 2); ctx.restore(); } ctx.fillStyle = active ? '#ffd54a' : '#fff'; ctx.font = (active ? 'bold 14px' : 'bold 12px') + ' system-ui'; ctx.textAlign = 'left'; ctx.fillText(sh.name + (active ? '  ◀ ' + tr('HIER') : ''), -w / 2 + 66, h / 2 + 22); ctx.restore();
     if (sh.v) { const k = Math.min(1, Math.abs(sh.v) / 6); drawKelvin(sh.cx - Math.cos(sh.hdg) * w / 2, sh.cy - Math.sin(sh.hdg) * w / 2, sh.hdg, w * 0.8, k); } return; }
   ctx.fillStyle = sh.col; hull(); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.stroke();
   ctx.save(); hull(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3; hull(); ctx.stroke(); ctx.restore(); // lichte dekrand
@@ -1301,6 +1364,7 @@ function drawInstruments() {
   const b = boat;
   const cx = VW / 2, cy = VH - (COMPACT ? 20 : 28), R = COMPACT ? 34 : 44;
   ctx.fillStyle = 'rgba(16,24,36,.7)'; ctx.beginPath(); ctx.arc(cx, cy, R + 8, Math.PI, 0); ctx.lineTo(cx + R + 8, cy + 14); ctx.lineTo(cx - R - 8, cy + 14); ctx.closePath(); ctx.fill();
+  { const br = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy); br.addColorStop(0, '#f1d58a'); br.addColorStop(0.5, '#b8862e'); br.addColorStop(1, '#e8c86f'); ctx.strokeStyle = br; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, R + 7, Math.PI, 0); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, R - 11, Math.PI, 0); ctx.stroke(); }
   ctx.lineWidth = 8; ctx.strokeStyle = '#d33f3f'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI, Math.PI * 1.5); ctx.stroke();
   ctx.strokeStyle = '#3cb043'; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI * 1.5, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
@@ -1322,7 +1386,7 @@ function drawInstruments() {
     return;
   }
   const tx = VW - 185, ty = VH - 170, th = 150, tw = 38;
-  ctx.fillStyle = 'rgba(16,24,36,.7)'; rrect(tx - 10, ty - 10, tw + 135, th + 30, 10); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = 'rgba(16,24,36,.7)'; rrect(tx - 10, ty - 10, tw + 135, th + 30, 10); ctx.fill(); { const br = ctx.createLinearGradient(tx - 10, ty, tx + tw + 125, ty); br.addColorStop(0, '#f1d58a'); br.addColorStop(0.5, '#b8862e'); br.addColorStop(1, '#e8c86f'); ctx.strokeStyle = br; ctx.lineWidth = 2.5; ctx.stroke(); } ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = '#333'; ctx.fillRect(tx, ty, tw, th);
   const zero = ty + th * (1 / 1.6);
   ctx.fillStyle = '#3cb043'; ctx.fillRect(tx, ty, tw, zero - ty); ctx.fillStyle = '#d33f3f'; ctx.fillRect(tx, zero, tw, ty + th - zero);
@@ -1336,14 +1400,25 @@ function drawInstruments() {
 let mapBig = false, miniRect = { x: 0, y: 0, w: 0, h: 0 };
 function toggleBigMap() { mapBig = !mapBig; document.body.classList.toggle('bigmap', mapBig); if (boardOpen) document.getElementById('board').style.display = mapBig ? 'none' : 'flex'; } // grote kaart gaat vóór de opdrachtenbeurs
 cv.addEventListener('pointerdown', e => { const r = miniRect, x = e.clientX, y = e.clientY; if (mapBig || (x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 8 && y <= r.y + r.h + 8)) { toggleBigMap(); e.preventDefault(); } });
+let miniCache = null;
 function drawMinimap() {
   let mw = COMPACT ? 140 : 220, mh = Math.round(mw * H / W), mx = VW - mw - (COMPACT ? 8 : 12), my = COMPACT ? 56 : 12;
   if (mapBig) { mw = Math.min(VW * 0.94, (VH * 0.82) * W / H); mh = Math.round(mw * H / W); mx = (VW - mw) / 2; my = Math.max(COMPACT ? 54 : 20, (VH - mh) / 2 - 10); ctx.fillStyle = 'rgba(0,10,25,.55)'; ctx.fillRect(0, 0, VW, VH); }
   const k = mw / W; miniRect = { x: mx, y: my, w: mw, h: mh };
   ctx.fillStyle = 'rgba(16,24,36,.7)'; rrect(mx - 6, my - 6, mw + 12, mh + 12, 10); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#2f86c3'; ctx.fillRect(mx, my, mw, mh);
+  if (!miniCache || miniCache.w !== mw || miniCache.map !== MAP) { // statische kaartlaag (water, diepte, land, betonning) één keer tekenen
+    const mcv = document.createElement('canvas'); mcv.width = Math.ceil(mw); mcv.height = Math.ceil(mh); const real = ctx; ctx = mcv.getContext('2d');
+    ctx.fillStyle = '#bfe3f1'; ctx.fillRect(0, 0, mw, mh); ctx.save(); ctx.scale(k, k);
+  ctx.save(); path(riverPoly); ctx.clip(); ctx.fillStyle = '#8fc8e4'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#6fb3d6'; ctx.lineWidth = RIVER_HALF * 0.9; ctx.lineCap = 'round'; path(riverPoly); ctx.stroke(); ctx.restore();
+    // dieptelijn langs de oevers (gestippeld) zoals op een kaart
+    ctx.strokeStyle = 'rgba(40,90,130,.5)'; ctx.lineWidth = 2 / k; ctx.setLineDash([6 / k, 5 / k]); ctx.beginPath(); for (const e of shore) { ctx.moveTo(e.p.x + e.nx * 14, e.p.y + e.ny * 14); ctx.lineTo(e.q.x + e.nx * 14, e.q.y + e.ny * 14); } ctx.stroke(); ctx.setLineDash([]);
+    for (const l of land) { path(l.poly); ctx.fillStyle = l.kind === 'north' || l.kind === 'park' ? '#cfe3b4' : l.kind === 'city' || l.kind === 'island' || l.kind === 'town' || l.kind === 'town2' ? '#f0e6cf' : l.kind === 'dam' || l.kind === 'pillar' ? '#ddd' : '#e9e1cc'; ctx.fill(); ctx.strokeStyle = 'rgba(90,80,60,.6)'; ctx.lineWidth = 1.5 / k; ctx.stroke(); }
+    // betonning: groen (sb opvarend) en rood langs de vaargeulranden
+    for (let sb = S_MIN + 300; sb < S_MAX; sb += 1400) for (const [nn, col] of [[-RIVER_HALF * 0.62, '#2e9e4f'], [RIVER_HALF * 0.62, '#d23c3c']]) { const q = sn2w(sb, nn); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(q.x, q.y, 2.6 / k, 0, 7); ctx.fill(); }
+    ctx.restore(); ctx = real; miniCache = { w: mw, map: MAP, cv: mcv };
+  }
+  ctx.drawImage(miniCache.cv, mx, my);
   ctx.save(); ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip(); ctx.translate(mx, my); ctx.scale(k, k);
-  for (const l of land) { path(l.poly); ctx.fillStyle = l.col || (l.kind === 'north' || l.kind === 'park' ? '#a8d088' : l.kind === 'city' || l.kind === 'island' || l.kind === 'town' || l.kind === 'town2' ? '#e4dac8' : l.kind === 'dam' || l.kind === 'pillar' ? '#ccc' : '#d6cdb9'); ctx.fill(); }
   for (const w of waits) { ctx.fillStyle = '#4aa3ff'; path(quad(w.s0 - 30, w.s1 + 30, w.n0 - 30, w.n1 + 30)); ctx.fill(); }
   for (const tm of terminals) { ctx.fillStyle = tm === terminal ? '#ffd54a' : 'rgba(255,213,74,.4)'; path(quad(tm.s0 - 40, tm.s1 + 40, tm.n0 - 40, tm.n1 + 40)); ctx.fill(); }
   ctx.fillStyle = state.phase === 'load' ? '#5ee88a' : '#1bd35a'; path(quad(dock.s0 - 60, dock.s1 + 60, dock.n0 - 80, dock.n1 + 60)); ctx.fill();
@@ -1355,8 +1430,12 @@ function drawMinimap() {
   for (const br of bridges) { const a = sn2w(br.s, br.n0), c = sn2w(br.s, br.n1); ctx.strokeStyle = 'rgba(80,80,80,.9)'; ctx.lineWidth = 3 / k; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke(); }
   ctx.fillStyle = '#fff'; ctx.save(); ctx.translate(boat.x, boat.y); ctx.rotate(boat.hdg); if (mapBig) ctx.scale(0.16 / k, 0.16 / k); ctx.beginPath(); ctx.moveTo(60, 0); ctx.lineTo(-40, -30); ctx.lineTo(-40, 30); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 8; ctx.stroke(); ctx.restore();
   // beeldkader
-  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2 / k; ctx.strokeRect(cam.x, cam.y, VW / zoom, VH / zoom);
+  ctx.strokeStyle = 'rgba(20,40,60,.85)'; ctx.lineWidth = 2 / k; ctx.strokeRect(cam.x, cam.y, VW / zoom, VH / zoom);
   ctx.restore();
+  // kompasroos en schaalbalk
+  { const cr = COMPACT && !mapBig ? 9 : 14, cxr = mx + cr + 8, cyr = my + cr + 8; ctx.save(); ctx.translate(cxr, cyr); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(0, 0, cr + 3, 0, 7); ctx.fill(); ctx.strokeStyle = '#2a3b4d'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.moveTo(0, -cr); ctx.lineTo(3, 0); ctx.lineTo(-3, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#2a3b4d'; ctx.beginPath(); ctx.moveTo(0, cr); ctx.lineTo(3, 0); ctx.lineTo(-3, 0); ctx.closePath(); ctx.fill(); ctx.font = `bold ${cr - 2}px system-ui`; ctx.textAlign = 'center'; ctx.fillText('N', 0, -cr - 4); ctx.restore();
+    const mPer = 1 / (SCALE * k), target = mapBig ? 1000 : 500, bw = target / mPer; ctx.fillStyle = '#2a3b4d'; ctx.fillRect(mx + 8, my + mh - 10, bw, 3); ctx.fillRect(mx + 8, my + mh - 14, 1.5, 7); ctx.fillRect(mx + 8 + bw, my + mh - 14, 1.5, 7); ctx.font = 'bold 9px system-ui'; ctx.textAlign = 'left'; ctx.fillText(target >= 1000 ? `${target / 1000} km` : `${target} m`, mx + 10, my + mh - 15); }
   if (mapBig) { // namen op de grote kaart
     const P = (x, y) => ({ x: mx + x * k, y: my + y * k });
     const boxes = [], bounds = { x: mx + 5, y: my + 5, w: mw - 10, h: mh - 10 };
@@ -1436,7 +1515,7 @@ function frame(now) {
     const slowHere = (state.phase === 'sail' && state.inZone) || (state.phase === 'load' && inSN(boat, terminal)) || hitFlash > 0;
     if (slowHere && !state.slowWas && warp === 2) { warp = 1; say(tr('Snelvaart uit'), 1); }
     state.slowWas = slowHere;
-    const sdt = dt * warp; tideUpdate(sdt); simClock += sdt; clock += sdt * CLOCK_RATE;
+    const sdt = dt * warp; tideUpdate(sdt); simClock += sdt; clock += sdt * CLOCK_RATE; particlesTick(sdt);
     { const b = boat; // vermoeidheid: ±15 min varen tot vol; rusten aan een wachtplaats: ±20 s tot uitgerust
       if (moored && moored.to === 'wait') { const f0 = b.fatigue; b.fatigue = Math.max(0, b.fatigue - sdt * 5); if (f0 > 0 && b.fatigue === 0) { say(tr('😴 Uitgerust. M = los om verder te varen.'), 3); saveGame(moored.wait); }
         if (moored.wait.yard && b.damage > 0 && MAP.id !== 'training') { const fix = Math.min(b.damage, sdt / 1.5, career.gold / 3); if (fix > 0) { b.damage -= fix; career.gold -= fix * 3; state.repairT = (state.repairT || 0) + sdt; if (state.repairT > 2) { state.repairT = 0; saveCareer(); } if (b.damage <= 0.01) { b.damage = 0; say(tr('🔧 Gerepareerd. M = los'), 4); SND.coin(); saveCareer(); } } } }
@@ -1445,7 +1524,8 @@ function frame(now) {
   }
   shake = Math.max(0, shake - dt * 30); const sx = (Math.random() - 0.5) * shake, sy = (Math.random() - 0.5) * shake;
   // camera: boot + beetje vooruitkijken in vaarrichting; zoom = wereld-viewport VW/zoom × VH/zoom
-  zoomTarget = Math.max(zoomMin(), zoomTarget); zoom += (zoomTarget - zoom) * Math.min(1, dt * 8);
+  const spz = 1 - Math.min(0.08, Math.hypot(boat.vx, boat.vy) * 0.01); // iets uitzoomen bij vaart
+  zoomTarget = Math.max(zoomMin(), zoomTarget); zoom += (Math.max(zoomMin(), zoomTarget * spz) - zoom) * Math.min(1, dt * 3);
   const SVW = VW, SVH = VH; VW = SVW / zoom; VH = SVH / zoom;
   const la = Math.min(60 + Math.hypot(boat.vx, boat.vy) * 14, Math.min(VW, VH) * 0.22); const lookX = boat.x + Math.cos(boat.hdg) * la, lookY = boat.y + Math.sin(boat.hdg) * la;
   const tx = Math.max(0, Math.min(W - VW, lookX - VW / 2)), ty = Math.max(0, Math.min(H - VH, lookY - VH / 2));
@@ -1453,7 +1533,7 @@ function frame(now) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.setTransform(renderRatio, 0, 0, renderRatio, 0, 0);
   ctx.save(); ctx.setTransform(renderRatio * zoom, 0, 0, renderRatio * zoom, -Math.round((cam.x + sx) * zoom * renderRatio), -Math.round((cam.y + sy) * zoom * renderRatio));
-  drawWater(t); drawLand(t); for (const b of berths) drawShip(b, t, b === ship && state.phase !== 'done'); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawNavigationRoute(); drawFlotsam(); drawMooring(); drawBoat(t); drawCurrentArrow(); drawPlayerLabel(); drawBridges(); drawGates(); drawNight(t);
+  drawWater(t); drawParticles('water'); drawLand(t); for (const b of berths) drawShip(b, t, b === ship && state.phase !== 'done'); for (const tr of traffic) drawShip(tr, t, false); for (const r of rivals) drawRival(r, t); drawNavigationRoute(); drawFlotsam(); drawMooring(); drawBoat(t); drawCurrentArrow(); drawPlayerLabel(); drawBridges(); drawGates(); drawParticles('air'); colorGrade(); drawNight(t);
   ctx.restore();
   VW = SVW; VH = SVH;
   if (running && !paused && MAP.id !== 'training') RADIO.tick(now / 1000, radioChatter, lang);
