@@ -1,0 +1,151 @@
+@media (max-width: 800px) {
+  header {
+    left: 16px;
+    right: 16px;
+    top: 16px;
+  }
+  .brand {
+    font-size: 16px;
+  }
+  .brand small {
+    font-size: 8px;
+  }
+  .location {
+    display: none;
+  }
+  .wallet strong {
+    font-size: 20px;
+  }
+  .mission {
+    top: 84px;
+    left: 16px;
+    width: 240px;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 10px 0;
+  }
+  .mission p {
+    font-size: 11px;
+    margin: 6px 0;
+  }
+  .stages {
+    margin-top: 12px;
+  }
+  .chart {
+    width: 155px;
+    right: 16px;
+    bottom: 175px;
+  }
+  .view {
+    top: 84px;
+    right: 16px;
+  }
+  .view span {
+    display: none;
+  }
+  .view button {
+    padding: 9px;
+  }
+  .view {
+    flex-direction: column;
+  }
+  footer {
+    bottom: 20px;
+    gap: 12px;
+    padding: 12px;
+    max-width: calc(100% - 24px);
+  }
+  .readout {
+    min-width: 100px;
+  }
+  .readout strong {
+    font-size: 23px;
+  }
+  .steer {
+    width: 145px;
+  }
+  .engine {
+    width: 130px;
+  }
+  .bottomHint {
+    display: none;
+  }
+}
+@media (max-width: 540px) {
+  .mission {
+    width: 215px;
+    padding: 13px;
+  }
+  .mission h1 {
+    font-size: 18px;
+  }
+  .mission .stages {
+    font-size: 8px;
+  }
+  .missionFoot {
+    font-size: 9px;
+  }
+  .chart {
+    width: 116px;
+    bottom: 220px;
+    right: 12px;
+    padding: 8px;
+  }
+  .chart .eyebrow {
+    font-size: 7px;
+  }
+  .legend {
+    display: none;
+  }
+  footer {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+  }
+  .readout {
+    width: 45%;
+    min-width: 0;
+  }
+  .readout strong {
+    display: inline-block;
+    margin: 4px 5px 0 0;
+  }
+  .readout > span {
+    display: block;
+    font-size: 9px;
+  }
+  .steer {
+    order: 3;
+    width: 46%;
+  }
+  .engine {
+    order: 4;
+    width: 46%;
+  }
+  .anchor {
+    width: 45%;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .anchor span {
+    font-size: 11px;
+  }
+  .destination {
+    font-size: 8px;
+  }
+  .view {
+    top: 84px;
+  }
+  dialog {
+    max-width: calc(100% - 28px);
+    padding: 22px;
+  }
+  dialog h2 {
+    font-size: 32px;
+  }
+}

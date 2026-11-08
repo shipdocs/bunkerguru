@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#102b35" />
+    <title>Bunkerguru — Havenlicht</title>
+    <link rel="stylesheet" href="styles/main.css" />
+  </head>
+  <body>
+    <canvas id="world" aria-label="Driedimensionale haven"></canvas>
+    <header>
+      <div class="brand">
+        <span class="mark">≈</span>
+        <div>
+          BUNKERGURU<small>HAVENLICHT <b>3D</b></small>
+        </div>
+      </div>
+      <div class="location">AMSTERDAM · WESTPOORT <span id="vesselInfo">110 × 11 m · 2×</span></div>
+      <div class="wallet"><small>BEDRIJFSKAS</small><strong id="gold">€ 300</strong></div>
+    </header>
+    <aside class="mission glass" id="missionPanel">
+      <button
+        id="missionToggle"
+        class="mobileOnly"
+        aria-expanded="false"
+        aria-controls="missionPanel"
+        aria-label="Opdrachtdetails tonen"
+      >
+        ⌄
+      </button>
+      <div class="eyebrow">BUNKEROPDRACHT <span id="job">01</span></div>
+      <h1 id="missionTitle">Een haven vol mogelijkheden.</h1>
+      <p id="missionText">Laad 500 ton bij de terminal en lever aan MT AFRIKA.</p>
+      <p id="deadline" class="deadline"></p>
+      <div class="stages">
+        <span id="stage1">01 Laden</span><i></i><span id="stage2">02 Varen</span><i></i
+        ><span id="stage3">03 Bunkeren</span>
+      </div>
+      <div class="progress"><div id="progress"></div></div>
+      <div class="missionFoot">
+        <span id="cargo">0 / 500 t</span><span>Opbrengst <b id="reward">€ 750</b></span>
+      </div>
+      <button id="pump" class="primary">Start laden <span>↗</span></button
+      ><button id="next" class="primary" hidden>Volgende opdracht →</button>
+      <div id="dockGuide"></div>
+    </aside>
+    <nav class="view glass">
+      <button id="cam" title="Camera wisselen (C)">◈ <span>Camera</span></button
+      ><button id="zoomIn" aria-label="Inzoomen">＋</button
+      ><button id="zoomOut" aria-label="Uitzoomen">−</button
+      ><button id="pause" aria-label="Pauzeren">Ⅱ</button
+      ><button id="help" aria-label="Bediening tonen">?</button>
+    </nav>
+    <div class="harborBar glass" id="harborPanel">
+      <span id="career"></span>
+      <div>
+        <button id="office">Opdrachten</button><button id="maintenance">Onderhoud</button
+        ><button id="horn" title="Scheepshoorn (H)">Hoorn</button
+        ><button id="audio">Geluid aan</button>
+      </div>
+      <small id="vts"></small>
+    </div>
+    <nav class="mobileTools mobileOnly" aria-label="Havenpanelen">
+      <button id="mapToggle" aria-expanded="false" aria-controls="chartPanel">Kaart</button
+      ><button id="menuToggle" aria-expanded="false" aria-controls="harborPanel">Havenmenu</button>
+    </nav>
+    <div id="label" class="destination"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <aside class="chart glass" id="chartPanel">
+      <div class="eyebrow">HAVENKAART <span>TIK OM TE VERGROTEN · N ↑</span></div>
+      <canvas
+        id="map"
+        width="600"
+        height="300"
+        aria-label="Havenkaart met schip en bestemming"
+      ></canvas>
+      <div class="legend"><span>● Jouw schip</span><span>● Bestemming</span></div>
+    </aside>
+    <footer class="glass">
+      <div class="readout">
+        <small>SNELHEID</small><strong><span id="speed">0,0</span> <em>km/u</em></strong
+        ><span id="status">Vast aan de terminal</span>
+      </div>
+      <div class="steer">
+        <small id="bowStatus" aria-live="polite">BOEG · UIT</small>
+        <div class="wheelRow">
+          <div class="wheelMount">
+            <span class="wheelIndex" aria-hidden="true">▼</span>
+            <div
+              id="helm"
+              class="helmWheel"
+              role="slider"
+              tabindex="0"
+              aria-label="Stuurwiel: draaien om roer te geven"
+              aria-valuemin="-60"
+              aria-valuemax="60"
+              aria-valuenow="0"
+            >
+              <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+                <circle cx="60" cy="60" r="48" fill="#122d37" stroke="#d6c199" stroke-width="9" />
+                <circle cx="60" cy="60" r="42" fill="none" stroke="#728b8b" stroke-width="2" />
+                <path
+                  d="M60 20V48M25 80L49 66M95 80L71 66"
+                  stroke="#d6c199"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                />
+                <path d="M60 8V17" stroke="#aee7ce" stroke-width="7" stroke-linecap="round" />
+                <circle cx="60" cy="60" r="13" fill="#284b55" stroke="#d6c199" stroke-width="3" />
+                <circle cx="60" cy="60" r="4" fill="#bde1cd" />
+              </svg>
+            </div>
+          </div>
+          <button id="helmMid" aria-label="Roer midscheeps">0°</button>
+        </div>
+        <small id="helmReadout">ROER 0° · INGESTELD 0°</small>
+        <div class="bow">
+          <button data-hold="bowL">← BOEG</button><button data-hold="bowR">BOEG →</button>
+        </div>
+      </div>
+      <div class="engine">
+        <small>TELEGRAAF</small>
+        <div>
+          <button id="down" aria-label="Minder vermogen">−</button><strong id="tele">STOP</strong
+          ><button id="up" aria-label="Meer vermogen">＋</button>
+        </div>
+        <div class="notches" id="notches" hidden></div>
+        <button
+          id="stop"
+          class="stopControl"
+          aria-label="Afstoppen"
+          aria-pressed="false"
+          title="Afstoppen (spatie)"
+        >
+          AFSTOPPEN
+        </button>
+      </div>
+      <button id="moor" class="anchor">⚓<span>Trossen los</span><kbd>M</kbd></button>
+    </footer>
+    <div class="bottomHint">
+      ↑ ↓ machine &nbsp; ← → roer &nbsp; Q E boegschroef &nbsp; spatie afstoppen &nbsp; M afmeren
+      &nbsp; C camera &nbsp; slepen om rond te kijken
+    </div>
+    <dialog id="intro">
+      <div class="eyebrow">WELKOM AAN BOORD</div>
+      <h2>Jouw schip.<br />Jouw haven.</h2>
+      <p>
+        Bouw je bunkerbedrijf op in Amsterdam Westpoort. Je vaart een tanker van 110 × 11 meter met
+        1.200 ton tankcapaciteit; de opdrachten zijn deelpartijen. Vaar over het Noordzeekanaal naar
+        zes klanten in de havens van Westpoort en Zaandam. Twee laadterminals en tien zijhavens,
+        gebaseerd op de oude Amsterdam-kaart. Lever vijf opdrachten voor een bonus van € 1.000;
+        daarna kun je vrij doorspelen. Je voortgang wordt automatisch bewaard in deze browser.
+      </p>
+      <ol>
+        <li><b>Laad aan de terminal.</b> Je ligt al vast. Druk op ‘Start laden’.</li>
+        <li>
+          <b>Gooi los en vaar.</b> Eén keer ↑ of ＋ om te gaan varen; nogmaals voor meer vaart. ↓ of
+          − schakelt terug. ←/→ om te sturen. Het roer blijft staan als je loslaat. Zet het zelf
+          midscheeps met de 0°-knop. Spatie of de knop Afstoppen remt het schip af. Q/E bedient de
+          boegschroef.
+        </li>
+        <li>
+          <b>Meer langszij af.</b> In de groene zone, parallel en onder 2 km/u: M. Start daarna
+          bunkeren.
+        </li>
+      </ol>
+      <p class="muted">
+        De volgcamera draait achter je schip mee. Slepen schakelt naar vrij rondkijken. Scrollen
+        zoomt. C wisselt tussen volgcamera, vrije camera en bovenaanzicht. Op telefoon stel je de
+        roerhoek door aan het stuurwiel te draaien. Het stuurwiel blijft staan als je loslaat. Tik
+        op 0° om het roer midscheeps te zetten. Met Afstoppen rem je af. Je ziet zowel de ingestelde
+        als de werkelijke roerhoek.
+      </p>
+      <button class="primary" id="start">Aan boord →</button
+      ><button class="subtle" id="graphics">Beeld: automatisch</button>
+      <p class="graphicsHint">
+        Automatisch kiest een lichte weergave op je telefoon. Loopt het spel stroef? Tik op Beeld
+        voor de zuinige stand.
+      </p>
+      <button class="subtle" id="tempo">Vaartempo 2× · spelen</button
+      ><button class="subtle" id="rescue">Terug naar terminal · € 100</button
+      ><button class="subtle" id="upgrade">Pompsnelheid verhogen · € 500</button
+      ><small class="credit"
+        >Gebaseerd op shipdocs/bunkerguru · Havenlicht · Westpoort-editie</small
+      >
+    </dialog>
+    <dialog id="port" class="port">
+      <div class="eyebrow">WESTPOORT · HAVENKANTOOR</div>
+      <h2>Goede zaken.<br />Goede vaart.</h2>
+      <p id="portStats"></p>
+      <p id="careerDetails"></p>
+      <div class="tabs">
+        <button id="tabJobs">Opdrachten</button><button id="tabService">Onderhoud</button>
+      </div>
+      <section id="portJobs">
+        <p>
+          Kies na iedere levering een nieuwe klant. Spoedtijd loopt alleen tijdens het spelen; op 3×
+          verstrijkt de tijd ook driemaal zo snel.
+        </p>
+        <div id="offers"></div>
+      </section>
+      <section id="portService" hidden>
+        <p id="serviceState"></p>
+        <p>
+          Meer af aan Amsterdam Westpoortterminal voor reparatie of een nieuwe pomp. Reparatie kost
+          € 3 per schadepunt.
+        </p>
+        <button id="repair" class="primary"></button><button id="buyPump" class="primary"></button>
+        <p id="serviceMessage" role="status"></p>
+        <hr />
+        <h3>Pech op het water?</h3>
+        <p>
+          Pechhulp brengt je hersteld terug voor maximaal € 100. Je lading vervalt en de huidige
+          opdracht begint opnieuw. Ook zonder geld kun je verder.
+        </p>
+        <button id="tow" class="subtle">Pechhulp inschakelen · maximaal € 100</button>
+        <hr />
+        <button id="restart" class="subtle">Nieuwe carrière beginnen</button>
+        <div id="resetConfirm" hidden>
+          <p>Je geld, opdrachten en upgrades worden gewist. Zeker weten?</p>
+          <button id="confirmReset">Ja, opnieuw beginnen</button
+          ><button id="cancelReset">Annuleren</button>
+        </div>
+      </section>
+      <button id="closePort" class="primary">Terug aan boord →</button>
+    </dialog>
+    <div id="failure" hidden>
+      De 3D-weergave kon niet starten. Probeer een browser met WebGL en ingeschakelde
+      hardwareversnelling.
+    </div>
+    <script type="module" src="src/main.mjs"></script>
+  </body>
+</html>
