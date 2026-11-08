@@ -4,7 +4,7 @@
 
 `src/main.mjs` start één `createGame()` uit `src/app/create-game.mjs`. Alleen deze applicatie-eigenaar vervangt de actuele spelstaat bij een nieuwe carrière. Bediening en havenkantoor krijgen een `getState()`-functie, zodat zij na die vervanging nooit een verouderd schip aanpassen.
 
-`public/` bevat de handgeschreven HTML en stijlen. `vendor/` bevat ongewijzigde externe broncode en licenties. `scripts/build.mjs` kopieert deze drie bronnen naar `dist/` en voegt alleen de CSS-lagen samen. De browser gebruikt gewone ES-modules, zonder transpiler of framework.
+`index.html` en `styles/` bevatten de handgeschreven HTML en stijlen (direct te serveren als `/3d/`). `vendor/` bevat ongewijzigde externe broncode en licenties. `scripts/build.mjs` kopieert deze drie bronnen naar `dist/` en voegt alleen de CSS-lagen samen. De browser gebruikt gewone ES-modules, zonder transpiler of framework.
 
 De publicatie blijft statisch. `.openai/hosting.json` wijst naar `dist/`; de Sites-workflow bouwt vóór het verpakken met `npm run build`. Tests gebruiken rechtstreeks `src/`, en `npm run test:built` voert de applicatie-integratietest nogmaals uit op `dist/`. Zo kunnen verouderde buildbestanden geen groen testresultaat maskeren.
 
@@ -44,6 +44,7 @@ Posities en afmetingen zijn meters; `u`/`v` zijn m/s, `h` is koers in radialen e
 4. `mobile.css`: mobiele panelen en bediening.
 5. `theme.css`: havenkleuren en definitieve visuele afwerking.
 6. `helm.css`, `chart.css`, `graphics.css`, `engine.css`: gerichte componentregels.
+7. `classic.css`: planning, winkel, kaartkeuze en marifoon uit het 2D-spel.
 
 De bestaande cascade is behouden. Houd nieuwe regels bij de betreffende component; voeg niet opnieuw losse reparatieregels onderaan het HTML-bestand toe. Controleer portrait en landscape bij wijzigingen. De publicatie heeft één samengevoegd `styles/main.css`, terwijl de bron bewerkbaar blijft per onderwerp.
 

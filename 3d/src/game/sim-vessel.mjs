@@ -58,7 +58,9 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     }
     s.tele = wanted;
     const want = Math.sign(wanted);
-    if (s.startT > 0) s.startT -= h;
+    // engine.js: blackout = engine stops at 0.5/s, no clutch, no bow thruster.
+    if (s.blackout > 0) s.rpm += clamp(-s.rpm, -0.5 * h, 0.5 * h);
+    else if (s.startT > 0) s.startT -= h;
     else if (want !== 0 && s.engDir !== want) {
       const wasRunning = s.engDir !== 0;
       if (Math.abs(s.rpm) > 0.01) s.rpm += clamp(-s.rpm, -0.2 * h, 0.2 * h);

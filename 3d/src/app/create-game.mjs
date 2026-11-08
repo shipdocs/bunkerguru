@@ -219,7 +219,18 @@ export function createGame({ createRenderer } = {}) {
     resetCareer: () => {
       const keep = { handling: s.handling, timeScale: s.timeScale };
       s = Object.assign(fresh(), keep);
-      for (const r of sim.rivals) Object.assign(r, { gold: 300, jobs: 0 });
+      for (const r of sim.rivals)
+        Object.assign(r, {
+          gold: 300,
+          jobs: 0,
+          damage: 0,
+          mode: 'idle',
+          target: null,
+          racing: false,
+          path: [],
+          cur: 0,
+          wait: 6,
+        });
     },
     save,
     toast,

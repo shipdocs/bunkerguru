@@ -192,11 +192,12 @@ export function waterRoute(start, goal, margin = 10) {
   const clear = (a, b) => clearLine(a, b, margin);
   if (clearLine(start, goal, margin)) return [start, goal];
   const pass = (id) => {
-    if (!free.has(id)) {
+    const key = id + ':' + margin; // clearance differs per caller
+    if (!free.has(key)) {
       const p = point(id);
-      free.set(id, open(p.x, p.z, margin));
+      free.set(key, open(p.x, p.z, margin));
     }
-    return free.get(id);
+    return free.get(key);
   };
   const nearest = (p) => {
     const cx = Math.floor((p.x + MAP.halfWidth) / CELL),

@@ -11,8 +11,8 @@ export function createCameraController({ $, camera, zoomLimits, state: s, toast 
   function cameraLabel() {
     const label = CAMERA_LABELS[cameraMode];
     $('cam').innerHTML = '◈ <span>' + label + '</span>';
-    $('cam').setAttribute('aria-label', label + ' · wisselen (C)');
-    $('cam').title = label + ' · C om te wisselen';
+    $('cam').setAttribute('aria-label', label + ' · wisselen (F)');
+    $('cam').title = label + ' · F om te wisselen';
   }
   cameraLabel();
   $('cam').onclick = () => {

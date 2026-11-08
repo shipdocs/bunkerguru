@@ -22,3 +22,7 @@ De cameraschaal is niet kunstmatig versneld. Eén wereld-eenheid blijft één me
 De gebruiker verduidelijkte daarna dat het renderen goed gaat, maar het varen te langzaam aanvoelt. Daarom is het standaard speeltempo nu 2×, zonder de beeldkwaliteit te verminderen. Bij 25,92 km/u op de scheepsmeter gaat in tien echte seconden twintig seconden speltijd voorbij: de afstand is 144 m. Verkeer, sturen, overslag en opdrachten volgen dezelfde tijdschaal. De HUD toont 2× en het menu biedt 1×, 2× en 3×. De vaarsnelheidsmeter blijft de snelheid per speluur aangeven. Dit is een bewuste tempoverhoging, naast de eerdere correctie van de klok.
 
 De test voor de daadwerkelijke animatielus controleert nu 144 m op 2×; de afzonderlijke kloktests blijven 72 m op 1× verifiëren.
+
+## Update: tempo zoals het 2D-spel
+
+Standaard is nu 3× (gelijk aan `TIME = 3` in `engine.js`); de keuzes zijn 1×, 2×, 3× en 6× (T, snelvaart). Zie `src/game/time-scale.mjs`.

@@ -130,6 +130,23 @@ export function rivalStartJob(r, bi, rivals, racing = false) {
 }
 // fx: {say, sound}; player: state; traffic: list. Returns an event or null:
 // {kind:'stole', rival} when a racing rival bunkered the player's ship first.
+// Alongside first wins (engine.js): a racing rival arriving before the player has
+// started bunkering takes the job; arriving after, it gives up and sails on.
+function arrive(r, player) {
+  if (r.mode === 'toTerminal') {
+    r.mode = 'loading';
+    r.wait = (8 + Math.random() * 6) * SIM;
+    return null;
+  }
+  const contested = r.racing && player.job?.berth === r.target;
+  if (contested && ['bunker', 'done'].includes(player.phase)) {
+    Object.assign(r, { racing: false, target: null, mode: 'idle', wait: 10 * SIM });
+    return null;
+  }
+  r.mode = 'bunkering';
+  r.wait = 8 * SIM;
+  return contested ? { kind: 'stole', rival: r } : null;
+}
 const gatesRef = { list: [] };
 export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
   gatesRef.list = gates;
@@ -192,9 +209,6 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
         } else {
           r.gold += 400 + Math.round(Math.random() * 500);
           r.jobs++;
-          if (r.racing && player.job?.berth === r.target && player.phase !== 'done') {
-            event = { kind: 'stole', rival: r };
-          }
           r.racing = false;
           r.target = null;
           r.mode = 'idle';
@@ -324,20 +338,16 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       const v = Math.min(1.6, 0.2 + d / 40) * (Math.abs(ang(ha - r.h)) > 0.6 ? 0.3 : 1);
       r.cur += Math.max(-0.25 * dt, Math.min(0.15 * dt, v - r.cur));
       const step = Math.min(d, r.cur * dt);
-      r.x += (dx / d) * step;
-      r.z += (dz / d) * step;
+      if (d > 1e-6) {
+        r.x += (dx / d) * step;
+        r.z += (dz / d) * step;
+      }
       if (d < 3 && Math.abs(ang(ha - r.h)) < 0.05) {
         r.path = [];
         r.cur = 0;
         r.x = wp.x;
         r.z = wp.z;
-        if (r.mode === 'toTerminal') {
-          r.mode = 'loading';
-          r.wait = (8 + Math.random() * 6) * SIM;
-        } else {
-          r.mode = 'bunkering';
-          r.wait = 8 * SIM;
-        }
+        event = arrive(r, player) || event;
       }
       continue;
     }
@@ -379,13 +389,7 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
     else if (last && d < 6 && Math.abs(r.cur) < 0.6) {
       r.path = [];
       r.cur = 0;
-      if (r.mode === 'toTerminal') {
-        r.mode = 'loading';
-        r.wait = (8 + Math.random() * 6) * SIM;
-      } else {
-        r.mode = 'bunkering';
-        r.wait = 8 * SIM;
-      }
+      event = arrive(r, player) || event;
     }
   }
   return event;

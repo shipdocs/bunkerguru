@@ -50,7 +50,11 @@ export function eventTick(ev, s, dt, world, fx) {
       pz = s.z - cs * along,
       d = Math.hypot(f.x - px, f.z - pz);
     if (d < 5.5 + 6 && !(f.cd > 0) && s.phase !== 'sunk') {
-      const sp = Math.hypot(s.u, s.v);
+      // Speed through the water: a container drifting with you does no harm.
+      const c2 = currentAt(f.x, f.z, s.tideSpeed || 0),
+        gx = Math.sin(s.h) * s.u + Math.cos(s.h) * s.v,
+        gz = -Math.cos(s.h) * s.u + Math.sin(s.h) * s.v;
+      const sp = Math.hypot(gx - c2.x, gz - c2.z);
       const dmg = Math.max(2, Math.round(sp * 2.5 * up(s, 'fender')));
       s.damage += dmg;
       f.cd = 3;

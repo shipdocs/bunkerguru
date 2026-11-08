@@ -225,7 +225,7 @@ export function settle(s) {
     base2 = Math.round(base * frac);
   const pay = onTime ? base2 : Math.round(base2 * Math.max(0.5, 1 - late / Math.max(60, j.est))),
     bonus = onTime ? Math.round(base2 * 0.25) : 0,
-    clean = s.damage <= (s.jobDamage ?? 0) + 0.5 ? 150 : 0;
+    clean = s.damage < 0.5 ? 150 : 0; // engine.js: no damage at all, not just no new damage
   const total = pay + bonus + clean + (s.vtsBonus || 0);
   const result = { pay, bonus, clean, onTime, late, frac, total, vts: s.vtsBonus || 0 };
   s.phase = 'done';
