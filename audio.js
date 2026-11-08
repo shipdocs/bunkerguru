@@ -153,6 +153,8 @@ const SND = (() => {
     horn() { tyfoon(2.6, 0); },
     horn5() { for (let i = 0; i < 5; i++) tyfoon(0.45, i * 0.65); }, // attentiesein: 5 korte stoten
     rope() { burst(1800, 0.12, 0.25, 'highpass'); tone('square', 220, 140, 0.12, 0.08, 0.05); },
+    alarm(n) { // kort machinekameralarm: 3 (of n) dubbele piepen, zodat je weet dat er iets mis is
+      if (!ac || muted) return; for (let i = 0; i < (n || 3); i++) { tone('square', 1046, 1046, 0.11, 0.09, i * 0.42); tone('square', 784, 784, 0.11, 0.09, i * 0.42 + 0.14); } },
     coin() { [988, 1319, 1568].forEach((f, i) => tone('square', f, f, 0.12, 0.08, i * 0.08)); },
     sink() { tone('sine', 220, 50, 2.5, 0.3); for (let i = 0; i < 6; i++) tone('sine', 500 + Math.random() * 600, 900, 0.1, 0.1, 0.3 + i * 0.25); },
     radio() { burst(2500, 0.25, 0.15, 'bandpass', radioBus); tone('square', 1200, 1200, 0.06, 0.05, 0.25, radioBus); },
