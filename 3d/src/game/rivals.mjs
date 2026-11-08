@@ -12,6 +12,13 @@ export const RIVAL_DEFS = [
   { name: 'Truus Tank', color: '#8e44ad', spd: 5.6 },
 ];
 const ang = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+function clearTo(a, b) {
+  const d = Math.hypot(b.x - a.x, b.z - a.z),
+    n = Math.max(1, Math.ceil(d / 8));
+  for (let i = 1; i <= n; i++)
+    if (!waterAt(a.x + ((b.x - a.x) * i) / n, a.z + ((b.z - a.z) * i) / n, 6)) return false;
+  return true;
+}
 export function createRivals(saved = []) {
   if (MAP.id === 'training') return [];
   return RIVAL_DEFS.map((d, i) => {
@@ -301,6 +308,14 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
         }
     // Final glide: within two ship lengths of the spot, come in parallel and slide
     // the last metres alongside (bow thruster and a skilled skipper).
+    if (last && d < 2 * RL + 200 && !clearTo(r, wp)) {
+      // Straight line to the spot crosses land: route round the corner first.
+      const via = waterRoute({ x: r.x, z: r.z }, { x: wp.x, z: wp.z }, 10).slice(1, -1);
+      if (via.length) {
+        r.path = [...via, wp];
+        continue;
+      }
+    }
     if (last && d < 2 * RL + 200) {
       const ha = [wp.h, wp.h + Math.PI].sort(
         (a, b) => Math.abs(ang(a - r.h)) - Math.abs(ang(b - r.h)),

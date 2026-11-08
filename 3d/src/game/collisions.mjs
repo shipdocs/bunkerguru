@@ -48,12 +48,16 @@ export function hullContacts(s, dt, ctx = {}) {
         d = Math.hypot(nx, nz),
         push = 0;
       if (x > wall.x0 && x < wall.x1 && z > wall.z0 && z < wall.z1) {
-        const e = [
-          { d: x - wall.x0, nx: -1, nz: 0 },
-          { d: wall.x1 - x, nx: 1, nz: 0 },
-          { d: z - wall.z0, nx: 0, nz: -1 },
-          { d: wall.z1 - z, nx: 0, nz: 1 },
-        ].sort((a, b) => a.d - b.d)[0];
+        const edges = [
+          { d: x - wall.x0, nx: -1, nz: 0, out: s.x < wall.x0 },
+          { d: wall.x1 - x, nx: 1, nz: 0, out: s.x > wall.x1 },
+          { d: z - wall.z0, nx: 0, nz: -1, out: s.z < wall.z0 },
+          { d: wall.z1 - z, nx: 0, nz: 1, out: s.z > wall.z1 },
+        ];
+        // Push back towards the side where the hull itself is, not through a thin
+        // obstacle (a moored ship) onto the quay behind it.
+        const side = edges.filter((e) => e.out);
+        const e = (side.length ? side : edges).sort((a, b) => a.d - b.d)[0];
         nx = e.nx;
         nz = e.nz;
         push = e.d + rad + 0.25;
@@ -107,8 +111,11 @@ export function hullContacts(s, dt, ctx = {}) {
       if (d >= r2) continue;
       if (d < 0.001) [nx, nz, d] = [1, 0, 1];
       else [nx, nz] = [nx / d, nz / d];
-      s.x += nx * (r2 - d + 0.1);
-      s.z += nz * (r2 - d + 0.1);
+      // Separate gently: deep overlaps (crossing hulls) resolve over a few steps
+      // instead of throwing a hull across the harbour.
+      const sep = Math.min(r2 - d + 0.1, 1.5);
+      s.x += nx * sep;
+      s.z += nz * sep;
       const vn = (vx - m.vx) * nx + (vz - m.vz) * nz;
       if (vn < 0) {
         // Blame: who moved into whom (engine.js: the rival's share).
