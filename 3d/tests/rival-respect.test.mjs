@@ -61,3 +61,36 @@ test('a rival never sails into the player lying at a terminal to load', () => {
     assert.equal(hits, 0, 'overlap with the player at ' + t.name + ' (' + ti + ')');
   }
 });
+
+test('two rivals heading for the terminal the player lies at never share a berth', () => {
+  for (const [ti, t] of terminals.entries()) {
+    const s = fresh();
+    const off = t.wall ? t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7) : 0;
+    Object.assign(s, {
+      x: t.alongZ ? t.x + off : t.x,
+      z: t.alongZ ? t.z : t.z + off,
+      h: t.h,
+      moored: true,
+      mooredTo: { kind: 'terminal', id: t.id },
+      phase: 'free',
+    });
+    const world = createWorldState(s);
+    const lane = MAP.lanes?.down ?? -20;
+    world.rivals.forEach((r, k) =>
+      Object.assign(r, { x: t.x + (k ? 300 : -300), z: lane, h: -Math.PI / 2, mode: 'idle' }),
+    );
+    const berth = customers.findIndex((c) => !c.gate);
+    for (const r of world.rivals) rivalStartJob(r, berth, world.rivals);
+    let hits = 0;
+    for (let i = 0; i < 60 * 240; i++) {
+      step(s, world, 1 / 60, {}, noFx);
+      s.u = s.v = 0;
+      if (i % 10) continue;
+      const [a, b] = world.rivals;
+      if (overlap(s, a) || overlap(s, b)) hits++;
+      if (a.mode === 'loading' && b.mode === 'loading' && a.term === b.term && overlap(a, b))
+        hits++;
+    }
+    assert.equal(hits, 0, 'overlap at ' + t.name + ' (' + ti + ')');
+  }
+});

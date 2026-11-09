@@ -77,10 +77,13 @@ function terminalSpot(r, rivals) {
     );
   const len = (t) => (t.alongZ ? t.z1 - t.z0 : t.x1 - t.x0);
   // A short terminal holds one boat; a rival or the player there makes it busy.
+  // A long one holds two – but with the player lying there, only one rival fits.
+  const heading = (i) =>
+    rivals.some((o) => o !== r && o.term === i && ['toTerminal', 'loading'].includes(o.mode));
   const busy = (i) =>
-    len(terminals[i]) < 4 * RL + 40 &&
-    (playerAt(terminals[i]) ||
-      rivals.some((o) => o !== r && o.term === i && ['toTerminal', 'loading'].includes(o.mode)));
+    len(terminals[i]) < 4 * RL + 40
+      ? playerAt(terminals[i]) || heading(i)
+      : playerAt(terminals[i]) && heading(i);
   const ti = byDist.find((i) => !busy(i)) ?? byDist[0],
     t = terminals[ti];
   // Two berths along a long terminal: take the one no other boat is heading for.
@@ -393,9 +396,8 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
         pd < 2 * RL + 15 ||
         (pr < 2 * RL + 10 && (player.x - r.x) * dx + (player.z - r.z) * dz > 0)
       ) {
-        r.cur += Math.max(-0.25 * dt, -r.cur);
-        r.x += Math.sin(r.h) * r.cur * dt;
-        r.z -= Math.cos(r.h) * r.cur * dt;
+        // Stop dead (gliding speeds are low): no metre more towards the player.
+        r.cur = 0;
         r.blockT = (r.blockT || 0) + dt;
         if (r.blockT > 8 * SIM && r.mode === 'toTerminal') {
           r.blockT = 0;
