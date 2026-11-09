@@ -1,5 +1,4 @@
 import * as T from '../../vendor/three.js';
-import { tr } from '../i18n/index.mjs';
 // Labels in the wheelhouse view: at eye level a 40–90 m wide name board right ahead
 // fills the window. There they keep a modest, distance-based size instead.
 export const labelView = { bridge: false };
@@ -49,10 +48,9 @@ export function createPrimitives(scene) {
     c.lineJoin = 'round';
     c.lineWidth = 9;
     c.strokeStyle = 'rgba(12, 34, 42, 0.85)';
-    const shown = tr(text); // fixed labels follow the language; names stay as they are
-    c.strokeText(shown, 256, 59);
+    c.strokeText(text, 256, 59);
     c.fillStyle = color;
-    c.fillText(shown, 256, 59);
+    c.fillText(text, 256, 59);
     const sprite = new T.Sprite(
       new T.SpriteMaterial({ map: new T.CanvasTexture(cv), depthTest: true, transparent: true }),
     );

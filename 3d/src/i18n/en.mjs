@@ -11,6 +11,9 @@ export const RULES = [
     (_, n, s) => `${n} degrees ${s === 'bakboord' ? 'port' : 'starboard'}`,
   ],
 ];
+// Texts that are translated only when they are the whole text: 'Haven' is a tab of
+// the harbour office, but also part of names such as Haven Maassluis.
+export const EXACT = { Haven: 'Harbour' };
 export const PHRASES = [
   // ---- start screen, help
   ['WELKOM AAN BOORD · BUNKERGURU 3D', 'WELCOME ABOARD · BUNKERGURU 3D'],
@@ -488,7 +491,6 @@ export const PHRASES = [
   ['🎵 Muziek uit', '🎵 Music off'],
   // ---- harbour office
   ['HAVENKANTOOR', 'HARBOUR OFFICE'],
-  ['Haven', 'Harbour'],
   [
     'Oefenhaven: één vaste oefenklus. Kies daarna een echte haven.',
     'Practice harbour: one fixed practice job. Then choose a real harbour.',

@@ -69,7 +69,16 @@ export function createGame({ createRenderer } = {}) {
     world;
   const effects = createNavigationEffects(scene, world.primitives.mesh, vesselProfile);
   // "JOUW SCHIP" over the boat for the first seconds, as in the 2D game.
-  const ownLabel = world.primitives.textSprite('JOUW SCHIP', 0, 26, 0, 40, '#7df4ff', boat, 0.1);
+  const ownLabel = world.primitives.textSprite(
+    tr('JOUW SCHIP'),
+    0,
+    26,
+    0,
+    40,
+    '#7df4ff',
+    boat,
+    0.1,
+  );
   ownLabel.visible = false;
   let ownLabelT = 0;
   let paused = false,

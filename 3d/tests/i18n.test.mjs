@@ -26,6 +26,7 @@ test('pieces glued together by the game come out as one English line', () => {
 });
 
 test('whole words only, wind points only after "wind" or a weather icon', () => {
+  setLang('en');
   assert.equal(
     tr('⚠️ Losgeslagen! Slangen eraf. Opnieuw langszij (of M = vast).').includes('Cast'),
     false,
@@ -35,9 +36,12 @@ test('whole words only, wind points only after "wind" or a weather icon', () => 
   assert.equal(tr('Z/X'), 'Z/X', 'the keys Z and O are not wind directions');
   assert.equal(tr('MV RIJNHAVEN'), 'MV RIJNHAVEN', 'ship names stay');
   assert.equal(tr('35 graden bakboord'), '35 degrees port');
+  assert.equal(tr('Haven'), 'Harbour', 'the tab');
+  assert.equal(tr('Haven Maassluis'), 'Haven Maassluis', 'the name');
 });
 
 test('text wrapped in the HTML file matches its phrase; map phrases join in', () => {
+  setLang('en');
   assert.equal(tr('\n        Pech op het\n        water?\n      '), ' Stuck on the water? ');
   addPhrases({ 'oostwand Rijnhaven': 'east wall of the Rijnhaven' });
   assert.equal(
@@ -56,6 +60,7 @@ test('the table is sound: no empty or duplicate Dutch piece, English never empty
 });
 
 test('every fixed text in index.html changes in English', async () => {
+  setLang('en');
   const html = (await readFile(new URL('../index.html', import.meta.url), 'utf8')).replace(
     /<script[\s\S]*?<\/script>/g,
     '',

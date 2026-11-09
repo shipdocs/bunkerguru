@@ -5,7 +5,7 @@
 // VHF voice (tr on each line) and labels drawn on a canvas (tr in textSprite).
 // PHRASES holds Dutch pieces and their English; the longest match wins, and a piece
 // only matches as whole words, so 'los' never fires inside 'losgeslagen'.
-import { PHRASES, RULES } from './en.mjs';
+import { PHRASES, RULES, EXACT } from './en.mjs';
 export const LANG_KEY = 'bunkerguru3d-lang';
 export const LANGS = ['nl', 'en'];
 let lang = 'nl';
@@ -56,6 +56,8 @@ export function tr(text) {
   let out = cache.get(text);
   if (out !== undefined) return out;
   if (!matcher) build();
+  const whole = EXACT[text.trim()];
+  if (whole) return text.replace(text.trim(), whole);
   // Text from the HTML file is wrapped and indented: one space reads the same.
   out = text.replace(/\s*\n\s*/g, ' ');
   for (const [re, to] of RULES) out = out.replace(re, to);

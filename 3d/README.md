@@ -58,7 +58,7 @@ Niet getest: echte WebGL-prestaties op een telefoon. Engels dekt alle vaste teks
 
 ## Taal
 
-Nederlands is de taal van de code, zoals in 2D. Engels (knop **English** op het startscherm, of `?lang=en`) is een laag eroverheen: `src/i18n/index.mjs` vertaalt elke tekst op het moment dat hij het spel verlaat (tekst op de pagina, tooltips, de stem van de marifoon, vaste labels in de 3D-wereld). `src/i18n/en.mjs` bevat de Nederlandse stukken met hun Engels; het langste stuk wint en een stuk past alleen op hele woorden. Nieuwe tekst toevoegen: schrijf hem in het Nederlands en zet het stuk in `en.mjs`. `tests/i18n.test.mjs` faalt als een vaste tekst uit `index.html` geen Engels heeft. De kaarten leveren hun eigen vertalingen (`i18n` in `../maps/*.js`).
+Nederlands is de taal van de code, zoals in 2D. Engels (knop **English** op het startscherm, of `?lang=en`) is een laag eroverheen: `src/i18n/index.mjs` vertaalt elke tekst op het moment dat hij het spel verlaat (tekst op de pagina, tooltips, de stem van de marifoon; het label JOUW SCHIP en de kaartgrens in de 3D-wereld). `src/i18n/en.mjs` bevat de Nederlandse stukken met hun Engels; het langste stuk wint en een stuk past alleen op hele woorden. Nieuwe tekst toevoegen: schrijf hem in het Nederlands en zet het stuk in `en.mjs`. `tests/i18n.test.mjs` faalt als een vaste tekst uit `index.html` geen Engels heeft. De kaarten leveren hun eigen vertalingen (`i18n` in `../maps/*.js`).
 
 ## Geluid
 
