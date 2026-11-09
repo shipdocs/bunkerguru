@@ -3,7 +3,19 @@
 // bunker it. They look out ahead and stop for the player, each other and traffic,
 // replan when stuck and are towed to the fairway if they stay stuck. All 110 × 11 m.
 // Times in simulated seconds (2D values × 3).
-import { MAP, terminals, customers, basins, waterRoute, waterAt } from '../maps/index.mjs';
+//
+// They sail on the straight MAP (see maps/warp.mjs): x, z, h and every route, quay and
+// lane in this file are map coordinates. simulation.mjs hands in the player at its map
+// position and publishes each boat's world pose (wx, wz, wh) after the update.
+import {
+  MAP,
+  terminals,
+  customers,
+  basins,
+  stripSpot,
+  waterRouteM as waterRoute,
+  waterAtM as waterAt,
+} from '../maps/index.mjs';
 import { hullContacts } from './collisions.mjs';
 const SIM = 3;
 const RL = 55; // half length (m)
@@ -22,7 +34,7 @@ function clearTo(a, b) {
 export function createRivals(saved = []) {
   if (MAP.id === 'training') return [];
   return RIVAL_DEFS.map((d, i) => {
-    const p = MAP.rivals[i] || MAP.start,
+    const p = MAP.rivals[i] || MAP.mstart,
       sv = saved[i] || {};
     return {
       ...d,
@@ -72,8 +84,8 @@ function terminalSpot(r, rivals) {
     .map((t, i) => i)
     .sort(
       (a, b) =>
-        Math.hypot(terminals[a].x - r.x, terminals[a].z - r.z) -
-        Math.hypot(terminals[b].x - r.x, terminals[b].z - r.z),
+        Math.hypot(terminals[a].mx - r.x, terminals[a].mz - r.z) -
+        Math.hypot(terminals[b].mx - r.x, terminals[b].mz - r.z),
     );
   const len = (t) => (t.alongZ ? t.z1 - t.z0 : t.x1 - t.x0);
   // A short terminal holds one boat; a rival or the player there makes it busy.
@@ -95,23 +107,25 @@ function terminalSpot(r, rivals) {
     pos = (s) => (s - 0.5) * (2 * RL + 20);
   // On a long terminal, the berth away from the player when the player lies there.
   if (l >= 4 * RL + 40 && playerAt(t)) {
-    const pc = t.alongZ ? playerRef.p.z - t.z : playerRef.p.x - t.x;
+    const pc = t.alongZ ? playerRef.p.z - t.mz : playerRef.p.x - t.mx;
     slot = r.slot = Math.abs(pos(0) - pc) > Math.abs(pos(1) - pc) ? 0 : 1;
   }
   const d = l < 4 * RL + 40 ? 0 : pos(slot);
   // Lie against the wall: half a beam plus a fender off the quay.
-  const off = t.wall ? t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7) : 0;
   return {
     ti,
-    x: t.alongZ ? t.x + off : t.x + d,
-    z: t.alongZ ? t.z + d : t.z + off,
-    h: t.h,
+    ...stripSpot(t, d),
     away: t.alongZ ? { x: -t.wall, z: 0 } : { x: 0, z: -t.wall },
   };
 }
 function berthSpot(bi) {
   const b = customers[bi];
-  return { x: b.x, z: b.z, h: b.h, away: b.h ? { x: 0, z: b.side } : { x: b.side, z: 0 } };
+  return {
+    x: b.mx,
+    z: b.mz,
+    h: b.mh,
+    away: b.alongX ? { x: 0, z: b.side } : { x: b.side, z: 0 },
+  };
 }
 function plan(r, spot) {
   // Approach parallel to the quay: a point one ship length before the spot, first
@@ -214,9 +228,9 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       if (r.sinkT > 9 * SIM) {
         const t = terminals[Math.floor(Math.random() * terminals.length)];
         Object.assign(r, {
-          x: t.x,
-          z: t.z,
-          h: t.h,
+          x: t.mx,
+          z: t.mz,
+          h: t.mh,
           damage: 0,
           mode: 'idle',
           wait: 6 * SIM,
@@ -475,6 +489,7 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       shipId: 'legacy',
     };
     const dmg = hullContacts(hull, dt, {
+      space: 'map',
       gates: gatesRef.list,
       traffic,
       rivals: rivals.filter((o) => o !== r),

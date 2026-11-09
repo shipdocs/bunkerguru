@@ -48,19 +48,84 @@ export const {
   decor,
 } = MAP;
 
-export function landAt(x, z, margin = 0) {
+// Two frames (see warp.mjs). The MAP is the straight 2D chart: land rectangles, zones,
+// lanes and routes are defined and planned there (…M functions, m-prefixed fields).
+// The WORLD is what you see and sail in: the map warped into bends and leaning
+// basins. The functions without M take world coordinates and look them up on the map.
+export const WARP = MAP.warp;
+export const toMap = (x, z) => WARP.inverse(x, z);
+export const toWorld = (x, z) => WARP.forward(x, z);
+export function landAtM(x, z, margin = 0) {
   return land.some(
     (l) => x > l.x0 - margin && x < l.x1 + margin && z > l.z0 - margin && z < l.z1 + margin,
   );
 }
-export function waterAt(x, z, margin = 0) {
+export function waterAtM(x, z, margin = 0) {
   return (
     x > -MAP.halfWidth + margin &&
     x < MAP.halfWidth - margin &&
     z > MAP.zMin + margin &&
     z < MAP.zMax - margin &&
-    !landAt(x, z, margin)
+    !landAtM(x, z, margin)
   );
+}
+export function landAt(x, z, margin = 0) {
+  const m = WARP.inverse(x, z);
+  return landAtM(m.x, m.z, margin);
+}
+export function waterAt(x, z, margin = 0) {
+  const m = WARP.inverse(x, z);
+  return waterAtM(m.x, m.z, margin);
+}
+// Is a world point inside a map rectangle (zone, strip, gate, basin)?
+export const inRectW = (r, x, z, m = 0) => {
+  const p = WARP.inverse(x, z);
+  return p.x > r.x0 - m && p.x < r.x1 + m && p.z > r.z0 - m && p.z < r.z1 + m;
+};
+// The nearest quay to a world point: the spot on the wall (world) and the clear
+// distance to it, measured square to the warped wall. rects: map rectangles.
+export function nearestQuay(x, z, rects = land) {
+  const m = WARP.inverse(x, z);
+  let best = null;
+  for (const l of rects) {
+    const qx = Math.max(l.x0, Math.min(l.x1, m.x)),
+      qz = Math.max(l.z0, Math.min(l.z1, m.z)),
+      d = Math.hypot(qx - m.x, qz - m.z);
+    if (!best || d < best.d) best = { qx, qz, d };
+  }
+  if (!best) return null;
+  const q = WARP.forward(best.qx, best.qz),
+    face = (best.qx !== m.x) !== (best.qz !== m.z);
+  return {
+    x: q.x,
+    z: q.z,
+    d: face
+      ? best.d /
+        WARP.normal(best.qx, best.qz, Math.sign(m.x - best.qx), Math.sign(m.z - best.qz)).scale
+      : Math.hypot(q.x - x, q.z - z),
+  };
+}
+// Where a boat lies against the quay of a terminal or waiting place: half a beam plus
+// a fender off the wall, `along` metres from the middle. Map pose; worldPose() warps it.
+export function stripSpot(t, along = 0) {
+  const off = t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7);
+  return {
+    x: t.alongZ ? t.mx + off : t.mx + along,
+    z: t.alongZ ? t.mz + along : t.mz + off,
+    h: t.mh,
+  };
+}
+export const worldPose = (p) => WARP.poseForward(p);
+export const mapPose = (p) => WARP.poseInverse(p);
+// Movers that sail on the map (traffic, rivals, own fleet) publish where they are in
+// the world after every update: wx, wz, wh. Rendering, the chart and the player's
+// collisions read those.
+export function publishPose(o) {
+  const w = WARP.forward(o.x, o.z);
+  o.wx = w.x;
+  o.wz = w.z;
+  o.wh = WARP.heading(o.x, o.z, o.h);
+  return o;
 }
 export const inRect = (r, x, z, m = 0) =>
   x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m;
@@ -82,7 +147,7 @@ for (const l of land) {
         b = (i + 1) / count,
         x = x0 + ((x1 - x0) * (a + b)) / 2,
         z = z0 + ((z1 - z0) * (a + b)) / 2;
-      if (waterAt(x + nx * 2, z + nz * 2))
+      if (waterAtM(x + nx * 2, z + nz * 2))
         shoreSegments.push({
           x,
           z,
@@ -99,6 +164,17 @@ for (const l of land) {
 // slower along the banks, eddies before harbour mouths, side channels with their
 // own flow. speed > 0 = ebb (towards the sea, −x), < 0 = flood.
 export function currentAt(x, z, speed) {
+  if (WARP.identity) return currentAtM(x, z, speed);
+  // The water follows the bends: same strength, turned along the warped river.
+  const m = WARP.inverse(x, z),
+    c = currentAtM(m.x, m.z, speed),
+    sp = Math.hypot(c.x, c.z);
+  if (!sp) return c;
+  const t = WARP.tangent(m.x, m.z, c.x, c.z),
+    k = sp / Math.hypot(t.x, t.z);
+  return { x: t.x * k, z: t.z * k };
+}
+export function currentAtM(x, z, speed) {
   const RH = MAP.riverHalf;
   if (Math.abs(z) < RH && Math.abs(x) < MAP.halfWidth) {
     let f = 1 - Math.pow(Math.abs(z) / RH, 2.5) * 0.7,
@@ -186,18 +262,23 @@ const point = (id) => ({
   z: MAP.zMin + (Math.floor(id / cols) + 0.5) * CELL,
 });
 const shipRects = customers.map((b) =>
-  b.h
-    ? { x0: b.shipX - b.length / 2, x1: b.shipX + b.length / 2, z0: b.shipZ - 14, z1: b.shipZ + 14 }
+  b.alongX
+    ? {
+        x0: b.shipMX - b.length / 2,
+        x1: b.shipMX + b.length / 2,
+        z0: b.shipMZ - 14,
+        z1: b.shipMZ + 14,
+      }
     : {
-        x0: b.shipX - 14,
-        x1: b.shipX + 14,
-        z0: b.shipZ - b.length / 2,
-        z1: b.shipZ + b.length / 2,
+        x0: b.shipMX - 14,
+        x1: b.shipMX + 14,
+        z0: b.shipMZ - b.length / 2,
+        z1: b.shipMZ + b.length / 2,
       },
 );
 const free = new Map();
 function open(x, z, m) {
-  return waterAt(x, z, m) && !shipRects.some((r) => inRect(r, x, z, m));
+  return waterAtM(x, z, m) && !shipRects.some((r) => inRect(r, x, z, m));
 }
 function clearLine(a, b, m) {
   const d = Math.hypot(b.x - a.x, b.z - a.z),
@@ -206,7 +287,30 @@ function clearLine(a, b, m) {
     if (!open(a.x + ((b.x - a.x) * i) / n, a.z + ((b.z - a.z) * i) / n, m)) return false;
   return true;
 }
+// A map route as world points: straight map legs become gentle curves, so they are
+// cut into pieces of at most 40 m. The ends are the caller's own world points.
+export function routeToWorld(pts, start, goal) {
+  const out = [start || WARP.forward(pts[0].x, pts[0].z)];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1],
+      b = pts[i],
+      n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 40));
+    for (let k = 1; k <= n; k++)
+      out.push(
+        goal && i === pts.length - 1 && k === n
+          ? goal
+          : WARP.forward(a.x + ((b.x - a.x) * k) / n, a.z + ((b.z - a.z) * k) / n),
+      );
+  }
+  return out;
+}
+// World points in, world points out; planned on the map.
 export function waterRoute(start, goal, margin = 10) {
+  const a = WARP.inverse(start.x, start.z),
+    b = WARP.inverse(goal.x, goal.z);
+  return routeToWorld(waterRouteM(a, b, margin), start, goal);
+}
+export function waterRouteM(start, goal, margin = 10) {
   const ends = (p) => clearLine(p, p, 0);
   const clear = (a, b) => clearLine(a, b, margin);
   if (clearLine(start, goal, margin)) return [start, goal];

@@ -3,7 +3,7 @@
 // you hand them jobs from the planning, they load, sail and bunker, and the pay
 // (minus the crew's share) lands in your cash box. Idle too long, they pick a job
 // themselves. It turns the game into a company, like Railroad Tycoon.
-import { MAP, customers, waterAt } from '../maps/index.mjs';
+import { MAP, customers, waterAtM as waterAt, toMap, publishPose } from '../maps/index.mjs';
 import { rivalStartJob } from './rivals.mjs';
 import { rankIndex, RANKS, addNews } from './career.mjs';
 import { logicTime } from './harbor.mjs';
@@ -28,7 +28,8 @@ export function nextBoat(s) {
   return { ok: true, def: d };
 }
 
-function boat(def, sv = {}, at = MAP.start) {
+// Own boats sail on the map, like the rivals: every position here is a map position.
+function boat(def, sv = {}, at = MAP.mstart) {
   const ok = Number.isFinite(sv.x) && waterAt(sv.x, sv.z, 6);
   return {
     name: def.name,
@@ -62,13 +63,13 @@ export function createFleet(saved = [], mapId = MAP.id, savedMap = MAP.id) {
   if (MAP.id === 'training') return [];
   // On another map the boats come in on the fairway, one after the other.
   const RH = MAP.riverHalf,
-    dir = MAP.start.x > 0 ? -1 : 1;
+    dir = MAP.mstart.x > 0 ? -1 : 1;
   return saved.slice(0, FLEET_DEFS.length).map((sv, i) => {
-    const at = { x: MAP.start.x + (i + 1) * 350 * dir, z: -RH * 0.45, h: -Math.PI / 2 };
+    const at = { x: MAP.mstart.x + (i + 1) * 350 * dir, z: -RH * 0.45, h: -Math.PI / 2 };
     return boat(
       FLEET_DEFS[i],
       savedMap === mapId ? sv : {},
-      waterAt(at.x, at.z, 20) ? at : MAP.start,
+      waterAt(at.x, at.z, 20) ? at : MAP.mstart,
     );
   });
 }
@@ -86,15 +87,16 @@ export function clearFleet(world) {
 // A free spot on the fairway for a new boat: on water, clear of every other vessel.
 export function launchSpot(s, world) {
   const RH = MAP.riverHalf,
-    others = [s, ...world.rivals, ...world.traffic];
+    p = toMap(s.x, s.z),
+    others = [p, ...world.rivals, ...world.traffic];
   for (const dx of [0, 300, -300, 600, -600, 900, -900, 1200, -1200])
     for (const z of [RH * 0.45, -RH * 0.45]) {
-      const x = Math.max(-MAP.halfWidth + 200, Math.min(MAP.halfWidth - 200, s.x + dx));
+      const x = Math.max(-MAP.halfWidth + 200, Math.min(MAP.halfWidth - 200, p.x + dx));
       if (!waterAt(x, z, 20)) continue;
       if (others.some((o) => Math.hypot(o.x - x, o.z - z) < 170)) continue;
       return { x, z, h: z > 0 ? Math.PI / 2 : -Math.PI / 2 };
     }
-  return MAP.start;
+  return MAP.mstart;
 }
 export function buyBoat(s, world) {
   if (MAP.id === 'training') return 'In de Oefenhaven koop je geen schepen.';
@@ -102,7 +104,7 @@ export function buyBoat(s, world) {
   if (!n.ok) return n.reason;
   s.gold -= n.def.cost;
   s.fleet = [...(s.fleet || []), { jobs: 0, earned: 0 }];
-  world.rivals.push(boat(n.def, {}, launchSpot(s, world)));
+  world.rivals.push(publishPose(boat(n.def, {}, launchSpot(s, world))));
   addNews(s, 'fleet', 'Bunkerguru breidt uit: de ' + n.def.name + ' vaart voor het eerst uit');
   return '🚢 ' + n.def.name + ' gekocht! Geef haar een klus in de planning.';
 }

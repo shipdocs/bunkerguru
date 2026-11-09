@@ -1,8 +1,17 @@
 // Harbour rules from the 2D game (engine.js): job schedule, clients and reputation,
 // shop upgrades and payment. No DOM. Times are "logic seconds" (see LOGIC).
 import { jobScore, addJob } from './ranking.mjs';
-import { MAP, terminals, waits, customers, waterRoute, nextHighWater } from '../maps/index.mjs';
-import { inRect } from '../maps/index.mjs';
+import {
+  MAP,
+  terminals,
+  waits,
+  customers,
+  waterRouteM,
+  routeToWorld,
+  toMap,
+  nextHighWater,
+} from '../maps/index.mjs';
+import { inRectW } from '../maps/index.mjs';
 import { xpForJob, gainXp, addNews } from './career.mjs';
 export { MAP, terminals, waits, customers };
 export const HARBOR = MAP;
@@ -88,7 +97,8 @@ export const tariff = (s, c) => 0.8 + repOf(s, c) / 250;
 
 export const terminalOf = (s) => terminals[s.job?.terminal ?? 0] || terminals[0];
 export const berthOf = (s) => customers[s.job?.berth ?? 0] || customers[0];
-export const inZone = (p, r, m = 0) => inRect(r, p.x, p.z, m);
+// p: a boat in the world; r: a map rectangle (zone, terminal, waiting place).
+export const inZone = (p, r, m = 0) => inRectW(r, p.x, p.z, m);
 export const atTerminal = (s) => terminals.some((t) => inZone(s, t, 2));
 export const waitAt = (s) => waits.find((w) => inZone(s, w, 2)) || null;
 
@@ -326,11 +336,19 @@ export function routePoints(s, t) {
     routeCache.t !== t ||
     Math.hypot(routeCache.x - s.x, routeCache.z - s.z) > 30
   ) {
-    const goal = { x: t.x, z: t.z };
+    // Planned on the map, shown and sailed in the world.
+    const goal = { x: t.x, z: t.z },
+      a = toMap(s.x, s.z),
+      b = toMap(t.x, t.z);
     // Prefer wide clearance (a 110 m hull sweeps wide in bends); narrow only if needed.
-    const wide = waterRoute({ x: s.x, z: s.z }, goal, 30);
-    const ok = wide.length > 2 || Math.hypot(goal.x - s.x, goal.z - s.z) < 400;
-    routeCache = { t, x: s.x, z: s.z, pts: ok ? wide : waterRoute({ x: s.x, z: s.z }, goal, 12) };
+    const wide = waterRouteM(a, b, 30);
+    const ok = wide.length > 2 || Math.hypot(b.x - a.x, b.z - a.z) < 400;
+    routeCache = {
+      t,
+      x: s.x,
+      z: s.z,
+      pts: routeToWorld(ok ? wide : waterRouteM(a, b, 12), { x: s.x, z: s.z }, goal),
+    };
   }
   const pts = routeCache.pts.slice();
   pts[0] = { x: s.x, z: s.z };

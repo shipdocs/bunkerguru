@@ -14,6 +14,7 @@ import {
   atTerminal,
 } from '../game/harbor.mjs';
 import { tideState, landAt } from '../maps/index.mjs';
+import { nearestGate } from '../game/gates.mjs';
 import { rankOf } from '../game/career.mjs';
 import { TELE_NAMES } from '../game/vessel.mjs';
 import { SHIP } from '../game/ship-profile.mjs';
@@ -255,10 +256,10 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
     $('radioBtn').textContent = 'Marifoon ' + (world.radioOn ? 'aan' : 'uit');
     // VTS line: nearest relevant information.
     const ev = world.events;
-    const near = world.traffic.some((b) => Math.hypot(b.x - s.x, b.z - s.z) < 250);
-    const gate = world.gates.find(
-      (g) => Math.hypot((g.x0 + g.x1) / 2 - s.x, (g.z0 + g.z1) / 2 - s.z) < 700,
+    const near = world.traffic.some(
+      (b) => Math.hypot((b.wx ?? b.x) - s.x, (b.wz ?? b.z) - s.z) < 250,
     );
+    const gate = nearestGate(world.gates, s, 700);
     $('vts').textContent = hint(
       ev.vts
         ? '📻 VTS: wacht buiten de monding tot ' + ev.vts.sh.name + ' gepasseerd is'

@@ -3,7 +3,7 @@
 // seagoing ship stopped in the fairway. VTS: "wait at the harbour mouth until X has
 // passed" — obeying earns points and reputation, ignoring costs reputation.
 // Times in logic seconds; positions in metres.
-import { MAP, basins, currentAt, landAt } from '../maps/index.mjs';
+import { MAP, basins, currentAt, landAt, toMap, toWorld } from '../maps/index.mjs';
 import { addRep, up } from './harbor.mjs';
 import { addNews } from './career.mjs';
 
@@ -169,9 +169,14 @@ export function eventTick(ev, s, dt, world, fx) {
     fx.say('💨 Windvlaag! Harde wind dwars in – let op je verlijering.', 6);
   } else if (pick === 4) {
     const dir = (s.tideSpeed || 0) >= 0 ? 1 : -1;
-    const x = Math.max(-MAP.halfWidth + 50, Math.min(MAP.halfWidth - 50, s.x + dir * 450));
-    const z = (Math.random() - 0.5) * MAP.riverHalf * 1.2;
-    ev.flotsam.push({ x, z, rot: Math.random() * 6, T: 400 });
+    // Placed on the map (450 m along the river, somewhere in the fairway); from then
+    // on the container drifts in the world.
+    const mx = Math.max(
+      -MAP.halfWidth + 50,
+      Math.min(MAP.halfWidth - 50, toMap(s.x, s.z).x + dir * 450),
+    );
+    const mz = (Math.random() - 0.5) * MAP.riverHalf * 1.2;
+    ev.flotsam.push({ ...toWorld(mx, mz), rot: Math.random() * 6, T: 400 });
     fx.sound('alarm', 2);
     fx.say('📦 Drijvende container in de vaargeul, komt met de stroom mee!', 6);
     fx.radio([
@@ -205,8 +210,11 @@ export function eventTick(ev, s, dt, world, fx) {
   }
 }
 
+// Harbour mouths and the lanes of the seagoing ships are map geometry: the player is
+// looked up at its place on the map (p), the state itself (s) stays untouched.
 function vtsTick(ev, s, dt, world, fx) {
   if (s.phase === 'sunk' || s.moored) return;
+  const p = toMap(s.x, s.z);
   if (ev.vtsCd > 0) ev.vtsCd -= dt;
   const RH = MAP.riverHalf;
   if (ev.vts) {
@@ -215,11 +223,11 @@ function vtsTick(ev, s, dt, world, fx) {
     const sh = a.sh,
       passed = Math.sign(sh.x - a.mx) !== a.side0 && Math.abs(sh.x - a.mx) > 30;
     const inMouth =
-      s.x > a.x0 &&
-      s.x < a.x1 &&
-      Math.abs(s.z) > RH - 75 &&
-      Math.abs(s.z) < RH &&
-      Math.sign(s.z) === a.side;
+      p.x > a.x0 &&
+      p.x < a.x1 &&
+      Math.abs(p.z) > RH - 75 &&
+      Math.abs(p.z) < RH &&
+      Math.sign(p.z) === a.side;
     if (inMouth && !passed) {
       ev.vts = null;
       ev.vtsCd = 90;
@@ -262,11 +270,11 @@ function vtsTick(ev, s, dt, world, fx) {
     if (!side) continue;
     const mx = (b.x0 + b.x1) / 2,
       mz = side * RH,
-      d = Math.hypot(s.x - mx, s.z - mz);
+      d = Math.hypot(p.x - mx, p.z - mz);
     if (d > 350 || d < 60) continue;
     const x0 = b.x0 - 40,
       x1 = b.x1 + 40;
-    if (s.x > x0 && s.x < x1 && Math.abs(s.z) > RH - 75 && Math.sign(s.z) === side) continue;
+    if (p.x > x0 && p.x < x1 && Math.abs(p.z) > RH - 75 && Math.sign(p.z) === side) continue;
     for (const sh of world.traffic) {
       if (sh.axis !== 'x' || !sh.v) continue;
       const dx = mx - sh.x;

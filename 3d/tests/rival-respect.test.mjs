@@ -4,7 +4,9 @@ globalThis.BUNKERGURU_MAP = 'europoort';
 let seed = 77;
 Math.random = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
 const { fresh, createWorldState, step } = await import('../src/game/simulation.mjs');
-const { terminals, customers, MAP } = await import('../src/maps/index.mjs');
+const { terminals, customers, MAP, stripSpot, worldPose } = await import('../src/maps/index.mjs');
+// Rivals sail on the map and are drawn (and hit) at their published world pose.
+const seen = (r) => ({ x: r.wx, z: r.wz, h: r.wh });
 const { rivalStartJob } = await import('../src/game/rivals.mjs');
 const noFx = { say() {}, sound() {}, radio() {}, board() {}, done() {}, card() {} };
 
@@ -32,11 +34,8 @@ function overlap(a, b, L = 110, B = 11) {
 test('a rival never sails into the player lying at a terminal to load', () => {
   for (const [ti, t] of terminals.entries()) {
     const s = fresh();
-    const off = t.wall ? t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7) : 0;
     Object.assign(s, {
-      x: t.alongZ ? t.x + off : t.x,
-      z: t.alongZ ? t.z : t.z + off,
-      h: t.h,
+      ...worldPose(stripSpot(t)),
       moored: true,
       mooredTo: { kind: 'terminal', id: t.id },
       phase: 'free',
@@ -46,7 +45,7 @@ test('a rival never sails into the player lying at a terminal to load', () => {
     truus.mode = 'idle';
     truus.wait = 1e9;
     // Bert starts on the river abreast of this terminal and goes to load.
-    Object.assign(bert, { x: t.x, z: MAP.lanes?.down ?? -20, h: -Math.PI / 2, mode: 'idle' });
+    Object.assign(bert, { x: t.mx, z: MAP.lanes?.down ?? -20, h: -Math.PI / 2, mode: 'idle' });
     rivalStartJob(
       bert,
       customers.findIndex((c) => !c.gate),
@@ -56,7 +55,7 @@ test('a rival never sails into the player lying at a terminal to load', () => {
     for (let i = 0; i < 60 * 240; i++) {
       step(s, world, 1 / 60, {}, noFx);
       s.u = s.v = 0;
-      if (i % 10 === 0 && overlap(s, bert)) hits++;
+      if (i % 10 === 0 && overlap(s, seen(bert))) hits++;
     }
     assert.equal(hits, 0, 'overlap with the player at ' + t.name + ' (' + ti + ')');
   }
@@ -65,11 +64,8 @@ test('a rival never sails into the player lying at a terminal to load', () => {
 test('two rivals heading for the terminal the player lies at never share a berth', () => {
   for (const [ti, t] of terminals.entries()) {
     const s = fresh();
-    const off = t.wall ? t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7) : 0;
     Object.assign(s, {
-      x: t.alongZ ? t.x + off : t.x,
-      z: t.alongZ ? t.z : t.z + off,
-      h: t.h,
+      ...worldPose(stripSpot(t)),
       moored: true,
       mooredTo: { kind: 'terminal', id: t.id },
       phase: 'free',
@@ -77,7 +73,7 @@ test('two rivals heading for the terminal the player lies at never share a berth
     const world = createWorldState(s);
     const lane = MAP.lanes?.down ?? -20;
     world.rivals.forEach((r, k) =>
-      Object.assign(r, { x: t.x + (k ? 300 : -300), z: lane, h: -Math.PI / 2, mode: 'idle' }),
+      Object.assign(r, { x: t.mx + (k ? 300 : -300), z: lane, h: -Math.PI / 2, mode: 'idle' }),
     );
     const berth = customers.findIndex((c) => !c.gate);
     for (const r of world.rivals) rivalStartJob(r, berth, world.rivals);
@@ -86,7 +82,7 @@ test('two rivals heading for the terminal the player lies at never share a berth
       step(s, world, 1 / 60, {}, noFx);
       s.u = s.v = 0;
       if (i % 10) continue;
-      const [a, b] = world.rivals;
+      const [a, b] = world.rivals.map((r) => ({ ...seen(r), mode: r.mode, term: r.term }));
       if (overlap(s, a) || overlap(s, b)) hits++;
       if (a.mode === 'loading' && b.mode === 'loading' && a.term === b.term && overlap(a, b))
         hits++;
