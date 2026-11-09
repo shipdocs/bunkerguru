@@ -295,9 +295,11 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
     const targetYaw = (side * Math.PI) / 2;
     // Raise before slewing; centre before lowering back onto the support.
     const desiredElevation = side || settings.boomRaised || Math.abs(yaw) > 0.01 ? 0.65 : 0;
-    elevation += T.MathUtils.clamp(desiredElevation - elevation, -delta * 0.22, delta * 0.22);
+    // boomRate > 1 while delivering: bunkering takes only a few seconds.
+    const rate = delta * (settings.boomRate > 0 ? settings.boomRate : 1);
+    elevation += T.MathUtils.clamp(desiredElevation - elevation, -rate * 0.22, rate * 0.22);
     if (elevation > 0.5 || side === 0)
-      yaw += T.MathUtils.clamp(targetYaw - yaw, -delta * 0.35, delta * 0.35);
+      yaw += T.MathUtils.clamp(targetYaw - yaw, -rate * 0.35, rate * 0.35);
     slew.rotation.y = yaw;
     lift.rotation.x = -elevation;
     hose.position.set(0, Math.sin(elevation) * boomLength, Math.cos(elevation) * boomLength);

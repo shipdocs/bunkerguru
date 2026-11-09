@@ -19,6 +19,7 @@ import { createWorld } from '../render/world.mjs';
 import { createNavigationEffects } from '../render/navigation-effects.mjs';
 import { createCameraController } from '../render/camera-controller.mjs';
 import { bindVesselEquipment } from '../ui/vessel-equipment.mjs';
+import { boomSettings } from '../game/vessel-equipment.mjs';
 import { bindHelm } from '../input/helm.mjs';
 import { bindPort, mapButtons, switchMap } from '../ui/port.mjs';
 import { bindMobilePanels } from '../ui/mobile-panels.mjs';
@@ -621,7 +622,7 @@ export function createGame({ createRenderer } = {}) {
       s.equipment.boomSide = 0;
       s.equipment.boomRaised = false;
     }
-    boat.userData.tanker.update(playing ? dt : 0, s.equipment);
+    boat.userData.tanker.update(playing ? dt : 0, boomSettings(s, s.job && berthOf(s)));
     sound.update(s, playing, keys);
     cameraControl.update(s, dt);
     if (shake > 0) {
