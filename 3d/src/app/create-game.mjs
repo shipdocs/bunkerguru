@@ -3,6 +3,9 @@ import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/grap
 import { MAP, quickJob, planTick, LOGIC, up } from '../game/harbor.mjs';
 import { HarborAudio } from '../audio/harbor-audio.mjs';
 import { createRadio } from '../audio/radio.mjs';
+import { tr, getLang, setLang } from '../i18n/index.mjs';
+// VHF lines are spoken, not only shown: translate them before they reach the voice.
+const spoken = (lines) => lines?.map?.((l) => ({ ...l, text: tr(l.text) })) ?? lines;
 import { radioChatter } from '../game/chatter.mjs';
 import { renderYaw } from '../game/vessel.mjs';
 import { fresh, step, createWorldState, takeJob } from '../game/simulation.mjs';
@@ -107,7 +110,7 @@ export function createGame({ createRenderer } = {}) {
       }
       sound.fx(name, ...args);
     },
-    radio: (lines) => radio.say(lines, 'nl'),
+    radio: (lines) => radio.say(spoken(lines), getLang()),
     board: () => {
       // Every third job the Havenkrant comes first, then the schedule.
       if (paperDue(s) && MAP.id !== 'training') return setTimeout(showPaper, 900);
@@ -538,6 +541,13 @@ export function createGame({ createRenderer } = {}) {
     scenery.update(s.clock, camera, quality, true);
     $('graphics').textContent = GRAPHICS_LABELS[graphicsMode];
   }
+  // Language: the other one on the button; switching reloads so every text is rebuilt.
+  $('langBtn').textContent = getLang() === 'en' ? 'Nederlands' : 'English';
+  $('langBtn').onclick = () => {
+    save();
+    setLang(getLang() === 'en' ? 'nl' : 'en');
+    location.reload();
+  };
   $('graphics').onclick = () => {
     graphicsMode =
       GRAPHICS_MODES[(GRAPHICS_MODES.indexOf(graphicsMode) + 1) % GRAPHICS_MODES.length];
@@ -628,7 +638,7 @@ export function createGame({ createRenderer } = {}) {
         planElapsed = 0;
         planTick(s);
       }
-      if (sim.radioOn) radio.tick(s.clock * LOGIC, () => radioChatter(s, sim), 'nl');
+      if (sim.radioOn) radio.tick(s.clock * LOGIC, () => spoken(radioChatter(s, sim)), getLang());
     }
     sun.position.set(s.x - 220, 220, s.z + 160);
     sun.target.position.set(s.x, 0, s.z);

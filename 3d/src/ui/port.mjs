@@ -27,6 +27,7 @@ import {
   RETIRE_MIN_JOBS,
 } from '../game/career.mjs';
 import { loadHall, loadRanking } from '../app/storage.mjs';
+import { getLang } from '../i18n/index.mjs';
 import { idleBoats, fleetOf, nextBoat, buyBoat, dispatch, CREW_SHARE } from '../game/fleet.mjs';
 
 // Harbours open up with your rank; a locked one says what it takes.
@@ -42,7 +43,9 @@ export function mapButtons(container, current, onPick, s = null) {
       ' ' +
       m.name +
       '</b><span>' +
-      (open ? m.desc?.nl || '' : 'Vrij vanaf rang ' + mapRankName(m.id) + '.') +
+      (open
+        ? m.desc?.[getLang()] || m.desc?.nl || ''
+        : 'Vrij vanaf rang ' + mapRankName(m.id) + '.') +
       '</span>';
     b.disabled = !open;
     b.onclick = () => open && onPick(m.id);
