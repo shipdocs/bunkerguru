@@ -18,7 +18,8 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
     hull: '#202b30',
     blue: '#247dc5',
     white: '#eef2ed',
-    deck: '#969f9e',
+    deck: '#8b8c7a', // steengrijs (RAL 7030)
+    cap: '#ffa500', // pet van de stuurhut
     steel: '#657679',
     glass: '#183b4b',
     pipe: '#b2b7ad',
@@ -64,14 +65,24 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
   const bottom = mesh(new T.ShapeGeometry(shape), C.hull, 0, -2.8, 0);
   bottom.scale.set(0.7, 0.93, 1);
   bottom.rotation.x = Math.PI / 2;
-  // Painted white end bulwarks with a blue cap, following the actual outline.
+  // White end bulwarks (buitenboeiing) fore and aft with a broad blue capping rail
+  // (potdeksel) on top, following the actual outline.
   for (let i = 0; i < n - 1; i++) {
     const a = outline[i],
       b = outline[i + 1];
     if ((a.y + b.y) / 2 < -L * 0.34 || (a.y + b.y) / 2 > L * 0.37) {
       const wall = box(a.distanceTo(b), 0.95, 0.16, C.white, (a.x + b.x) / 2, 2.9, (a.y + b.y) / 2);
       wall.rotation.y = -Math.atan2(b.y - a.y, b.x - a.x);
-      rod([a.x, 3.4, a.y], [b.x, 3.4, b.y], 0.08, C.blue);
+      const capRail = box(
+        a.distanceTo(b) + 0.08,
+        0.1,
+        0.32,
+        C.blue,
+        (a.x + b.x) / 2,
+        3.42,
+        (a.y + b.y) / 2,
+      );
+      capRail.rotation.y = wall.rotation.y;
     }
   }
   const rail = (x, z0, z1, y = 2.7) => {
@@ -88,8 +99,9 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
   box(B * 0.83, 3.1, L * 0.225, C.white, 0, 4.25, L * 0.355);
   box(B * 0.86, 0.18, L * 0.23, C.blue, 0, 5.85, L * 0.355);
   box(B * 0.77, 2.3, L * 0.085, C.white, 0, 7.1, L * 0.285);
-  box(B * 0.81, 0.2, L * 0.095, C.white, 0, 8.35, L * 0.285);
-  box(B * 0.8, 0.07, L * 0.094, C.blue, 0, 8.48, L * 0.285);
+  // Wheelhouse cap (pet): orange roof overhanging the house all round.
+  box(B * 0.81, 0.2, L * 0.095, C.cap, 0, 8.35, L * 0.285);
+  box(B * 0.8, 0.07, L * 0.094, C.cap, 0, 8.48, L * 0.285);
   box(B * 0.71, 1.28, 0.06, C.glass, 0, 7.45, L * 0.242 - 0.03);
   box(B * 0.7, 1.18, 0.06, C.glass, 0, 7.45, L * 0.328 + 0.03);
   for (let i = -2; i <= 2; i++) box(0.08, 1.4, 0.11, C.white, i * B * 0.14, 7.45, L * 0.242 - 0.06);
