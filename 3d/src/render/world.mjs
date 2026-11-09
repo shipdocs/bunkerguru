@@ -66,7 +66,7 @@ float a=atan(n.z,n.x)*40.,y=n.y*100.;float trees=.35+vn(a*1.7)*.5+vn(a*9.)*.22;
 float town=step(.62,vn(a*.23+7.))*step(.45,hs(floor(a*6.)))*(.5+hs(floor(a*6.)+.5)*1.3);
 float tower=step(.965,hs(floor(a*3.)+9.))*step(.2,fract(a*3.))*step(fract(a*3.),.5)*2.6;
 float land=max(trees,max(town,tower));
-c=mix(c,mix(low,top,.35)*.8,smoothstep(land+.06,land-.06,y)*.55*step(-.3,y));gl_FragColor=vec4(c,1.);
+c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y));gl_FragColor=vec4(c,1.);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
 }`,
