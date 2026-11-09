@@ -13,7 +13,11 @@ export function createChart(canvas) {
     ox = 100 - 0,
     oz = 50 - ((Z0 + Z1) / 2) * scale;
   const project = (x, z) => [ox + x * scale, oz + z * scale];
-  return function chart(s, world) {
+  // Strategy layer (fase 3): open jobs on their ships, where the rivals are heading.
+  let hits = [];
+  function chart(s, world) {
+    hits = [];
+    const big = !!canvas.closest?.('#chartPanel')?.classList?.contains?.('expanded');
     map.setTransform(3, 0, 0, 3, 0, 0);
     map.clearRect(0, 0, 200, 100);
     map.fillStyle = '#21434a';
@@ -75,6 +79,45 @@ export function createChart(canvas) {
       if (b.h) map.fillRect(x - L / 2, y - B / 2, L, B);
       else map.fillRect(x - B / 2, y - L / 2, B, L);
     }
+    // Where each rival is going: a dashed line in its colour.
+    map.lineWidth = 0.5;
+    map.setLineDash([1.5, 1.5]);
+    for (const r of world.rivals) {
+      const d = r.mode !== 'idle' && r.mode !== 'sunk' ? customers[r.target] : null;
+      if (!d) continue;
+      const [ax, ay] = project(r.x, r.z),
+        [bx, by] = project(d.shipX, d.shipZ);
+      map.strokeStyle = r.color;
+      map.beginPath();
+      map.moveTo(ax, ay);
+      map.lineTo(bx, by);
+      map.stroke();
+    }
+    map.setLineDash([]);
+    // Open jobs, numbered like the planning (1–6), pay shown on the big chart.
+    let n = 0;
+    for (const o of s.offers || []) {
+      if (o.taken) continue;
+      n++;
+      const b = customers[o.berth];
+      if (!b) continue;
+      const [x, y] = project(b.shipX, b.shipZ);
+      const r = big ? 3.4 : 2.4;
+      map.fillStyle = o.twist ? '#e8873a' : o.kind === 'spoed' ? '#ff6b5a' : '#f4d35e';
+      map.beginPath();
+      map.arc(x, y - r - 1.5, r, 0, 7);
+      map.fill();
+      map.fillStyle = '#10262c';
+      map.font = 'bold ' + (big ? 4 : 3) + 'px sans-serif';
+      map.fillText(String(n), x, y - r - 1.5 + (big ? 1.4 : 1.1));
+      if (big) {
+        map.font = '3px sans-serif';
+        map.fillStyle = '#fff4d0';
+        map.fillText(o.pay + '', x, y - 2 * r - 2.6);
+      }
+      hits.push({ x, y: y - r - 1.5, id: o.id, n });
+    }
+    map.textAlign = 'center';
     const tag = (p, txt, col) => {
       const [x, y] = project(p.x, p.z);
       map.fillStyle = col;
@@ -121,5 +164,20 @@ export function createChart(canvas) {
     map.textAlign = 'left';
     map.fillRect(6, 95, 500 * scale, 0.6);
     map.fillText('500 m', 6, 93);
+  }
+  // The job marker under a click (canvas CSS pixels), or null.
+  chart.hit = (px, py) => {
+    const rc = canvas.getBoundingClientRect?.();
+    if (!rc || !rc.width) return null;
+    const x = (px / rc.width) * 200,
+      y = (py / rc.height) * 100;
+    let best = null,
+      bd = 6;
+    for (const h of hits) {
+      const d = Math.hypot(h.x - x, h.y - y);
+      if (d < bd) [best, bd] = [h, d];
+    }
+    return best;
   };
+  return chart;
 }

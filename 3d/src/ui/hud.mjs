@@ -6,6 +6,7 @@ import {
   terminalOf,
   berthOf,
   deadlineText,
+  TWISTS,
   timeLeft,
   clockStr,
   dayClock,
@@ -161,7 +162,8 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
               : '<span class="late">' + Math.ceil(-left) + ' min te laat</span>')
           : 'Geen tijdsdruk') +
         ' · ' +
-        job.client
+        job.client +
+        (TWISTS[job.twist] ? ' · ' + TWISTS[job.twist].tag : '')
       : '';
     $('reward').textContent = job ? job.pay + ' 🪙' : '–';
     $('next').hidden = !!job && s.phase !== 'done';

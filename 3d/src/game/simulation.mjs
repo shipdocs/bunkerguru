@@ -447,7 +447,9 @@ export function takeJob(s, world, id, fx = noFx, rnd = Math.random) {
   const idle = world.rivals.filter((r) => r.mode === 'idle');
   // Rivals take one of the remaining jobs now and then.
   const cands = s.offers.filter((o) => !customers[o.berth].gate && !o.taken);
-  if (cands.length && idle.length && rnd() > 0.35) {
+  // A race job keeps one idle rival free for the race.
+  const spare = s.job.twist === 'race' && !berthOf(s).gate ? 1 : 0;
+  if (cands.length && idle.length > spare && rnd() > 0.35) {
     const o = cands[Math.floor(rnd() * cands.length)],
       r = idle[Math.floor(rnd() * idle.length)];
     o.taken = r.name;
@@ -458,7 +460,17 @@ export function takeJob(s, world, id, fx = noFx, rnd = Math.random) {
   const free = world.rivals.filter((r) => r.mode === 'idle');
   // A rival you rammed holds a grudge and races you more often.
   const grudge = free.reduce((g, r) => Math.max(g, r.grudge || 0), 0);
-  if (!berthOf(s).gate && free.length && rnd() < Math.min(0.85, 0.55 + grudge * 0.1)) {
+  const forced = spare > 0;
+  if (s.job.twist === 'storm') {
+    // The wind itself is kept up by eventTick while the job runs.
+    fx.card?.({
+      who: 'Havenmeester',
+      title: 'Stormwaarschuwing',
+      text: 'Harde wind dwars in zolang je klus loopt. Hou ruimte in de bochten.',
+      kind: 'alarm',
+    });
+  }
+  if (!berthOf(s).gate && free.length && (forced || rnd() < Math.min(0.85, 0.55 + grudge * 0.1))) {
     const angriest = free.slice().sort((a, b) => (b.grudge || 0) - (a.grudge || 0))[0];
     const r = angriest.grudge > 0 ? angriest : free[Math.floor(rnd() * free.length)];
     fx.card?.({

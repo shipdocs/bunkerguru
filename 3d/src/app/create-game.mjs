@@ -118,7 +118,8 @@ export function createGame({ createRenderer } = {}) {
           ' = ' +
           r.total +
           ' 🪙' +
-          (r.dayGoal ? ' · 🏆 Dagdoel: +300!' : ''),
+          (r.dayGoal ? ' · 🏆 Dagdoel: +300!' : '') +
+          (r.hazmat ? ' · ☣️ schade aan gevaarlijke lading: reputatie −10' : ''),
         6,
       );
       save();
@@ -455,7 +456,20 @@ export function createGame({ createRenderer } = {}) {
   window.addEventListener('resize', resize);
   resize();
   const chart = createChart($('map'));
-  $('map').onclick = () => $('chartPanel').classList.toggle('expanded');
+  // On the big chart a job marker opens the planning; elsewhere a tap folds the chart.
+  $('map').onclick = (e) => {
+    const big = $('chartPanel').classList.contains('expanded');
+    const h = big && chart.hit(e.offsetX, e.offsetY);
+    if (h) {
+      openPort('jobs');
+      [...$('offers').children]
+        .find((c) => c.dataset.key === String(h.n))
+        ?.scrollIntoView?.({ block: 'center' });
+      [...$('offers').children].forEach((c) =>
+        c.classList.toggle('focus', c.dataset.key === String(h.n)),
+      );
+    } else $('chartPanel').classList.toggle('expanded');
+  };
   const updateHud = createHud({ $, keys, vesselProfile, camera, chart, zones: effects.zones });
   function ui() {
     const plan = s.job && !s.moored && started ? planFastTravel(s, sim) : null;
@@ -494,8 +508,9 @@ export function createGame({ createRenderer } = {}) {
     helm.update();
     time += dt;
     waterMat.uniforms.time.value = time;
+    const level = world.updateAmbient(s);
     const sinking = s.phase === 'sunk' ? Math.min(1, (s.sinkT || 0) / 4) : 0;
-    boat.position.set(s.x, Math.sin(time * 1.2) * 0.07 - sinking * 8, s.z);
+    boat.position.set(s.x, level + Math.sin(time * 1.2) * 0.07 - sinking * 8, s.z);
     // Damage shows: the ship lists and trims as she takes on water.
     const list = Math.min(1, s.damage / 100) * 0.07;
     boat.rotation.set(

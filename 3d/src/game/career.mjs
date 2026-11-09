@@ -50,6 +50,7 @@ export function newspaper(s, rivals = [], rnd = Math.random) {
     rank: 6,
     sunk: 5,
     stole: 5,
+    hazmat: 4,
     ram: 4,
     rammed: 4,
     strak: 3,
