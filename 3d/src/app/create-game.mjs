@@ -65,6 +65,10 @@ export function createGame({ createRenderer } = {}) {
   const { renderer, scene, camera, sun, waterMat, scenery, boat, vesselProfile, zoomLimits } =
     world;
   const effects = createNavigationEffects(scene, world.primitives.mesh, vesselProfile);
+  // "JOUW SCHIP" over the boat for the first seconds, as in the 2D game.
+  const ownLabel = world.primitives.textSprite('JOUW SCHIP', 0, 26, 0, 40, '#7df4ff', boat, 0.1);
+  ownLabel.visible = false;
+  let ownLabelT = 0;
   let paused = false,
     started = false,
     time = 0,
@@ -93,7 +97,14 @@ export function createGame({ createRenderer } = {}) {
     say: toast,
     card: (c) => card(c),
     sound: (name, ...args) => {
-      if (name === 'hit') shake = Math.min(1, 0.3 + (args[0] || 0) / 12);
+      if (name === 'hit') {
+        shake = Math.min(1, 0.3 + (args[0] || 0) / 12);
+        // Red flash round the screen edge, as in the 2D game (hitFlash).
+        const fl = $('hitFlash');
+        fl.className = '';
+        void fl.offsetWidth;
+        fl.className = 'on';
+      }
       sound.fx(name, ...args);
     },
     radio: (lines) => radio.say(lines, 'nl'),
@@ -215,10 +226,7 @@ export function createGame({ createRenderer } = {}) {
     },
     radio: () => toggleRadio(),
     sound: () => $('audio').click(),
-    music: () => {
-      sound.start();
-      toast(sound.sound?.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit');
-    },
+    music: () => $('musicSwitch').click(),
   };
   function toggleRadio() {
     sim.radioOn = radio.toggle();
@@ -259,6 +267,8 @@ export function createGame({ createRenderer } = {}) {
   function begin() {
     sound.start();
     started = true;
+    ownLabel.visible = true;
+    ownLabelT = 8;
     paused = false;
     $('pause').textContent = 'Ⅱ';
     if ($('intro').open) $('intro').close();
@@ -458,6 +468,21 @@ export function createGame({ createRenderer } = {}) {
     $('audio').textContent = sound.muted ? 'Geluid uit' : 'Geluid aan';
   };
   $('audio').textContent = sound.muted ? 'Geluid uit' : 'Geluid aan';
+  // Sound panel: a slider per channel, saved per browser by the audio itself.
+  for (const k of ['master', 'sfx', 'music', 'radio']) {
+    const slider = $('v_' + k);
+    slider.value = $('t_' + k).textContent = sound.vol[k];
+    slider.oninput = () => {
+      sound.setVol(k, +slider.value);
+      $('t_' + k).textContent = sound.vol[k];
+    };
+  }
+  $('musicSwitch').onclick = () => {
+    const on = sound.toggleMusic();
+    $('musicSwitch').textContent = on ? 'Muziek aan' : 'Muziek uit';
+    $('musicSwitch').setAttribute('aria-pressed', String(on));
+    toast(on ? '🎵 Muziek aan' : '🎵 Muziek uit');
+  };
   function release() {
     clock.reset();
     helm.release();
@@ -610,6 +635,7 @@ export function createGame({ createRenderer } = {}) {
     sun.target.updateMatrixWorld();
     helm.update();
     time += dt;
+    if (ownLabelT > 0 && !paused && (ownLabelT -= dt) <= 0) ownLabel.visible = false;
     waterMat.uniforms.time.value = time;
     const level = world.updateAmbient(s);
     const sinking = s.phase === 'sunk' ? Math.min(1, (s.sinkT || 0) / 4) : 0;

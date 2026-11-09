@@ -42,6 +42,27 @@ export class HarborAudio {
     this.start();
     if (this.active && !this.muted) this.sound.horn();
   }
+  // Volume per channel (0–100), as in the 2D sound panel. Readable before the first
+  // click has started the audio; setting one starts it (a slider move is a gesture).
+  get vol() {
+    if (this.sound) return this.sound.vol;
+    const v = { master: 80, sfx: 80, music: 60, radio: 80 };
+    try {
+      Object.assign(v, JSON.parse(localStorage.getItem('bunkerguru3d_legacy_vol') || '{}'));
+    } catch {}
+    return v;
+  }
+  setVol(channel, value) {
+    this.start();
+    this.sound.setVol(channel, value);
+  }
+  get musicOn() {
+    return !!this.sound?.musicOn;
+  }
+  toggleMusic() {
+    this.start();
+    return this.sound.toggleMusic();
+  }
   toggle() {
     this.muted = !this.muted;
     try {

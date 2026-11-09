@@ -82,6 +82,34 @@
           </button>
         </div>
       </details>
+      <details class="equipmentPanel soundPanel">
+        <summary>Geluid · volume per kanaal</summary>
+        <div role="group" aria-label="Volume">
+          <label
+            >Totaal <input id="v_master" type="range" min="0" max="100" /><output
+              id="t_master"
+            ></output
+          ></label>
+          <label
+            >Motor &amp; effecten <input id="v_sfx" type="range" min="0" max="100" /><output
+              id="t_sfx"
+            ></output
+          ></label>
+          <label
+            >Muziek <input id="v_music" type="range" min="0" max="100" /><output
+              id="t_music"
+            ></output
+          ></label>
+          <label
+            >Marifoon <input id="v_radio" type="range" min="0" max="100" /><output
+              id="t_radio"
+            ></output
+          ></label>
+          <button id="musicSwitch" aria-pressed="false" title="Muziek aan/uit (P)">
+            Muziek uit
+          </button>
+        </div>
+      </details>
     </div>
     <nav class="mobileTools mobileOnly" aria-label="Havenpanelen">
       <button id="mapToggle" aria-expanded="false" aria-controls="chartPanel">Kaart</button
@@ -93,6 +121,7 @@
     <div id="dockStamp" aria-live="polite"></div>
     <div id="momentCard" class="momentCard" aria-live="polite"></div>
     <div id="coinFly"></div>
+    <div id="hitFlash" aria-hidden="true"></div>
     <!-- Wheelhouse view (camera F → Stuurhuis): window frame, wing buttons, distances. -->
     <div id="bridgeFrame" aria-hidden="true"><i></i><i></i><i></i></div>
     <div id="bridgeLooks" class="glass" role="group" aria-label="Kijkrichting stuurhuis">
