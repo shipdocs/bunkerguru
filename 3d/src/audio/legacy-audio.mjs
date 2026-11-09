@@ -146,7 +146,7 @@ export function createLegacySound() {
     const pw = Math.abs(st.rpm !== undefined ? st.rpm : st.tele); engRpm = pw; engOn = on;
     // Turbofluit: hoorbaar bij het optoeren; blijft het vermogen een paar seconden vol, dan ebt hij langzaam weg.
     const tdt = Math.min(0.5, Math.max(0, now - (turboLast || now))); turboLast = now;
-    if (Math.abs(pw - turboPw) > 0.015) turboT = 0; else turboT += tdt; turboPw = pw;
+    if (Math.abs(pw - turboPw) > 0.03) { turboT = 0; turboPw = pw; } else turboT += tdt; // referentie verschuift pas na een echte toerenverandering: geleidelijk optoeren telt ook
     const turboFade = turboT < 3 ? 1 : Math.max(0.08, Math.exp(-(turboT - 3) / 4));
     engGain.gain.setTargetAtTime(on * (0.55 + pw * 0.4), now, 0.3);
     if (rumGain) rumGain.gain.setTargetAtTime(on * (0.25 + pw * 0.5), now, 0.5);
