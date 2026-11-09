@@ -179,6 +179,7 @@ export function bindPort({
           }
         };
       card.dataset.key = o.taken ? '' : String(idx);
+      card.dataset.id = String(o.id);
       $('offers').append(card);
     }
     if (MAP.id === 'training') {

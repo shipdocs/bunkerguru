@@ -96,6 +96,34 @@ test('tide: water is highest at high water and the label shows the height', () =
   assert.match(tideState(hw, 1.3).label, /\+1,2 m/);
 });
 
+test('tide label arrow follows the water level, not the current', async () => {
+  const { MAP } = await import('../src/maps/index.mjs');
+  const P = MAP.current.tide.period * 3;
+  const hw = nextHighWater(1000, 1.3);
+  assert.match(tideState(hw + P / 8, 1.3).label, /m ↘$/, 'after high water: falling');
+  assert.match(tideState(hw - P / 8, 1.3).label, /m ↗$/, 'before high water: rising');
+});
+
+test('hazmat: damage during the job counts even after a repair', () => {
+  const s = fresh();
+  s.job = {
+    berth: 0,
+    terminal: 0,
+    target: 600,
+    kind: 'kort',
+    client: 'Delta Lines',
+    deadline: 0,
+    est: 100,
+    pay: 500,
+    twist: 'hazmat',
+  };
+  s.target = s.deliver = 600;
+  s.jobDamage = 10;
+  s.damage = 0; // repaired at the yard below the start value
+  s.jobHit = true;
+  assert(settle(s).hazmat);
+});
+
 void step;
 
 test('race twist: with one idle rival, it races instead of taking another job', () => {

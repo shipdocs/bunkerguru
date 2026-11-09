@@ -485,12 +485,10 @@ export function createGame({ createRenderer } = {}) {
     const h = big && chart.hit(e.offsetX, e.offsetY);
     if (h) {
       openPort('jobs');
-      [...$('offers').children]
-        .find((c) => c.dataset.key === String(h.n))
-        ?.scrollIntoView?.({ block: 'center' });
-      [...$('offers').children].forEach((c) =>
-        c.classList.toggle('focus', c.dataset.key === String(h.n)),
-      );
+      // By offer id: the planning may have expired or reordered jobs since the draw.
+      const cards = [...$('offers').children];
+      cards.find((c) => c.dataset.id === String(h.id))?.scrollIntoView?.({ block: 'center' });
+      cards.forEach((c) => c.classList.toggle('focus', c.dataset.id === String(h.id)));
     } else $('chartPanel').classList.toggle('expanded');
   };
   const updateHud = createHud({ $, keys, vesselProfile, camera, chart, zones: effects.zones });

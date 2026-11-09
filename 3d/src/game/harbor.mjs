@@ -225,6 +225,7 @@ function startJob(s) {
     leakWarned: false,
     deliver: 0,
     jobDamage: s.damage,
+    jobHit: false,
     vtsBonus: 0,
     dockTip: 0,
     jobAnchors: 0,
@@ -275,7 +276,7 @@ export function settle(s) {
   if (clean) d.clean++;
   if (j) addRep(s, j.client, (onTime ? 3 : -5) + (clean ? 2 : s.damage > 20 ? -4 : 0));
   // A dangerous cargo spilled into the news: the client remembers.
-  if (j?.twist === 'hazmat' && s.damage > (s.jobDamage || 0) + 0.5) {
+  if (j?.twist === 'hazmat' && (s.jobHit || s.damage > (s.jobDamage || 0) + 0.5)) {
     addRep(s, j.client, -10);
     result.hazmat = true;
     addNews(
