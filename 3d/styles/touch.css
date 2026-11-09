@@ -757,7 +757,8 @@
 }
 
 /* ---- landscape phone: two thumb clusters, the water between them ---- */
-@media (max-height: 500px) and (max-width: 800px), (max-height: 500px) and (pointer: coarse) {
+@media (max-height: 500px) and (max-width: 800px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
   :root {
     --controls-height: 0px;
     --top-bar: calc(6px + var(--st));
@@ -1004,5 +1005,45 @@
 @media (max-width: 379px) {
   :root .mobileTools button span {
     display: none;
+  }
+}
+
+/* Narrow phones (320–379 px wide), portrait: the steering column would otherwise push
+   its buttons under the engine column. Everything a little smaller, nothing overlaps. */
+@media (max-width: 379px) and (orientation: portrait) {
+  :root footer {
+    grid-template-columns: minmax(0, 1fr) 118px;
+    padding: 6px;
+  }
+  :root footer .steer {
+    grid-template-columns: minmax(30px, 1fr) auto minmax(30px, 1fr);
+    gap: 2px 3px;
+  }
+  :root footer .wheelMount {
+    width: 68px;
+  }
+  :root footer .steer .rudderHold {
+    min-width: 30px;
+    font-size: 18px;
+  }
+  :root footer .steer .bow button {
+    width: calc(50% - 23px);
+    font-size: 10px;
+    letter-spacing: 0;
+    padding: 0 2px;
+  }
+  :root footer .steer #helmMid {
+    width: 42px;
+    min-width: 42px;
+    height: 44px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+  :root footer #helmReadout {
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+  :root footer .readout strong {
+    font-size: 22px;
   }
 }
