@@ -30,7 +30,8 @@ export function createCameraController({ $, camera, zoomLimits, state: s, toast,
     const lk = $('bridgeLooks');
     if (lk)
       for (const b of lk.querySelectorAll?.('button') || [])
-        b.classList.toggle('selected', Number(b.dataset.look) === bridge.look);
+        if (b.dataset.look !== undefined)
+          b.classList.toggle('selected', Number(b.dataset.look) === bridge.look);
   }
   function setMode(mode) {
     const was = cameraMode;
@@ -64,11 +65,19 @@ export function createCameraController({ $, camera, zoomLimits, state: s, toast,
   const lk = $('bridgeLooks');
   if (lk)
     for (const b of lk.querySelectorAll?.('button') || [])
-      b.onclick = () => look(Number(b.dataset.look) - bridge.look);
+      if (b.dataset.look !== undefined)
+        b.onclick = () => look(Number(b.dataset.look) - bridge.look);
   const zoom = (k) => {
     if (cameraMode === 'bridge') bridge.fov = clamp(bridge.fov * k, 14, 70);
     else distance = clamp(distance * k, zoomLimits.min, zoomLimits.max);
   };
+  // Binoculars as a button too (touch screens have no wheel): 55° → 30° → 16° → 55°.
+  const bino = $('binoculars');
+  if (bino)
+    bino.onclick = () => {
+      bridge.fov = bridge.fov > 40 ? 30 : bridge.fov > 20 ? 16 : 55;
+      bino.classList.toggle('selected', bridge.fov < 40);
+    };
   $('zoomIn').onclick = () => zoom(0.8);
   $('zoomOut').onclick = () => zoom(1.25);
   const cv = $('world');

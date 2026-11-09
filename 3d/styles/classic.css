@@ -653,6 +653,7 @@ body.bridgeView #bridgeFrame i:nth-child(3) {
 }
 body.bridgeView #bridgeLooks {
   display: flex;
+  z-index: 30; /* above the mission panel and chart, so every button takes taps */
   position: absolute;
   bottom: 184px; /* just above the console, clear of toasts and the radio */
   left: 50%;
