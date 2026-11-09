@@ -24,13 +24,13 @@ export function createWorld({
   renderer.shadowMap.enabled = quality.shadows;
   renderer.shadowMap.type = T.PCFSoftShadowMap;
   renderer.toneMapping = T.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.2; // a bright, saturated, toy-like harbour
   const scene = new T.Scene();
-  scene.background = new T.Color('#b8dce3');
+  scene.background = new T.Color('#9fd4ea');
   scene.fog = new T.FogExp2('#c1d9d3', 0.00045);
   const camera = new T.PerspectiveCamera(44, 1, 0.5, 6000);
-  scene.add(new T.HemisphereLight('#e2f2ff', '#78906e', 2));
-  const sun = new T.DirectionalLight('#ffdfac', 2.8);
+  scene.add(new T.HemisphereLight('#eef8ff', '#6f9a5a', 2.2));
+  const sun = new T.DirectionalLight('#ffe2b0', 3.1);
   sun.position.set(-220, 220, 160);
   sun.castShadow = true;
   sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
@@ -51,14 +51,14 @@ export function createWorld({
   const terrain = new T.Group();
   const landColor = (k) =>
     ['north', 'park', 'island', 'base'].includes(k)
-      ? '#8ba372'
+      ? '#7fae5a'
       : ['town', 'town2', 'city'].includes(k)
-        ? '#c2b9a0'
+        ? '#d4c29c'
         : k === 'tanks'
-          ? '#b6b8a0'
+          ? '#c6c2a2'
           : k === 'pillar'
             ? '#c9c9c4'
-            : '#b9b8a3';
+            : '#c9bf9e';
   for (const l of land) {
     if (l.kind === 'pillar') continue;
     box(
@@ -141,7 +141,10 @@ export function createWorld({
   });
   const rivalMeshes = sim.rivals.map((r) => {
     const m = ship(110, 11, r.color, true, vesselProfile);
-    textSprite(r.name.toUpperCase(), 0, 15, 0, 26, '#ffd9cf', m);
+    // Rivals carry their colour loud and clear: a hull band and a painted funnel.
+    box(11.6, 1.4, 100, r.color, 0, 2.2, 0, m);
+    box(4, 9, 4, r.color, 0, 13, 40, m);
+    textSprite(r.name.toUpperCase(), 0, 19, 0, 26, '#ffd9cf', m, 0.1);
     return m;
   });
   // Movable bridges and lock gates: a coloured barrier that slides away when open.

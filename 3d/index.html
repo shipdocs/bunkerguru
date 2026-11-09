@@ -45,6 +45,9 @@
         <span id="cargo">0 / 800 t</span><span>Opbrengst <b id="reward">–</b></span>
       </div>
       <button id="next" class="primary">Planning openen (N) →</button>
+      <button id="fastBtn" class="fast" hidden title="Varen naar de bestemming (J)">
+        ⏩ Varen naar bestemming <kbd>J</kbd>
+      </button>
       <div id="dockGuide"></div>
     </aside>
     <nav class="view glass">
@@ -73,6 +76,8 @@
     <div id="label" class="destination"></div>
     <div id="toast" role="status" aria-live="polite"></div>
     <div id="radio" aria-live="polite"></div>
+    <div id="dockStamp" aria-live="polite"></div>
+    <div id="coinFly"></div>
     <aside class="chart glass" id="chartPanel">
       <div class="eyebrow">HAVENKAART <span>TIK OM TE VERGROTEN · N ↑</span></div>
       <canvas
@@ -148,8 +153,8 @@
     </footer>
     <div class="bottomHint">
       ↑ ↓ telegraaf &nbsp; ← → roer &nbsp; spatie midscheeps &nbsp; Q E boeg &nbsp; S afstoppen
-      &nbsp; M afmeren &nbsp; N planning &nbsp; B winkel &nbsp; C brug/sluis &nbsp; K kaart &nbsp; T
-      snelvaart &nbsp; F camera
+      &nbsp; M afmeren &nbsp; N planning &nbsp; B winkel &nbsp; C brug/sluis &nbsp; J varen naar
+      &nbsp; K kaart &nbsp; T snelvaart &nbsp; F camera
     </div>
     <dialog id="intro">
       <div class="eyebrow">WELKOM AAN BOORD · BUNKERGURU 3D</div>

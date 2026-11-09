@@ -2,7 +2,8 @@
 // of keyboard layout, Caps Lock, Shift, and whichever HUD button has focus.
 // Keys follow the 2D game: ↑/↓ telegraph one notch, ←/→ rudder, Q/E bow thruster,
 // Space rudder amidships, M moor, N schedule, B shop, C call bridge/lock, K chart,
-// T fast forward, H horn, V VHF, G sound, P music. S = AFSTOPPEN, F = camera.
+// T fast forward, H horn, V VHF, G sound, P music. S = AFSTOPPEN, F = camera,
+// J = "varen naar…" (skip the open-water stretch to just short of the destination).
 const held = { ArrowLeft: 'left', ArrowRight: 'right', KeyQ: 'bowL', KeyE: 'bowR' };
 const actions = {
   ArrowUp: 'ahead',
@@ -21,6 +22,7 @@ const actions = {
   KeyG: 'sound',
   KeyP: 'music',
   KeyF: 'camera',
+  KeyJ: 'fast',
   Escape: 'pause',
 };
 export function keyCode(e) {

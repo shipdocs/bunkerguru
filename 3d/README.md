@@ -9,9 +9,12 @@ Kies een haven (Amsterdam, Rotterdam, Europoort, Antwerpen of de Oefenhaven). Op
 - ↑/↓ telegraaf, één stand per tik (vol achteruit … vol vooruit). De motor volgt traag; omkeren gaat via de keerkoppeling.
 - ←/→ of stuurwiel: roer. Het roer blijft staan; spatie of 0° = midscheeps. Q/E boegschroef (werkt alleen bij weinig vaart).
 - S of AFSTOPPEN: volle kracht achteruit tot stil, dan STOP. M vastmaken/losgooien.
+- J varen naar: het open water wordt overgeslagen tot vlak voor je bestemming (tijd, getij, verkeer en concurrenten lopen door).
 - N planning · B winkel (aan een terminal) · C brug/sluis oproepen · K grote kaart · T snelvaart 6× · H hoorn · V marifoon · G geluid · P muziek · F camera · Esc pauze.
 
 Op de kaart: T = terminal, P = wachtplaats (rusten tegen vermoeidheid), W = werf (reparatie, 3 🪙 per punt). Boven 40 schade lek je lading. Klussen zijn kort, lang, spoed of getij (vóór hoogwater). Op tijd en schadevrij geeft bonus en reputatie bij de rederij. Bunker Bert en Truus Tank varen ook klussen, pakken er soms een van de planning af en racen af en toe mee naar jouw schip: wie het eerst langszij ligt, krijgt de klus.
+
+Elke aanleg krijgt 1–3 ⚓ (vaart, hoek, ruimte tot kade of schip); STRAK! langs een zeeschip levert een fooi op. Zinken kost een kwart van je goud en wat reputatie; de sleepboot brengt je naar de werf.
 
 Vaargedrag **schipper** (standaard) is het 2D-vaarmodel; **arcade** is geholpen en vergevingsgezind (startscherm). Vaartempo 3× is het tempo van het 2D-spel.
 
