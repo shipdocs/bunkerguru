@@ -153,26 +153,20 @@
   body.underway .mission h1 {
     font-size: 19px;
   }
-  body.underway .mission .stages,
-  body.underway .mission .missionFoot,
-  body.underway .mission #next {
+  /* Hidden only while not hovered, so hover restores each element's own display. */
+  body.underway .mission:not(:hover) .stages,
+  body.underway .mission:not(:hover) .missionFoot,
+  body.underway .mission:not(:hover) #next {
     display: none;
   }
   body.underway .harborBar {
     opacity: 0.8;
   }
-  body.underway .harborBar > div {
+  body.underway .harborBar:not(:hover) > div {
     display: none;
   }
   body.underway .mission:hover,
   body.underway .harborBar:hover {
     opacity: 1;
-  }
-  body.underway .mission:hover .stages,
-  body.underway .mission:hover .missionFoot {
-    display: flex;
-  }
-  body.underway .harborBar:hover > div {
-    display: flex;
   }
 }
