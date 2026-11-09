@@ -68,5 +68,11 @@ for screen in bpy.data.screens:
             area.spaces.active.region_3d.view_location = (0, 0, 3)
             area.spaces.active.clip_end = 2000
 bpy.ops.wm.save_as_mainfile(filepath=str(assets / 'bunkertanker-110.blend'), compress=True)
-bpy.ops.render.render(write_still=True)
+try:
+    bpy.ops.render.render(write_still=True)
+except RuntimeError as err:  # Blender builds without OpenImageDenoise (e.g. Ubuntu apt)
+    if 'Denoiser' not in str(err):
+        raise
+    scene.cycles.use_denoising = False
+    bpy.ops.render.render(write_still=True)
 print('Saved editable Blender file and rendered preview')

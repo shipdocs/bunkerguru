@@ -14,13 +14,15 @@ export function bindVesselEquipment({ $, getState, isPlaying, save, toast }) {
     }
     $('boomSwitch').textContent =
       'Giek: ' +
-      (!s.moored || (!e.boomSide && !e.boomRaised)
-        ? 'geborgen'
-        : e.boomSide < 0
-          ? 'bakboord'
-          : e.boomSide > 0
-            ? 'stuurboord'
-            : 'omhoog');
+      (s.phase === 'bunker'
+        ? 'bunkeren'
+        : !s.moored || (!e.boomSide && !e.boomRaised)
+          ? 'geborgen'
+          : e.boomSide < 0
+            ? 'bakboord'
+            : e.boomSide > 0
+              ? 'stuurboord'
+              : 'omhoog');
   }
   for (const [id, key] of switches)
     $(id).onclick = () => {
@@ -34,6 +36,8 @@ export function bindVesselEquipment({ $, getState, isPlaying, save, toast }) {
     if (!isPlaying()) return;
     const s = getState(),
       e = s.equipment;
+    if (s.phase === 'bunker')
+      return toast('De giek staat over het zeeschip tot het bunkeren klaar is.');
     if (!s.moored) return toast('Maak eerst vast om de bunkergiek te bedienen.');
     // Rest → raised → port → starboard → rest, also usable with touch.
     if (!e.boomRaised) {

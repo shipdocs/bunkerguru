@@ -1358,6 +1358,40 @@ function drawBoat(t) {
   ctx.fillStyle = '#6b7680'; hull(); ctx.fill(); ctx.strokeStyle = '#2f3840'; ctx.lineWidth = 3.5; ctx.stroke(); // grijze romp
   ctx.save(); hull(); ctx.clip(); ctx.fillStyle = '#e58a34'; ctx.fillRect(-L / 2, -Bw / 2, L, 3); ctx.fillRect(-L / 2, Bw / 2 - 3, L, 3); ctx.restore(); // blauwe band
   drawTankerBody(L, Bw, '#e87722', b.cargo / Math.max(1, b.target), b.bow !== 0, { deck: '#9aa5ad', accTrim: '#f39c12', whTrim: '#f39c12', rail: '#f4f6f7' }); }
+  if (state.phase !== 'sunk') drawBoom(t);
+  ctx.restore();
+}
+// Bunkergiek (Leonore, zoals de 3D-versie): kolom 33 m voor midscheeps, 1,6 m naar stuurboord, giek 25 m.
+// Bij het bunkeren eerst omhoog, dan zwenken naar het zeeschip; daarna terug midden en neer op de steun.
+const BOOM = { e: 0, yaw: 0, t: null };
+function drawBoom(t) {
+  const b = boat, dt = BOOM.t === null ? 0 : Math.min(0.25, Math.max(0, t - BOOM.t)); BOOM.t = t;
+  let side = 0;
+  if (state.phase === 'bunker' && ship) { const dx = ship.cx - b.x, dy = ship.cy - b.y; side = -dx * Math.sin(b.hdg) + dy * Math.cos(b.hdg) < 0 ? -1 : 1; } // + = stuurboord
+  const wantE = side || Math.abs(BOOM.yaw) > 0.01 ? 0.65 : 0;
+  const k = state.phase === 'bunker' ? Math.max(1, 7.5 * warp / (0.4 * up('pomp'))) : 3; // zoals 3D: boven het zeeschip binnen 40 % van de pomptijd (ook turbo-pomp, snelvaart)
+  BOOM.e += Math.max(-dt * 0.22 * k, Math.min(dt * 0.22 * k, wantE - BOOM.e));
+  if (BOOM.e > 0.5 || side === 0) BOOM.yaw += Math.max(-dt * 0.35 * k, Math.min(dt * 0.35 * k, side * Math.PI / 2 - BOOM.yaw));
+  const px = toPx(33), py = toPx(1.6), len = toPx(25) * Math.cos(BOOM.e), w = toPx(1.1) * (1 + BOOM.e * 0.35);
+  const dir = Math.PI - BOOM.yaw; // opgeborgen naar achteren (−x); yaw +90° = stuurboord (+y), −90° = bakboord
+  const ex = Math.cos(dir), ey = Math.sin(dir);
+  const tx = px + ex * len, ty = py + ey * len, nx = -ey * w / 2, ny = ex * w / 2;
+  const lift = toPx(25) * Math.sin(BOOM.e); // hoogte boven dek -> schaduw verder weg
+  ctx.save(); ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(0,30,60,.25)'; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(px + 1, py + 2); ctx.lineTo(tx + 1 + lift * 0.12, ty + 2 + lift * 0.2); ctx.stroke(); // schaduw
+  ctx.strokeStyle = '#1e2326'; ctx.lineWidth = w + 1.4; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx, ty); ctx.stroke();
+  ctx.strokeStyle = '#8e9c9f'; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(px + nx, py + ny); ctx.lineTo(tx + nx, ty + ny); ctx.moveTo(px - nx, py - ny); ctx.lineTo(tx - nx, ty - ny); ctx.stroke();
+  ctx.strokeStyle = '#f1f1ec'; ctx.lineWidth = 0.5; ctx.beginPath(); // vakwerk
+  const n = 10; for (let i = 0; i < n; i++) { const a = i / n, c = (i + 1) / n, s1 = i % 2 ? 1 : -1; ctx.moveTo(px + ex * len * a + nx * s1, py + ey * len * a + ny * s1); ctx.lineTo(px + ex * len * c - nx * s1, py + ey * len * c - ny * s1); }
+  ctx.stroke();
+  ctx.fillStyle = '#2f5fae'; ctx.beginPath(); ctx.arc(px, py, toPx(0.9), 0, 7); ctx.fill(); ctx.strokeStyle = '#1e2326'; ctx.lineWidth = 0.8; ctx.stroke(); // kolom
+  if (BOOM.e > 0.5) { // slang hangt aan de top naar het zeeschip
+    const sw = 0.5 + 0.5 * Math.sin(t * 1.3);
+    ctx.strokeStyle = '#172125'; ctx.lineWidth = toPx(0.35); ctx.beginPath(); ctx.moveTo(tx, ty); ctx.quadraticCurveTo(tx + ex * 4, ty + ey * 4 + sw, tx + ex * 7, ty + ey * 7); ctx.stroke();
+    ctx.fillStyle = '#f39c12'; ctx.beginPath(); ctx.arc(tx + ex * 7, ty + ey * 7, toPx(0.5), 0, 7); ctx.fill();
+    if (state.phase === 'bunker') { ctx.fillStyle = 'rgba(255,255,255,.7)'; const ph = (t * 1.5) % 1; ctx.beginPath(); ctx.arc(px + ex * len * ph, py + ey * len * ph, 0.9, 0, 7); ctx.fill(); } // olie stroomt
+  }
   ctx.restore();
 }
 function drawInstruments() {

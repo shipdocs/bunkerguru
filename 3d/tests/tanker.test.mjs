@@ -82,3 +82,35 @@ test('older saves get equipment defaults and valid user settings survive restore
   s.equipment = null;
   assert.deepEqual(restore(s).equipment, fresh().equipment);
 });
+
+test('delivering raises the boom and swings the hose over the customer ship', async () => {
+  const { boomSettings } = await import('../src/game/vessel-equipment.mjs');
+  const { renderYaw } = await import('../src/game/vessel.mjs');
+  for (const h of [0, 0.7, Math.PI / 2, 2.4, -1.9])
+    for (const side of [-1, 1]) {
+      const model = createBunkerTanker(PROFILES.legacy),
+        rig = model.userData.tanker;
+      const s = fresh();
+      Object.assign(s, { x: 100, z: -50, h, phase: 'bunker', moored: false });
+      // Customer 30 m abeam on the given side (starboard = (cos h, sin h)).
+      const ship = { shipX: s.x + side * 30 * Math.cos(h), shipZ: s.z + side * 30 * Math.sin(h) };
+      model.position.set(s.x, 0, s.z);
+      model.rotation.y = renderYaw(s.h);
+      // In place within 40 % of the pumping time, also with the turbo pump (2.5 s).
+      for (let i = 0; i < 10; i++) rig.update(0.1, boomSettings(s, ship, 2.5));
+      assert(rig.hose.visible, 'hose shows once the boom is up');
+      model.updateMatrixWorld(true);
+      const tip = rig.hose.getWorldPosition(new T.Vector3());
+      // Hose tip reaches out abeam on the customer's side (starboard = (cos h, sin h)).
+      const abeam = (tip.x - s.x) * Math.cos(h) + (tip.z - s.z) * Math.sin(h);
+      assert(side * abeam > 15, `h=${h} side=${side}: hose ${abeam.toFixed(1)} m abeam`);
+      // Afterwards the switches rule again: unmoored, the boom stows.
+      s.phase = 'sail';
+      s.equipment.boomSide = 0;
+      s.equipment.boomRaised = false;
+      for (let i = 0; i < 400; i++) rig.update(0.1, boomSettings(s, ship));
+      assert(!rig.hose.visible, 'boom stowed after delivery');
+    }
+  const s = fresh();
+  assert.equal(boomSettings(s, null), s.equipment, 'saved setting untouched outside delivery');
+});

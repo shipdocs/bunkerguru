@@ -1,6 +1,6 @@
 # Bunkertanker — Leonore als visueel voorbeeld
 
-De speelbare tanker heeft een lage zwarte romp, witte achteropbouw met blauwe accenten, tankhoofden, leidingen, manifolds, loopbrug, bolders, ankerlier en een vakwerk-bunkergiek. De vier door de gebruiker aangeleverde Leonore-foto's dienen als vormreferentie; dit is een vereenvoudigd spelmodel, geen exact werfmodel. Referentiegegevens: [Leonore, ENI 02333003](https://www.binnenvaart.eu/motortankschip/13431-leonore.html), 86 × 9,60 m. De foto's zijn niet in de repository gekopieerd.
+De speelbare tanker heeft een lage zwarte romp, steengrijs dek (RAL 7030), witte achteropbouw met blauwe accenten en een oranje pet (#ffa500) op de stuurhut, witte buitenboeiing voor en achter met een blauw potdeksel, tankhoofden, leidingen, manifolds, loopbrug, bolders, ankerlier en een vakwerk-bunkergiek. De vier door de gebruiker aangeleverde Leonore-foto's dienen als vormreferentie; dit is een vereenvoudigd spelmodel, geen exact werfmodel. Referentiegegevens: [Leonore, ENI 02333003](https://www.binnenvaart.eu/motortankschip/13431-leonore.html), 86 × 9,60 m. De foto's zijn niet in de repository gekopieerd.
 
 De game behoudt het bestaande **110 × 11 m-profiel**, inclusief de gedeelde `hullOutline`, camera, aanvaringscontour, tankinhoud en vaarregels. Er is geen nieuwe scheepskeuze. Andere maten vragen eigen gevalideerde profielen en passende ligplaatsen; een model alleen verandert het schip in de simulatie niet.
 
@@ -31,7 +31,7 @@ De bewerkbare Blender-bron staat naast beide GLB-exports in `assets/vessels/bunk
 
 In de game bouwt de factory het schip rechtstreeks met de reeds aanwezige Three.js-versie. Daardoor zijn geen extra GLB-download, loader of nieuwe runtime-afhankelijkheden nodig. De geëxporteerde GLB gebruikt precies dezelfde geometrie. `three` is uitsluitend een vastgezette **ontwikkelafhankelijkheid** voor de officiële GLTFExporter; de bestaande `vendor/three.js` blijft ongewijzigd.
 
-De hoofdgroepen heten `Hull-and-deck`, `Radar-rotor`, `Bunker-boom-slew`, `Bunker-boom-lift`, `Bunker-hose`, `Navigation-lights`, `Deck-lights` en `Wheelhouse-lights`. Statische details worden per bewegingsgroep samengevoegd. Circa 14.800 driehoeken en 16 meshes voor het speelbare schip; echte telefoonsnelheid is daarmee niet bewezen. GLB bewaart geen JavaScript of standaard-zichtbaarheid: stel de lichtgroepen en slang zelf in bij gebruik buiten deze game. De clip `Radar-spin` kan met een AnimationMixer worden afgespeeld; giekstanden en schakelaars bestuurt de game zelf.
+De hoofdgroepen heten `Hull-and-deck`, `Radar-rotor`, `Bunker-boom-slew`, `Bunker-boom-lift`, `Bunker-hose`, `Navigation-lights`, `Deck-lights` en `Wheelhouse-lights`. Statische details worden per bewegingsgroep samengevoegd. Circa 14.400 driehoeken en 16 meshes voor het speelbare schip; echte telefoonsnelheid is daarmee niet bewezen. GLB bewaart geen JavaScript of standaard-zichtbaarheid: stel de lichtgroepen en slang zelf in bij gebruik buiten deze game. De clip `Radar-spin` kan met een AnimationMixer worden afgespeeld; giekstanden en schakelaars bestuurt de game zelf.
 
 ```sh
 npm ci

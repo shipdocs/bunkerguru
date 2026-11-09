@@ -1,6 +1,6 @@
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
 import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/graphics.mjs';
-import { MAP, quickJob, planTick, LOGIC } from '../game/harbor.mjs';
+import { MAP, quickJob, planTick, LOGIC, up } from '../game/harbor.mjs';
 import { HarborAudio } from '../audio/harbor-audio.mjs';
 import { createRadio } from '../audio/radio.mjs';
 import { radioChatter } from '../game/chatter.mjs';
@@ -19,6 +19,7 @@ import { createWorld } from '../render/world.mjs';
 import { createNavigationEffects } from '../render/navigation-effects.mjs';
 import { createCameraController } from '../render/camera-controller.mjs';
 import { bindVesselEquipment } from '../ui/vessel-equipment.mjs';
+import { boomSettings } from '../game/vessel-equipment.mjs';
 import { bindHelm } from '../input/helm.mjs';
 import { bindPort, mapButtons, switchMap } from '../ui/port.mjs';
 import { bindMobilePanels } from '../ui/mobile-panels.mjs';
@@ -621,7 +622,10 @@ export function createGame({ createRenderer } = {}) {
       s.equipment.boomSide = 0;
       s.equipment.boomRaised = false;
     }
-    boat.userData.tanker.update(playing ? dt : 0, s.equipment);
+    boat.userData.tanker.update(
+      playing ? dt : 0,
+      boomSettings(s, s.job && berthOf(s), up(s, 'pomp')),
+    );
     sound.update(s, playing, keys);
     cameraControl.update(s, dt);
     if (shake > 0) {
