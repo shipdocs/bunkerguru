@@ -59,6 +59,14 @@ export const saveRivals = (rivals) =>
       grudge: r.grudge || 0,
     }));
 
+// The player's boat, as last seen by updateRivals: berths it lies at are taken.
+const playerRef = { p: null };
+// Is the player lying (or slowly manoeuvring) at this quay stretch?
+function playerAt(t, margin = 40) {
+  const p = playerRef.p;
+  if (!p || Math.hypot(p.u || 0, p.v || 0) > 1.5) return false;
+  return p.x > t.x0 - margin && p.x < t.x1 + margin && p.z > t.z0 - margin && p.z < t.z1 + margin;
+}
 function terminalSpot(r, rivals) {
   const byDist = terminals
     .map((t, i) => i)
@@ -68,18 +76,29 @@ function terminalSpot(r, rivals) {
         Math.hypot(terminals[b].x - r.x, terminals[b].z - r.z),
     );
   const len = (t) => (t.alongZ ? t.z1 - t.z0 : t.x1 - t.x0);
+  // A short terminal holds one boat; a rival or the player there makes it busy.
+  // A long one holds two – but with the player lying there, only one rival fits.
+  const heading = (i) =>
+    rivals.some((o) => o !== r && o.term === i && ['toTerminal', 'loading'].includes(o.mode));
   const busy = (i) =>
-    rivals.some((o) => o !== r && o.term === i && ['toTerminal', 'loading'].includes(o.mode)) &&
-    len(terminals[i]) < 4 * RL + 40;
+    len(terminals[i]) < 4 * RL + 40
+      ? playerAt(terminals[i]) || heading(i)
+      : playerAt(terminals[i]) && heading(i);
   const ti = byDist.find((i) => !busy(i)) ?? byDist[0],
     t = terminals[ti];
   // Two berths along a long terminal: take the one no other boat is heading for.
   const taken = rivals.some(
     (o) => o !== r && o.term === ti && o.slot === 0 && ['toTerminal', 'loading'].includes(o.mode),
   );
-  const slot = (r.slot = r.own ? (taken ? 1 : 0) : rivals.indexOf(r)),
-    l = len(t),
-    d = l < 4 * RL + 40 ? 0 : (slot - 0.5) * (2 * RL + 20);
+  let slot = (r.slot = r.own ? (taken ? 1 : 0) : rivals.indexOf(r) % 2);
+  const l = len(t),
+    pos = (s) => (s - 0.5) * (2 * RL + 20);
+  // On a long terminal, the berth away from the player when the player lies there.
+  if (l >= 4 * RL + 40 && playerAt(t)) {
+    const pc = t.alongZ ? playerRef.p.z - t.z : playerRef.p.x - t.x;
+    slot = r.slot = Math.abs(pos(0) - pc) > Math.abs(pos(1) - pc) ? 0 : 1;
+  }
+  const d = l < 4 * RL + 40 ? 0 : pos(slot);
   // Lie against the wall: half a beam plus a fender off the quay.
   const off = t.wall ? t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7) : 0;
   return {
@@ -164,6 +183,7 @@ function arrive(r, player) {
 const gatesRef = { list: [] };
 export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
   gatesRef.list = gates;
+  playerRef.p = player;
   let event = null;
   for (const r of rivals) {
     if (r.hitCD > 0) r.hitCD -= dt;
@@ -368,6 +388,26 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       }
     }
     if (last && d < 2 * RL + 200) {
+      // Never glide into the player: hold off while its hull is in the way, and
+      // look for another berth if it stays there (it is loading or bunkering).
+      const pd = Math.hypot(player.x - wp.x, player.z - wp.z),
+        pr = Math.hypot(player.x - r.x, player.z - r.z);
+      if (
+        pd < 2 * RL + 15 ||
+        (pr < 2 * RL + 10 && (player.x - r.x) * dx + (player.z - r.z) * dz > 0)
+      ) {
+        // Stop dead (gliding speeds are low): no metre more towards the player.
+        r.cur = 0;
+        r.blockT = (r.blockT || 0) + dt;
+        if (r.blockT > 8 * SIM && r.mode === 'toTerminal') {
+          r.blockT = 0;
+          const spot = terminalSpot(r, rivals);
+          r.term = spot.ti;
+          plan(r, spot);
+        }
+        continue;
+      }
+      r.blockT = 0;
       const ha = [wp.h, wp.h + Math.PI].sort(
         (a, b) => Math.abs(ang(a - r.h)) - Math.abs(ang(b - r.h)),
       )[0];

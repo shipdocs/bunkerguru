@@ -1,4 +1,12 @@
 import * as T from '../../vendor/three.js';
+// Labels in the wheelhouse view: at eye level a 40–90 m wide name board right ahead
+// fills the window. There they keep a modest, distance-based size instead.
+export const labelView = { bridge: false };
+// On-screen width ≈ 0.12 rad (about 1/8 of the view), never wider than the label's
+// own size, at least 3 m; beyond 1.2 km they fade out.
+export function bridgeLabelScale(scale, d) {
+  return Math.min(scale, Math.max(3, d * 0.12));
+}
 export function createPrimitives(scene) {
   const mats = new Map();
   function material(c) {
@@ -48,18 +56,24 @@ export function createPrimitives(scene) {
     );
     sprite.position.set(x, y, z);
     sprite.scale.set(scale, (scale * 96) / 512, 1);
-    if (grow > 0) {
-      const world = new T.Vector3();
-      sprite.onBeforeRender = (renderer, sc, camera) => {
-        sprite.getWorldPosition(world);
-        const d = world.distanceTo(camera.position);
+    const world = new T.Vector3();
+    sprite.onBeforeRender = (renderer, sc, camera) => {
+      sprite.getWorldPosition(world);
+      const d = world.distanceTo(camera.position);
+      let s = scale,
+        o = 1;
+      if (labelView.bridge) {
+        s = bridgeLabelScale(scale, d);
+        o = Math.max(0, Math.min(1, (1200 - d) / 300));
+      } else if (grow > 0) {
         // Readable nearby and at mid range; far labels fade out instead of
         // cluttering the horizon behind the instruments.
-        const s = Math.min(Math.max(scale, d * grow), scale * 3);
-        sprite.scale.set(s, (s * 96) / 512, 1);
-        sprite.material.opacity = Math.max(0, Math.min(1, (1700 - d) / 400));
-      };
-    }
+        s = Math.min(Math.max(scale, d * grow), scale * 3);
+        o = Math.max(0, Math.min(1, (1700 - d) / 400));
+      }
+      if (sprite.scale.x !== s) sprite.scale.set(s, (s * 96) / 512, 1);
+      sprite.material.opacity = o;
+    };
     p.add(sprite);
     return sprite;
   }
