@@ -54,8 +54,15 @@ export const STRESS_WARP = { course: [{ a: 198, l: 5000, x: 300 }], leanN: 0.25,
 // Harbours that sail on their warp; the others keep the straight map.
 export const WARP_ENABLED = new Set([]);
 
+// '' = as enabled per harbour, 'off' = the straight map, 'stress' = the test warp.
+// Tests and tools set BUNKERGURU_WARP; in the browser ?warp=off|stress does the same.
 export function warpMode() {
-  return globalThis.BUNKERGURU_WARP || globalThis.process?.env?.BUNKERGURU_WARP || '';
+  let mode = globalThis.BUNKERGURU_WARP || globalThis.process?.env?.BUNKERGURU_WARP || '';
+  if (!mode)
+    try {
+      mode = new URLSearchParams(globalThis.location?.search || '').get('warp') || '';
+    } catch {}
+  return mode;
 }
 export function warpParams(id) {
   if (id === 'training') return null; // the practice voyage stays straight

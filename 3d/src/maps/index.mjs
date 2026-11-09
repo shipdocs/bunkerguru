@@ -77,6 +77,77 @@ export function waterAt(x, z, margin = 0) {
   const m = WARP.inverse(x, z);
   return waterAtM(m.x, m.z, margin);
 }
+// Map rectangles in the warped world. Their edges are cut on one grid shared by the
+// whole map (so neighbours meet without cracks): every 60 m, 15 cm off a 3 km bend at
+// most, and every 15 m just behind the banks, where a basin swings to its lean. On a
+// straight map a rectangle keeps its four corners.
+export function gridLines(a0, a1, axis = 'x') {
+  const out = [a0];
+  if (!WARP.identity) {
+    const RH = MAP.riverHalf,
+      add = (v) => v > a0 + 0.01 && v < a1 - 0.01 && out.push(v);
+    for (let v = Math.ceil(a0 / 60) * 60; v < a1; v += 60) add(v);
+    if (axis === 'z')
+      for (const side of [-1, 1]) for (const d of [0, 15, 30, 45]) add(side * (RH + d));
+  }
+  out.push(a1);
+  return [...new Set(out)].sort((a, b) => a - b);
+}
+// World points round a map rectangle: (x0,z0) → (x1,z0) → (x1,z1) → (x0,z1).
+export function rectOutline(r) {
+  const xs = gridLines(r.x0, r.x1, 'x'),
+    zs = gridLines(r.z0, r.z1, 'z'),
+    at = (x, z) => WARP.forward(x, z);
+  return [
+    ...xs.slice(0, -1).map((x) => at(x, r.z0)),
+    ...zs.slice(0, -1).map((z) => at(r.x1, z)),
+    ...xs
+      .slice(1)
+      .reverse()
+      .map((x) => at(x, r.z1)),
+    ...zs
+      .slice(1)
+      .reverse()
+      .map((z) => at(r.x0, z)),
+  ];
+}
+// Which quay gives a spot on land its direction: 'x' along the river, 'z' along a
+// basin quay, by the nearest water's edge of the land it stands on (map coordinates).
+export function quayAxis(x, z) {
+  const l = land.find(
+    (l) => l.kind !== 'pillar' && x >= l.x0 && x <= l.x1 && z >= l.z0 && z <= l.z1,
+  );
+  if (!l) return 'x';
+  let best = 'x',
+    d0 = 400;
+  for (const [d, ax, px, pz] of [
+    [z - l.z0, 'x', x, l.z0 - 3],
+    [l.z1 - z, 'x', x, l.z1 + 3],
+    [x - l.x0, 'z', l.x0 - 3, z],
+    [l.x1 - x, 'z', l.x1 + 3, z],
+  ])
+    if (d < d0 && waterAtM(px, pz)) [best, d0] = [ax, d];
+  return best;
+}
+// The chart as it lies in the world: the box round the warped map.
+export const worldBounds = (() => {
+  const b = { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity },
+    W = MAP.halfWidth,
+    see = (x, z) => {
+      const p = WARP.forward(x, z);
+      b.x0 = Math.min(b.x0, p.x);
+      b.x1 = Math.max(b.x1, p.x);
+      b.z0 = Math.min(b.z0, p.z);
+      b.z1 = Math.max(b.z1, p.z);
+    };
+  for (let i = 0; i <= 200; i++) {
+    const x = -W + (2 * W * i) / 200,
+      z = MAP.zMin + ((MAP.zMax - MAP.zMin) * i) / 200;
+    for (const zz of [MAP.zMin, MAP.zMax]) see(x, zz);
+    for (const xx of [-W, W]) see(xx, z);
+  }
+  return b;
+})();
 // Is a world point inside a map rectangle (zone, strip, gate, basin)?
 export const inRectW = (r, x, z, m = 0) => {
   const p = WARP.inverse(x, z);

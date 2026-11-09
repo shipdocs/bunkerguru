@@ -1,5 +1,5 @@
 import * as T from '../../vendor/three.js';
-import { MAP, landAt } from '../maps/index.mjs';
+import { MAP, WARP, landAt, quayAxis } from '../maps/index.mjs';
 import { GeometryBatch } from './scene-batch.mjs';
 // Landmarks: the shapes you steer by in the real port. Cartoon models, but each one
 // stands where it stands on the harbour chart, in the s/n units of the 2D map
@@ -152,22 +152,34 @@ const toX = (s) => s * MAP.sn.k - MAP.sn.cx,
   toZ = (n) => n * MAP.sn.k;
 const list = (id) =>
   (LANDMARKS[id] || []).map((l) => ({ ...l, x: toX(l.s), z: toZ(l.n), r: (l.r || 0) * MAP.sn.k }));
+// A landmark is one rigid object in the warped world (maps/warp.mjs): it stands at the
+// warped spot of its map position and turns with the quay it belongs to.
+function seat(l) {
+  const axis = l.kind === 'barrier' || l.kind === 'liftbridge' ? 'x' : quayAxis(l.x, l.z),
+    j = WARP.jac(l.x, l.z),
+    yaw = axis === 'z' ? Math.atan2(j.b, j.d) : -Math.atan2(j.c, j.a),
+    o = WARP.forward(l.x, l.z),
+    cos = Math.cos(yaw),
+    sin = Math.sin(yaw);
+  // A point given relative to the landmark (dx along the map's x, dz along its z).
+  return {
+    ...o,
+    yaw,
+    at: (dx, dz) => ({ x: o.x + dx * cos + dz * sin, z: o.z - dx * sin + dz * cos }),
+  };
+}
 // Footprints that must stand on land (barrier arms and bridge towers on either bank).
+// World positions, as built.
 export function landmarkSpots(id = MAP.id) {
   const RH = MAP.riverHalf;
-  return list(id).flatMap((l) =>
-    l.kind === 'barrier'
-      ? [
-          { x: l.x, z: -RH - 60 },
-          { x: l.x, z: RH + 60 },
-        ]
+  return list(id).flatMap((l) => {
+    const s = seat(l);
+    return l.kind === 'barrier'
+      ? [s.at(0, -RH - 60 - l.z), s.at(0, RH + 60 - l.z)]
       : l.kind === 'liftbridge'
-        ? [
-            { x: toX(l.s0) - 14, z: l.z },
-            { x: toX(l.s1) + 14, z: l.z },
-          ]
-        : [{ x: l.x, z: l.z }],
-  );
+        ? [s.at(toX(l.s0) - 14 - l.x, 0), s.at(toX(l.s1) + 14 - l.x, 0)]
+        : [s.at(0, 0)];
+  });
 }
 // Scenery keeps this ground free: no house inside a cooling tower.
 const clearList = list(MAP.id).filter((l) => l.r > 0);
@@ -356,31 +368,37 @@ export function createLandmarks(scene, { mesh, textSprite }) {
       opacity: 0.45,
       depthWrite: false,
     });
-  // Lights, plumes, flames and rotors are placed relative to the landmark being built.
+  // Lights, plumes, flames and rotors are placed relative to the landmark being built:
+  // `cur` is its group, standing at its warped spot and turned with its quay. ox (its
+  // map position) only varies the timing of flames and rotors.
   let ox = 0,
-    oz = 0;
+    cur = root;
   const beaconGeo = new T.SphereGeometry(1.6, 8, 6);
-  const beacon = (x, y, z) => mesh(beaconGeo, redLight, ox + x, GROUND + y, oz + z, root);
-  const label = (name, x, y, z) =>
-    name && textSprite(name, x, GROUND + y, z, 46, '#fff1c9', root, 0.1);
+  const beacon = (x, y, z) => mesh(beaconGeo, redLight, x, GROUND + y, z, cur);
+  // Names stand upright in the world, above the warped spot (map x, z).
+  const label = (name, x, y, z) => {
+    if (!name) return;
+    const p = WARP.forward(x, z);
+    textSprite(name, p.x, GROUND + y, p.z, 46, '#fff1c9', root, 0.1);
+  };
   // Rising steam or smoke: a few soft balls that climb, swell and start again.
   const plume = (x, y, z, size, rise, mat = steamMat, n = 4) => {
     for (let i = 0; i < n; i++) {
-      const m = mesh(G.ico, mat, ox + x, GROUND + y, oz + z, root);
+      const m = mesh(G.ico, mat, x, GROUND + y, z, cur);
       m.castShadow = m.receiveShadow = false;
-      puffs.push({ m, x: ox + x, y: GROUND + y, z: oz + z, size, rise, off: i / n });
+      puffs.push({ m, x, y: GROUND + y, z, size, rise, off: i / n });
     }
   };
   const flame = (x, y, z, size = 5) => {
-    const m = mesh(G.cone, flameMat, ox + x, GROUND + y, oz + z, root);
+    const m = mesh(G.cone, flameMat, x, GROUND + y, z, cur);
     m.castShadow = false;
     flames.push({ m, size, y: GROUND + y, ph: ox + x });
   };
   const spinner = (kit, x, y, z, speed, axis = 'z') => {
     const grp = new T.Group();
-    grp.position.set(ox + x, GROUND + y, oz + z);
+    grp.position.set(x, GROUND + y, z);
     kit.mesh(grp);
-    root.add(grp);
+    cur.add(grp);
     spinners.push({ o: grp, axis, speed, ph: (ox + x) * 0.01 });
     stats.parts += kit.n;
   };
@@ -517,9 +535,13 @@ export function createLandmarks(scene, { mesh, textSprite }) {
   };
 
   for (const l of list(MAP.id)) {
-    const { x, z } = l;
+    const { x, z } = l,
+      place = seat(l);
     ox = x;
-    oz = z;
+    cur = new T.Group();
+    cur.position.set(place.x, 0, place.z);
+    cur.rotation.y = place.yaw;
+    root.add(cur);
     const f = z < 0 ? 1 : -1, // towards the river
       k = new Kit();
     let top = 40;
@@ -922,7 +944,7 @@ export function createLandmarks(scene, { mesh, textSprite }) {
       label(l.name, x, 60, -RH - 120);
       top = 0;
     }
-    if (k.n) k.mesh(root, x, GROUND, z);
+    if (k.n) k.mesh(cur, 0, GROUND, 0);
     if (top) label(l.name, x, top, z);
     stats.count++;
     stats.parts += k.n;
