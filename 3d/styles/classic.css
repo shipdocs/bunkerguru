@@ -698,3 +698,66 @@ body.bridgeView .harborBar:not(:hover) {
     width: 8px;
   }
 }
+
+/* Desktop layout (mouse): one column on the left – the job, then the harbour bar
+   (planning, shop, radio …) right under it – and the chart in the bottom-right
+   corner. Every block is see-through until you point at it. */
+@media (min-width: 801px) and (pointer: fine) {
+  .harborBar {
+    top: var(--mission-bottom, 420px);
+    left: 28px;
+    width: 302px;
+    box-sizing: border-box;
+  }
+  body.underway .harborBar {
+    width: 270px;
+  }
+  .mission,
+  .harborBar,
+  .chart,
+  .view,
+  .location,
+  .wallet {
+    transition:
+      opacity 0.2s,
+      padding 0.25s;
+  }
+  .mission:not(:hover),
+  .harborBar:not(:hover),
+  .chart:not(:hover):not(.expanded),
+  .view:not(:hover),
+  .location:not(:hover) {
+    opacity: 0.62;
+  }
+  body.underway .mission:not(:hover),
+  body.underway .harborBar:not(:hover) {
+    opacity: 0.55;
+  }
+  .chart {
+    right: 16px;
+    bottom: 16px;
+    width: 300px;
+  }
+  /* Big chart: centred over the game, which pauses until you click it away. */
+  .chart.expanded {
+    position: fixed;
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(1100px, calc(100vw - 80px), calc((100vh - 120px) * 2));
+    z-index: 40;
+    opacity: 1;
+    box-shadow: 0 0 0 100vmax #0007;
+  }
+}
+@media (min-width: 801px) and (pointer: fine) {
+  .chart.expanded .eyebrow,
+  .chart.expanded .eyebrow span {
+    font-size: 12px;
+  }
+  .chart.expanded .legend {
+    font-size: 13px;
+  }
+}

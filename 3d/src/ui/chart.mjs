@@ -18,7 +18,9 @@ export function createChart(canvas) {
   function chart(s, world) {
     hits = [];
     const big = !!canvas.closest?.('#chartPanel')?.classList?.contains?.('expanded');
-    map.setTransform(3, 0, 0, 3, 0, 0);
+    // 200 × 100 chart units, drawn sharp on the big chart too.
+    const k = canvas.width / 200;
+    map.setTransform(k, 0, 0, k, 0, 0);
     map.clearRect(0, 0, 200, 100);
     map.fillStyle = '#21434a';
     map.fillRect(0, 0, 200, 100);

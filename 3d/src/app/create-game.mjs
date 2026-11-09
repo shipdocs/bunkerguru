@@ -181,7 +181,7 @@ export function createGame({ createRenderer } = {}) {
     board: () => (started && !paused ? openPort('jobs') : null),
     shop: () => (started && !paused ? openPort('shop') : null),
     gate: () => started && !paused && toast(callGate(nearestGate(sim.gates, s))),
-    chart: () => $('chartPanel').classList.toggle('expanded'),
+    chart: () => setChartBig(!$('chartPanel').classList.contains?.('expanded')),
     lookLeft: () => cameraControl.lookLeft(),
     lookRight: () => cameraControl.lookRight(),
     warp: () => {
@@ -216,6 +216,8 @@ export function createGame({ createRenderer } = {}) {
   const cameraControl = createCameraController({ $, camera, zoomLimits, state: s, toast, boat });
   $('pause').onclick = () => {
     release();
+    // Esc/pause on the big chart folds it (and resumes, as the chart had paused).
+    if ($('chartPanel').classList.contains?.('expanded')) return setChartBig(false);
     paused = !paused;
     $('pause').textContent = paused ? '▶' : 'Ⅱ';
     toast(paused ? 'Gepauzeerd' : 'Goede vaart');
@@ -451,6 +453,16 @@ export function createGame({ createRenderer } = {}) {
   window.addEventListener('pagehide', save);
   // Frame the ship in the open water above the bridge console: shift the projection
   // centre up by half the height the console covers, so the hull is never behind it.
+  // The harbour bar sits right under the job panel (desktop): follow its height.
+  const missionEl = document.querySelector?.('.mission');
+  const placeHarborBar = () => {
+    const r = missionEl?.getBoundingClientRect?.();
+    if (r && Number.isFinite(r.bottom))
+      document.body?.style?.setProperty?.('--mission-bottom', Math.round(r.bottom + 10) + 'px');
+  };
+  if (typeof ResizeObserver === 'function' && missionEl)
+    new ResizeObserver(placeHarborBar).observe(missionEl);
+  placeHarborBar();
   function frameAboveConsole() {
     const f = document.querySelector?.('footer');
     const top = f?.getBoundingClientRect?.().top;
@@ -481,17 +493,54 @@ export function createGame({ createRenderer } = {}) {
   window.addEventListener('resize', resize);
   resize();
   const chart = createChart($('map'));
+  // The big chart is a strategy pause: open it and the harbour waits; close it (tap
+  // outside, the chart again, K or Esc) and the game runs on, unless it was paused.
+  let chartPaused = false;
+  function setChartBig(on) {
+    const panel = $('chartPanel');
+    if (on === !!panel.classList.contains?.('expanded')) return;
+    panel.classList.toggle('expanded', on);
+    document.body?.classList?.toggle?.('chartOpen', on);
+    const hint = panel.querySelector?.('.eyebrow span');
+    if (hint)
+      hint.textContent = on
+        ? '⏸ GEPAUZEERD · TIK OP EEN KLUS · KLIK ERNAAST OM VERDER TE VAREN'
+        : 'TIK OM TE VERGROTEN · N ↑';
+    if (on && started && !paused) {
+      release();
+      paused = chartPaused = true;
+      $('pause').textContent = '▶';
+    } else if (!on && chartPaused) {
+      chartPaused = false;
+      paused = false;
+      $('pause').textContent = 'Ⅱ';
+    }
+  }
+  document.addEventListener?.(
+    'pointerdown',
+    (e) => {
+      if (
+        $('chartPanel').classList.contains?.('expanded') &&
+        !$('chartPanel').contains?.(e.target) &&
+        !e.target?.closest?.('dialog')
+      )
+        setChartBig(false);
+    },
+    true,
+  );
   // On the big chart a job marker opens the planning; elsewhere a tap folds the chart.
   $('map').onclick = (e) => {
-    const big = $('chartPanel').classList.contains('expanded');
+    const big = !!$('chartPanel').classList.contains?.('expanded');
     const h = big && chart.hit(e.offsetX, e.offsetY);
     if (h) {
+      chartPaused = false; // the planning keeps the pause and lifts it when it closes
+      setChartBig(false);
       openPort('jobs');
       // By offer id: the planning may have expired or reordered jobs since the draw.
       const cards = [...$('offers').children];
       cards.find((c) => c.dataset.id === String(h.id))?.scrollIntoView?.({ block: 'center' });
       cards.forEach((c) => c.classList.toggle('focus', c.dataset.id === String(h.id)));
-    } else $('chartPanel').classList.toggle('expanded');
+    } else setChartBig(!big);
   };
   const updateHud = createHud({ $, keys, vesselProfile, camera, chart, zones: effects.zones });
   function ui() {
