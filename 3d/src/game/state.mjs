@@ -2,6 +2,7 @@ import { DEFAULT_TEMPO, TEMPOS } from './time-scale.mjs';
 import { MAP, terminals, waits } from './harbor.mjs';
 import { waterAt } from '../maps/index.mjs';
 import { clamp } from './math.mjs';
+import { restoreEquipment } from './vessel-equipment.mjs';
 export const STATE_VERSION = 5;
 // One career, saved per browser. Position belongs to the map it was saved on.
 export function fresh() {
@@ -25,6 +26,7 @@ export function fresh() {
     braking: false,
     handling: 'schipper',
     shipId: 'legacy',
+    equipment: restoreEquipment(),
     timeScale: DEFAULT_TEMPO,
     moored: !!startBerth(),
     mooredTo: startBerth(),
@@ -73,6 +75,7 @@ const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 export function restore(raw) {
   const s = fresh();
   if (!raw || typeof raw !== 'object') return s;
+  s.equipment = restoreEquipment(raw.equipment);
   // Career survives everything: money, jobs, upgrades, reputation, settings.
   for (const k of ['gold', 'jobs', 'earned', 'clock', 'tidePhase'])
     if (isNum(raw[k])) s[k] = raw[k];

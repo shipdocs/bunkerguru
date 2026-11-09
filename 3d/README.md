@@ -55,3 +55,7 @@ Zie [architectuur](docs/ARCHITECTURE.md) en [scheepsregels](VESSEL_RULES.md).
 Niet getest: echte WebGL-prestaties op een telefoon. Nog niet overgezet: Engels, muziek-/volumepaneel, weerbeelden (regen), ranglijst.
 
 Three.js r160 staat met MIT-licentie in `vendor/`.
+
+## Bunkertanker
+
+De speelbare tanker is vormgegeven naar de Leonore, op de bestaande spelmaat van 110 × 11 meter. Open **Schip · radar, verlichting & bunkergiek** in het havenmenu voor de radar, drie lichtcircuits en de beweegbare bunkergiek. R schakelt de radar, L de navigatieverlichting. Zie [model, Blender-export en bediening](docs/BUNKERTANKER.md).

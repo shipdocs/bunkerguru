@@ -2,6 +2,7 @@ import * as T from '../../vendor/three.js';
 import { createPrimitives } from './primitives.mjs';
 import { createWater } from './water.mjs';
 import { createShipFactory } from './ship-model.mjs';
+import { createBunkerTanker } from './bunker-tanker.mjs';
 import { createHarborScenery } from './scenery.mjs';
 import { batchVessel } from './scene-batch.mjs';
 import {
@@ -142,7 +143,8 @@ export function createWorld({
   textSprite(MAP.name.toUpperCase() + ' · KAARTGRENS', -MAP.halfWidth + 30, 14, 0, 90);
   const vesselProfile = profileOf(s),
     zoomLimits = cameraRange(vesselProfile);
-  const boat = ship(vesselProfile.length, vesselProfile.beam, '#ba6539', true, vesselProfile);
+  const boat = createBunkerTanker(vesselProfile);
+  scene.add(boat);
   const customerMeshes = [];
   for (const b of customers) {
     const m = ship(b.length, b.beam, b.color);
@@ -243,7 +245,7 @@ export function createWorld({
     sp.scale.set(18, 18, 1);
     parent.add(sp);
   };
-  for (const m of [boat, ...trafficMeshes, ...rivalMeshes, ...customerMeshes]) mastLight(m);
+  for (const m of [...trafficMeshes, ...rivalMeshes, ...customerMeshes]) mastLight(m);
   let level = 0;
   const skyCol = new T.Color(),
     tmp = new T.Color();

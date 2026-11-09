@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "model:export": "node scripts/export-tanker.mjs",
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs",
@@ -13,7 +14,8 @@
     "test:built": "node scripts/test-built.mjs"
   },
   "devDependencies": {
-    "prettier": "3.6.2"
+    "prettier": "3.6.2",
+    "three": "0.160.0"
   },
   "engines": {
     "node": ">=22"
