@@ -1,0 +1,294 @@
+/* Harbor instruments: deep navy glass, seafoam accents and restrained brass. */
+:root {
+  --lime: #b5dac7;
+  --muted: #9fb5bb;
+  --glass: rgba(12, 29, 40, 0.83);
+}
+.glass {
+  border-color: #b7d1d326;
+  background: linear-gradient(145deg, #193847e8, #0d2330e8);
+  box-shadow:
+    0 8px 28px #03192324,
+    inset 0 1px #ffffff0a;
+  backdrop-filter: blur(18px);
+  border-radius: 16px;
+}
+.brand {
+  color: #f0f1e7;
+  letter-spacing: 2.5px;
+}
+.brand .mark {
+  color: #d9bd83;
+  border-color: #d9bd8355;
+}
+.primary {
+  background: linear-gradient(110deg, #bfdfc9, #9dcab9);
+  color: #173e3c;
+  border: 1px solid #d7f3df55;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 650;
+  box-shadow: 0 3px 12px #071e281a;
+}
+.primary:disabled {
+  box-shadow: none;
+}
+.progress {
+  height: 3px;
+  background: #abc9c21a;
+}
+.progress div {
+  background: linear-gradient(90deg, #8bbfae, #e3cc95);
+}
+h1 {
+  font-weight: 500;
+}
+.mission .eyebrow {
+  color: #d9bd83;
+}
+.view {
+  border-radius: 24px;
+}
+.view button {
+  color: #c9dce0;
+}
+.view button:hover {
+  color: #fff;
+}
+.destination {
+  border: 1px solid #d4e5de30;
+  background: #12313dc9;
+  box-shadow: 0 4px 18px #061f2922;
+  border-radius: 20px;
+  color: #e8eee6;
+}
+.steer button,
+.engine button {
+  background: linear-gradient(#24424d99, #172f3b99);
+  border-color: #bfd3cd20;
+  border-radius: 10px;
+  box-shadow: inset 0 1px #ffffff08;
+}
+.anchor {
+  color: #dfcca2;
+  border-color: #cfb88944;
+  background: #bca7780b;
+}
+.readout strong {
+  font-variant-numeric: tabular-nums;
+  color: #f5f1e5;
+}
+.engine strong {
+  color: #d9e5df;
+  font-variant-numeric: tabular-nums;
+}
+.notches i {
+  border-radius: 2px;
+}
+.notches .on {
+  background: #dfc792;
+  box-shadow: 0 0 7px #dfc79244;
+}
+.harborBar button,
+.mobileTools button {
+  border-color: #b8d0cb33;
+  border-radius: 20px;
+}
+.port,
+dialog {
+  background: linear-gradient(145deg, #193947, #102530);
+  border-color: #a0bebc44;
+}
+.offer {
+  border-radius: 12px;
+  background: #8cb8a808;
+}
+#toast {
+  border-color: #d9bd8355;
+  border-radius: 20px;
+  background: #102e3bea;
+}
+@media (max-width: 800px), (max-height: 550px) and (pointer: coarse) {
+  :root {
+    --controls-height: 168px;
+    --hud-bottom: 48px;
+  }
+  header {
+    left: 18px;
+  }
+  .brand {
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 750;
+  }
+  .view {
+    background: #112e3dcc;
+    border-radius: 23px;
+    box-shadow: 0 4px 18px #061f2915;
+    border-color: #cee4df22;
+  }
+  .view button {
+    font-size: 16px;
+    min-width: 40px;
+    width: 40px;
+  }
+  .mission {
+    border-radius: 15px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: center;
+    background: linear-gradient(120deg, #183b48ed, #132e3ce8);
+    box-shadow: 0 5px 22px #06202d24;
+  }
+  .mission h1 {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 13px;
+    line-height: 19px;
+    margin: 0 24px 7px 0;
+    color: #eef0e7;
+  }
+  .mission .progress {
+    grid-column: 1;
+    grid-row: 2;
+    margin-right: 24px;
+    height: 2px;
+  }
+  .mission > .primary {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    width: auto;
+    min-width: 110px;
+    min-height: 44px;
+    margin: 0;
+    padding: 10px 13px;
+    font-size: 11px;
+    border-radius: 10px;
+    justify-content: center;
+  }
+  #missionToggle {
+    position: static;
+    grid-column: 1;
+    grid-row: 1 / 3;
+    justify-self: end;
+    align-self: center;
+    width: 30px;
+    height: 44px;
+    font-size: 18px;
+    transform: translateX(6px);
+  }
+  .mission.mobileOpen {
+    display: block;
+  }
+  .mission.mobileOpen #missionToggle {
+    position: absolute;
+    right: 10px;
+    top: 0;
+    transform: none;
+  }
+  .mission.mobileOpen h1 {
+    margin-right: 32px;
+  }
+  .mission.mobileOpen > .primary {
+    width: 100%;
+    margin-top: 10px;
+  }
+  .mission.mobileOpen > .progress {
+    margin-right: 32px;
+  }
+  .mission.mobileOpen > .missionFoot {
+    font-size: 11px;
+  }
+  footer {
+    bottom: calc(var(--hud-bottom) + var(--edge));
+    border-radius: 18px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #163541e8, #102632ed);
+    grid-template-rows: 28px 1fr;
+    gap: 8px 16px;
+  }
+  .readout {
+    height: 28px;
+  }
+  .readout strong {
+    font-size: 23px;
+    font-weight: 450;
+  }
+  .readout em {
+    color: #9bb3b8;
+  }
+  .anchor {
+    height: 32px;
+    min-height: 32px;
+    font-size: 14px;
+    border-radius: 9px;
+  }
+  .anchor span {
+    font-size: 10px;
+  }
+  .steer small,
+  .engine small {
+    font-size: 7px;
+    letter-spacing: 1px;
+    color: #9cb6bb;
+  }
+  .steer button,
+  .engine button {
+    border-radius: 10px;
+  }
+  .bow button {
+    height: 34px;
+    letter-spacing: 0.6px;
+    font-size: 9px;
+    color: #b8ccc9;
+  }
+  .engine strong {
+    font-size: 9px;
+  }
+  .notches {
+    margin-top: 17px !important;
+  }
+  .notches i {
+    height: 3px;
+  }
+  .mobileTools {
+    bottom: calc(var(--controls-height) + var(--hud-bottom) + 10px + var(--edge));
+    gap: 6px;
+  }
+  .mobileTools button {
+    height: 38px;
+    padding: 0 15px;
+    font-size: 10px;
+    background: #133340d9;
+    box-shadow: 0 3px 12px #041f2922;
+    backdrop-filter: blur(12px);
+  }
+  .chart.mobileOpen,
+  .harborBar.mobileOpen {
+    bottom: calc(var(--controls-height) + var(--hud-bottom) + 56px + var(--edge));
+  }
+  #toast {
+    bottom: calc(var(--controls-height) + var(--hud-bottom) + 56px + var(--edge));
+  }
+}
+@media (max-width: 800px) and (max-height: 500px) {
+  :root {
+    --controls-height: 112px;
+    --hud-bottom: 8px;
+  }
+  footer {
+    grid-template-rows: 40px 40px;
+    gap: 6px 14px;
+  }
+  .mission {
+    width: 300px;
+  }
+  .anchor {
+    height: 40px;
+  }
+  .bow button {
+    height: 38px;
+  }
+}

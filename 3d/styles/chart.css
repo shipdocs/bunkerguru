@@ -1,0 +1,25 @@
+.chart {
+  width: 300px;
+}
+.chart canvas {
+  cursor: zoom-in;
+}
+.chart.expanded {
+  width: min(680px, calc(100vw - 24px));
+  z-index: 8;
+}
+.chart.expanded canvas {
+  cursor: zoom-out;
+}
+.chart .eyebrow span {
+  font-size: 7px;
+}
+@media (max-width: 800px) {
+  .chart.mobileOpen {
+    width: 260px;
+    max-width: calc(100vw - 24px);
+  }
+  .chart.mobileOpen.expanded {
+    width: calc(100vw - 24px);
+  }
+}

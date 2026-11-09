@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#102b35" />
+    <title>Bunkerguru 3D</title>
+    <link rel="stylesheet" href="styles/main.css" />
+  </head>
+  <body>
+    <canvas id="world" aria-label="Driedimensionale haven"></canvas>
+    <header>
+      <div class="brand">
+        <span class="mark">≈</span>
+        <div>
+          BUNKERGURU<small>HAVENLICHT <b>3D</b></small>
+        </div>
+      </div>
+      <div class="location">
+        <span id="mapName">AMSTERDAM WESTPOORT</span> <span id="vesselInfo">110 × 11 m · 3×</span>
+        <span id="clockInfo"></span>
+      </div>
+      <div class="wallet"><small>GOUD</small><strong id="gold">300 🪙</strong></div>
+    </header>
+    <aside class="mission glass" id="missionPanel">
+      <button
+        id="missionToggle"
+        class="mobileOnly"
+        aria-expanded="false"
+        aria-controls="missionPanel"
+        aria-label="Opdrachtdetails tonen"
+      >
+        ⌄
+      </button>
+      <div class="eyebrow">BUNKEROPDRACHT <span id="job">01</span></div>
+      <h1 id="missionTitle">Vrij varen</h1>
+      <p id="missionText">Open de planning (N) en kies een klus.</p>
+      <p id="deadline" class="deadline"></p>
+      <div class="stages">
+        <span id="stage1">01 Laden</span><i></i><span id="stage2">02 Varen</span><i></i
+        ><span id="stage3">03 Bunkeren</span>
+      </div>
+      <div class="progress"><div id="progress"></div></div>
+      <div class="missionFoot">
+        <span id="cargo">0 / 800 t</span><span>Opbrengst <b id="reward">–</b></span>
+      </div>
+      <button id="next" class="primary">Planning openen (N) →</button>
+      <div id="dockGuide"></div>
+    </aside>
+    <nav class="view glass">
+      <button id="cam" title="Camera wisselen (F)">◈ <span>Camera</span></button
+      ><button id="zoomIn" aria-label="Inzoomen">＋</button
+      ><button id="zoomOut" aria-label="Uitzoomen">−</button
+      ><button id="pause" aria-label="Pauzeren">Ⅱ</button
+      ><button id="help" aria-label="Bediening tonen">?</button>
+    </nav>
+    <div class="harborBar glass" id="harborPanel">
+      <span id="career"></span>
+      <div>
+        <button id="office" title="Planning (N)">Planning</button
+        ><button id="maintenance" title="Winkel aan de terminal (B)">Winkel</button
+        ><button id="gateBtn" title="Brug of sluis oproepen (C)">Brug/sluis</button
+        ><button id="horn" title="Scheepshoorn (H)">Hoorn</button
+        ><button id="radioBtn" title="Marifoon aan/uit (V)">Marifoon</button
+        ><button id="audio">Geluid aan</button>
+      </div>
+      <small id="vts"></small>
+    </div>
+    <nav class="mobileTools mobileOnly" aria-label="Havenpanelen">
+      <button id="mapToggle" aria-expanded="false" aria-controls="chartPanel">Kaart</button
+      ><button id="menuToggle" aria-expanded="false" aria-controls="harborPanel">Havenmenu</button>
+    </nav>
+    <div id="label" class="destination"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="radio" aria-live="polite"></div>
+    <aside class="chart glass" id="chartPanel">
+      <div class="eyebrow">HAVENKAART <span>TIK OM TE VERGROTEN · N ↑</span></div>
+      <canvas
+        id="map"
+        width="600"
+        height="300"
+        aria-label="Havenkaart met schip en bestemming"
+      ></canvas>
+      <div class="legend">
+        <span>● Jouw schip</span><span class="lgRival">● Concurrent</span><span>● Bestemming</span>
+      </div>
+    </aside>
+    <footer class="glass">
+      <div class="readout">
+        <small>SNELHEID</small><strong><span id="speed">0,0</span> <em>km/u</em></strong
+        ><span id="status">Vast aan de terminal</span>
+      </div>
+      <div class="steer">
+        <small id="bowStatus" aria-live="polite">BOEG · UIT</small>
+        <div class="wheelRow">
+          <div class="wheelMount">
+            <span class="wheelIndex" aria-hidden="true">▼</span>
+            <div
+              id="helm"
+              class="helmWheel"
+              role="slider"
+              tabindex="0"
+              aria-label="Stuurwiel: draaien om roer te geven"
+              aria-valuemin="-60"
+              aria-valuemax="60"
+              aria-valuenow="0"
+            >
+              <svg viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+                <circle cx="60" cy="60" r="48" fill="#122d37" stroke="#d6c199" stroke-width="9" />
+                <circle cx="60" cy="60" r="42" fill="none" stroke="#728b8b" stroke-width="2" />
+                <path
+                  d="M60 20V48M25 80L49 66M95 80L71 66"
+                  stroke="#d6c199"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                />
+                <path d="M60 8V17" stroke="#aee7ce" stroke-width="7" stroke-linecap="round" />
+                <circle cx="60" cy="60" r="13" fill="#284b55" stroke="#d6c199" stroke-width="3" />
+                <circle cx="60" cy="60" r="4" fill="#bde1cd" />
+              </svg>
+            </div>
+          </div>
+          <button id="helmMid" aria-label="Roer midscheeps">0°</button>
+        </div>
+        <small id="helmReadout">ROER 0° · INGESTELD 0°</small>
+        <div class="bow">
+          <button data-hold="bowL">← BOEG</button><button data-hold="bowR">BOEG →</button>
+        </div>
+      </div>
+      <div class="engine">
+        <small>TELEGRAAF</small>
+        <div>
+          <button id="down" aria-label="Minder vermogen">−</button><strong id="tele">STOP</strong
+          ><button id="up" aria-label="Meer vermogen">＋</button>
+        </div>
+        <div class="notches" id="notches" hidden></div>
+        <button
+          id="stop"
+          class="stopControl"
+          aria-label="Afstoppen"
+          aria-pressed="false"
+          title="Afstoppen (S)"
+        >
+          AFSTOPPEN
+        </button>
+      </div>
+      <button id="moor" class="anchor">⚓<span>Trossen los</span><kbd>M</kbd></button>
+    </footer>
+    <div class="bottomHint">
+      ↑ ↓ telegraaf &nbsp; ← → roer &nbsp; spatie midscheeps &nbsp; Q E boeg &nbsp; S afstoppen
+      &nbsp; M afmeren &nbsp; N planning &nbsp; B winkel &nbsp; C brug/sluis &nbsp; K kaart &nbsp; T
+      snelvaart &nbsp; F camera
+    </div>
+    <dialog id="intro">
+      <div class="eyebrow">WELKOM AAN BOORD · BUNKERGURU 3D</div>
+      <h2>Jouw bunkerboot.<br />Jouw haven.</h2>
+      <p>
+        Je vaart een bunkertanker van 110 × 11 m. Laad bij de terminal van je klus (geel), vaar naar
+        het zeeschip en kom netjes langszij in de groene zone. Let op stroming, getij, verkeer en de
+        concurrenten Bunker Bert en Truus Tank. Kies een haven:
+      </p>
+      <div id="mapList" class="mapList"></div>
+      <ol>
+        <li>
+          <b>Telegraaf</b> ↑/↓: één stand per tik. De motor volgt traag; omkeren gaat via de
+          keerkoppeling.
+        </li>
+        <li>
+          <b>Roer</b> ←/→ of het stuurwiel. Het roer blijft staan; spatie of 0° zet het midscheeps.
+          Q/E boegschroef (alleen bij weinig vaart).
+        </li>
+        <li>
+          <b>Langszij</b>: vaart eruit, koers parallel, dan M = trossen vast. Aan de terminal laad
+          je door stil te liggen.
+        </li>
+        <li>
+          <b>Planning</b> (N): zes klussen met ETA of hoogwater. Op tijd en schadevrij = bonus en
+          reputatie.
+        </li>
+        <li>
+          <b>Winkel</b> (B, aan een terminal): motor, boegschroef, tanks, fenders, pomp.
+          <b>Werf</b> (W): reparatie. <b>Wachtplaats</b> (P): rusten.
+        </li>
+      </ol>
+      <button class="primary" id="start">Aan boord →</button
+      ><button class="subtle" id="handling">Vaargedrag: schipper</button
+      ><button class="subtle" id="tempo">Vaartempo 3× · zoals 2D</button
+      ><button class="subtle" id="graphics">Beeld: automatisch</button>
+      <p class="graphicsHint">
+        Schipper = het vaarmodel van het 2D-spel (massatraagheid, drift, stroom). Arcade = geholpen
+        en vergevingsgezind. Loopt het stroef? Tik op Beeld voor de zuinige stand.
+      </p>
+      <button class="subtle" id="rescue">Pechhulp · terug naar start · 100 🪙</button>
+      <small class="credit"><a href="../">← Klassieke 2D-versie</a> · shipdocs/bunkerguru</small>
+    </dialog>
+    <dialog id="port" class="port">
+      <div class="eyebrow" id="portEyebrow">HAVENKANTOOR</div>
+      <h2 id="portTitle">Planning</h2>
+      <p id="portStats"></p>
+      <div class="tabs">
+        <button id="tabJobs">Planning</button><button id="tabShop">Winkel</button
+        ><button id="tabService">Haven</button>
+      </div>
+      <section id="portJobs">
+        <p id="planInfo"></p>
+        <div id="offers"></div>
+        <p id="rank" class="muted"></p>
+      </section>
+      <section id="portShop" hidden>
+        <p id="shopInfo"></p>
+        <div id="shopList"></div>
+        <p id="shopMessage" role="status"></p>
+      </section>
+      <section id="portService" hidden>
+        <p id="serviceState"></p>
+        <h3>Andere haven</h3>
+        <div id="mapList2" class="mapList"></div>
+        <hr />
+        <h3>Pech op het water?</h3>
+        <p>
+          Pechhulp sleept je naar het startpunt van de haven voor 100 🪙. Je klus blijft staan, de
+          lading vervalt.
+        </p>
+        <button id="tow" class="subtle">Pechhulp inschakelen · 100 🪙</button>
+        <hr />
+        <button id="restart" class="subtle">Nieuwe carrière beginnen</button>
+        <div id="resetConfirm" hidden>
+          <p>Je goud, klussen, reputatie en upgrades worden gewist. Zeker weten?</p>
+          <button id="confirmReset">Ja, opnieuw beginnen</button
+          ><button id="cancelReset">Annuleren</button>
+        </div>
+      </section>
+      <button id="closePort" class="primary">Nu even niet · vrij varen →</button>
+    </dialog>
+    <div id="failure" hidden>
+      De 3D-weergave kon niet starten. Probeer een browser met WebGL en ingeschakelde
+      hardwareversnelling.
+    </div>
+    <script type="module" src="src/main.mjs"></script>
+  </body>
+</html>
