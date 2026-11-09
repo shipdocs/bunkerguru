@@ -137,3 +137,21 @@ test('race twist: with one idle rival, it races instead of taking another job', 
   assert(world.rivals[0].racing, 'the only idle rival races');
   assert(!s.offers.some((x) => x.taken), 'no other job was taken');
 });
+
+test('arcade: a restarted engine gives no power for its start-up seconds', async () => {
+  const { playStep } = await import('../src/game/play-vessel.mjs');
+  const s = {
+    ...fresh(),
+    x: 0,
+    z: 0,
+    h: 0,
+    moored: false,
+    handling: 'arcade',
+    timeScale: 1,
+    startT: 3,
+  };
+  for (let i = 0; i < 60; i++) playStep(s, 1 / 60, {}, undefined, undefined, 1);
+  assert.equal(s.rpm, 0, 'still starting after 1 s');
+  for (let i = 0; i < 60 * 3; i++) playStep(s, 1 / 60, {}, undefined, undefined, 1);
+  assert(s.rpm > 0, 'running after start-up');
+});

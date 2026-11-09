@@ -7,10 +7,15 @@ import { clamp } from './math.mjs';
 // shear over the hull), expressed in the 3D frame. u = ahead, v = starboard (m/s, over
 // ground); x east, z south; heading h in radians, positive turns to starboard.
 // currentAt(x, z) returns the water velocity {x, z} in m/s; wind {x, z} is optional.
+// Feel (3D, on request): the hull picks up speed a bit quicker and loses it a bit
+// slower than engine.js. Same forces, same top speed and stopping point of balance:
+// only how fast the speed moves towards it. {up: 1, down: 1} gives engine.js exactly.
+export const FEEL = { up: 1.3, down: 0.75 };
 export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0, env = {}) {
   const p = profileOf(s);
   const currentAt = env.currentAt || (() => ({ x: 0, z: 0 }));
   const up = env.upgrades || {};
+  const feel = env.feel || FEEL;
   const total = clamp(dt, 0, 0.05) * timeScaleOf(s);
   const count = Math.max(1, Math.ceil(total / (1 / 60))),
     h = total / count;
@@ -23,6 +28,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
   for (let i = 0; i < count; i++) {
     if (s.moored) {
       s.u = s.v = s.r = 0;
+      if (s.engineOff) s.rpm = 0; // a stopped engine stays stopped while moored
       s.rudder += (s.rudderCmd - s.rudder) * Math.min(1, h * 1.5);
       s.braking = false;
       continue;
@@ -59,7 +65,8 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     s.tele = wanted;
     const want = Math.sign(wanted);
     // engine.js: blackout = engine stops at 0.5/s, no clutch, no bow thruster.
-    if (s.blackout > 0) s.rpm += clamp(-s.rpm, -0.5 * h, 0.5 * h);
+    // Engine switched off (O): it runs down like a blackout and ignores the telegraph.
+    if (s.blackout > 0 || s.engineOff) s.rpm += clamp(-s.rpm, -0.5 * h, 0.5 * h);
     else if (s.startT > 0) s.startT -= h;
     else if (want !== 0 && s.engDir !== want) {
       const wasRunning = s.engDir !== 0;
@@ -106,7 +113,11 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     const bowF = 0.04 * bowK * Math.max(0, 1 - Math.abs(u) / 3.5);
     const yawK = yawFactor(p);
     const dr = (rudForce * 0.06 + bow * bowF) * yawK - s.r * 0.9 - s.r * Math.abs(s.r) * 2.0;
-    u += (du + wu - rudDrag * u * Math.abs(u) * 0.06) * h;
+    // Feel: the whole fore-and-aft force (engine, drag, wind, rudder) is scaled, so
+    // every point of balance stays where engine.js has it; only the pace changes.
+    // Speeding up (force along the motion, or from rest): feel.up; slowing: feel.down.
+    const fu = du + wu - rudDrag * u * Math.abs(u) * 0.06;
+    u += fu * (fu * u >= 0 ? feel.up : feel.down) * h;
     v += (dv + wv - rudForce * 0.3 + bow * bowF * 4.5) * h;
     s.r += dr * h;
     // Stroomschering: kop en hek in verschillende stroom geven een draaimoment.

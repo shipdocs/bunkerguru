@@ -61,7 +61,7 @@ function oracle({
 function run({ current, wind, cargo = 500, target = 500 }) {
   const s = { ...fresh(), x: 0, z: 0, h: 0, cargo, target, moored: false, timeScale: 3 },
     o = oracle({ current, wind, cargo, target }),
-    env = { currentAt: () => current || { x: 0, z: 0 }, wind };
+    env = { currentAt: () => current || { x: 0, z: 0 }, wind, feel: { up: 1, down: 1 } };
   for (let i = 0; i < 4200; i++) {
     const dt = 1 / 60;
     s.teleIdx = i < 1800 ? 8 : i < 2400 ? 3 : 0;
@@ -147,4 +147,75 @@ test('current carries a stopped ship; AFSTOPPEN uses the engine astern, then STO
   }
   assert(astern, 'used the engine astern');
   assert(!b.braking && b.teleIdx === 3 && Math.abs(b.u) < 0.3);
+});
+
+test('feel: picks up speed quicker and coasts longer than engine.js, same top speed', async () => {
+  const { FEEL } = await import('../src/game/sim-vessel.mjs');
+  const run = (feel) => {
+    const s = { ...fresh(), x: 0, z: 0, h: 0, cargo: 0, moored: false, timeScale: 3, teleIdx: 8 };
+    let t20 = 0;
+    for (let i = 0; i < 60 * 60; i++) {
+      simStep(s, 1 / 60, {}, undefined, undefined, TELE[s.teleIdx], { feel });
+      if (i === 60 * 2) t20 = s.u;
+    }
+    const top = s.u;
+    s.teleIdx = 3;
+    const z0 = s.z;
+    for (let i = 0; i < 60 * 60 && s.u > 0.3; i++)
+      simStep(s, 1 / 60, {}, undefined, undefined, TELE[s.teleIdx], { feel });
+    return { early: t20, top, coast: z0 - s.z };
+  };
+  const base = run({ up: 1, down: 1 }),
+    game = run(FEEL);
+  assert(game.early > base.early * 1.1, 'quicker off the mark');
+  assert(Math.abs(game.top - base.top) < 0.05, 'same top speed');
+  assert(game.coast > base.coast * 1.15, 'longer run-out after STOP');
+});
+test('engine off: the telegraph does nothing and the engine runs down', () => {
+  const s = { ...fresh(), x: 0, z: 0, h: 0, moored: false, timeScale: 3, teleIdx: 8 };
+  for (let i = 0; i < 60 * 20; i++) simStep(s, 1 / 60, {}, undefined, undefined, TELE[s.teleIdx]);
+  assert(s.rpm > 0.5);
+  s.engineOff = true;
+  for (let i = 0; i < 60 * 10; i++) simStep(s, 1 / 60, {}, undefined, undefined, TELE[s.teleIdx]);
+  assert(Math.abs(s.rpm) < 0.01, 'engine stopped');
+});
+
+test('feel keeps the point of balance with wind and rudder too', async () => {
+  const { FEEL } = await import('../src/game/sim-vessel.mjs');
+  const top = (feel) => {
+    const s = {
+      ...fresh(),
+      x: 0,
+      z: 0,
+      h: 0,
+      cargo: 0,
+      moored: false,
+      timeScale: 3,
+      teleIdx: 7,
+      rudder: 0.4,
+      rudderCmd: 0.4,
+    };
+    for (let i = 0; i < 60 * 90; i++)
+      simStep(s, 1 / 60, {}, undefined, undefined, TELE[s.teleIdx], {
+        feel,
+        wind: { x: 0.6, z: 0.6 },
+      });
+    return s.u;
+  };
+  assert(Math.abs(top(FEEL) - top({ up: 1, down: 1 })) < 0.05);
+});
+test('engine switched off while moored stays stopped after casting off', () => {
+  const s = {
+    ...fresh(),
+    x: 0,
+    z: 0,
+    h: 0,
+    moored: true,
+    timeScale: 3,
+    rpm: 0.6,
+    engDir: 1,
+    engineOff: true,
+  };
+  simStep(s, 1 / 60, {}, undefined, undefined, TELE[8]);
+  assert.equal(s.rpm, 0);
 });

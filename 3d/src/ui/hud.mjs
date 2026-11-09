@@ -103,6 +103,7 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
     $('progress').style.width = Math.min(100, (s.cargo / Math.max(1, s.target)) * 100) + '%';
     const heading = Math.round(((((s.h * 180) / Math.PI) % 360) + 360) % 360);
     $('status').textContent =
+      (s.engineOff ? 'MOTOR UIT (O) · ' : s.startT > 0 && !s.engDir ? 'motor start… · ' : '') +
       (s.moored
         ? 'Vastgemaakt'
         : 'Koers ' + heading + '° · roer ' + Math.round(s.rudder * SHIP.maxRudder) + '°') +

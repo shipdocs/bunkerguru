@@ -31,6 +31,7 @@ export function bindHelm({
     }
     if (getState().phase === 'sunk') return;
     getState().braking = false;
+    if (getState().engineOff) toast('Motor staat uit – O = starten');
     getState().teleIdx = nextTelegraph(getState().teleIdx, v, getState().handling !== 'arcade');
   }
   function setHelm(degrees) {

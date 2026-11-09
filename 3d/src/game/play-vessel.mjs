@@ -32,13 +32,14 @@ export function playStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 
       s.braking = false;
       continue;
     }
-    const wanted = stopping ? 0 : tele,
+    // Engine off, or starting up again (O): no power yet.
+    if (s.startT > 0) s.startT = Math.max(0, s.startT - h);
+    const wanted = stopping || s.engineOff || s.startT > 0 ? 0 : tele,
       direction = Math.sign(wanted);
     if (direction !== 0 && direction !== s.engDir) {
       onClutch(s.engDir !== 0);
       s.engDir = direction;
     }
-    s.startT = 0;
     s.tele = wanted;
     s.rpm = approach(s.rpm || 0, wanted, (stopping ? 2 : 1.1) * h);
     if (!direction && Math.abs(s.rpm) < 0.001) s.engDir = 0;
