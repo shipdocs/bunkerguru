@@ -92,6 +92,7 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
           (s.lastJob.onTime ? ' +' + s.lastJob.bonus + ' op tijd' : ' (te laat: korting)') +
           (s.lastJob.clean ? ' +150 schadevrij' : '') +
           (s.lastJob.vts ? ' +' + s.lastJob.vts + ' VTS' : '') +
+          (s.lastJob.tip ? ' +' + s.lastJob.tip + ' fooi' : '') +
           ' = ' +
           s.lastJob.total +
           ' 🪙' +

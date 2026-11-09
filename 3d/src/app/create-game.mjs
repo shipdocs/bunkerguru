@@ -7,6 +7,7 @@ import { radioChatter } from '../game/chatter.mjs';
 import { renderYaw } from '../game/vessel.mjs';
 import { fresh, step, createWorldState, takeJob } from '../game/simulation.mjs';
 import { nearestGate, callGate } from '../game/gates.mjs';
+import { fastTravel, planFastTravel } from '../game/fast-travel.mjs';
 import { createWorld } from '../render/world.mjs';
 import { createNavigationEffects } from '../render/navigation-effects.mjs';
 import { createCameraController } from '../render/camera-controller.mjs';
@@ -54,7 +55,9 @@ export function createGame({ createRenderer } = {}) {
     time = 0,
     last = performance.now(),
     saveTimer = 0,
-    toastTime = 0;
+    toastTime = 0,
+    shake = 0,
+    fade = 0;
   const keys = {};
   const clock = createSimulationClock();
   function toast(t, seconds = 4) {
@@ -75,7 +78,10 @@ export function createGame({ createRenderer } = {}) {
   }
   const fx = {
     say: toast,
-    sound: (name, ...args) => sound.fx(name, ...args),
+    sound: (name, ...args) => {
+      if (name === 'hit') shake = Math.min(1, 0.3 + (args[0] || 0) / 12);
+      sound.fx(name, ...args);
+    },
     radio: (lines) => radio.say(lines, 'nl'),
     board: () => {
       if (MAP.id !== 'training')
@@ -85,12 +91,14 @@ export function createGame({ createRenderer } = {}) {
         );
     },
     done: (r) => {
+      coinFly(r.total);
       toast(
         '✅ Klaar! 🪙 +' +
           r.pay +
           ' vracht' +
           (r.onTime ? ' +' + r.bonus + ' op tijd' : ' (te laat: korting)') +
           (r.clean ? ' +150 schadevrij' : '') +
+          (r.tip ? ' +' + r.tip + ' fooi' : '') +
           ' = ' +
           r.total +
           ' 🪙' +
@@ -131,7 +139,18 @@ export function createGame({ createRenderer } = {}) {
     }
     return ok;
   }
+  function doFastTravel() {
+    if (!started || paused) return;
+    const msg = fastTravel(s, sim, fx);
+    if (msg.startsWith('⏩')) {
+      clock.reset();
+      fade = 1;
+      save();
+    }
+    toast(msg, 6);
+  }
   const actions = {
+    fast: doFastTravel,
     board: () => (started && !paused ? openPort('jobs') : null),
     shop: () => (started && !paused ? openPort('shop') : null),
     gate: () => started && !paused && toast(callGate(nearestGate(sim.gates, s))),
@@ -236,6 +255,40 @@ export function createGame({ createRenderer } = {}) {
     toast,
   });
   $('horn').onclick = () => sound.horn();
+  $('fastBtn').onclick = doFastTravel;
+  function showDockStamp(e) {
+    const el = $('dockStamp');
+    el.innerHTML =
+      '<b>' +
+      '⚓'.repeat(e.anchors) +
+      '<i>' +
+      '⚓'.repeat(3 - e.anchors) +
+      '</i></b><span>' +
+      e.label +
+      '</span><small>' +
+      e.speed.toFixed(1).replace('.', ',') +
+      ' km/u' +
+      (e.kind === 'ship' ? ' · ' + Math.round(e.angle) + '°' : '') +
+      ' · ' +
+      Math.round(e.gap) +
+      ' m vrij' +
+      (e.tip ? ' · fooi +' + e.tip + ' 🪙' : '') +
+      '</small>';
+    el.className = '';
+    void el.offsetWidth;
+    el.className = 'show a' + e.anchors;
+    if (e.anchors === 3) {
+      sound.fx('coin');
+      sound.horn();
+    } else sound.fx('rope');
+  }
+  function coinFly(n) {
+    const el = $('coinFly');
+    el.textContent = '+' + n + ' 🪙';
+    el.className = '';
+    void el.offsetWidth;
+    el.className = 'fly';
+  }
   $('gateBtn').onclick = actions.gate;
   $('radioBtn').onclick = toggleRadio;
   $('audio').onclick = () => {
@@ -288,6 +341,8 @@ export function createGame({ createRenderer } = {}) {
   $('map').onclick = () => $('chartPanel').classList.toggle('expanded');
   const updateHud = createHud({ $, keys, vesselProfile, camera, chart, zones: effects.zones });
   function ui() {
+    const plan = s.job && !s.moored && started ? planFastTravel(s, sim) : null;
+    $('fastBtn').hidden = !plan?.ok;
     // Panels step back while underway (desktop CSS), full again when moored or slow.
     document.body?.classList?.toggle?.('underway', !s.moored && Math.hypot(s.u, s.v) > 0.5);
     updateHud(s, paused, sim);
@@ -324,14 +379,29 @@ export function createGame({ createRenderer } = {}) {
     waterMat.uniforms.time.value = time;
     const sinking = s.phase === 'sunk' ? Math.min(1, (s.sinkT || 0) / 4) : 0;
     boat.position.set(s.x, Math.sin(time * 1.2) * 0.07 - sinking * 8, s.z);
+    // Damage shows: the ship lists and trims as she takes on water.
+    const list = Math.min(1, s.damage / 100) * 0.07;
     boat.rotation.set(
-      Math.sin(time * 0.7) * 0.003 + sinking * 0.3,
+      Math.sin(time * 0.7) * 0.003 + sinking * 0.3 + list * 0.3,
       renderYaw(s.h),
-      Math.sin(time) * 0.004,
+      Math.sin(time) * 0.004 + list,
     );
     world.updateDynamic(sim, time);
     sound.update(s, playing, keys);
     cameraControl.update(s, dt);
+    if (shake > 0) {
+      camera.position.x += (Math.random() - 0.5) * shake * 3;
+      camera.position.y += (Math.random() - 0.5) * shake * 2;
+      shake = Math.max(0, shake - dt * 2.5);
+    }
+    if (s.dockEvent) {
+      showDockStamp(s.dockEvent);
+      s.dockEvent = null;
+    }
+    if (fade > 0) {
+      fade = Math.max(0, fade - dt * 1.5);
+      document.body?.style?.setProperty?.('--fade', String(fade));
+    }
     scenery.update(s.clock, camera, quality, paused || !started);
     effects.updateWake(s, dt, quality, paused);
     hudElapsed += dt;

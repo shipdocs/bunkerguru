@@ -198,6 +198,7 @@ function startJob(s) {
     deliver: 0,
     jobDamage: s.damage,
     vtsBonus: 0,
+    dockTip: 0,
   });
 }
 export function deadlineText(s) {
@@ -226,8 +227,9 @@ export function settle(s) {
   const pay = onTime ? base2 : Math.round(base2 * Math.max(0.5, 1 - late / Math.max(60, j.est))),
     bonus = onTime ? Math.round(base2 * 0.25) : 0,
     clean = s.damage < 0.5 ? 150 : 0; // engine.js: no damage at all, not just no new damage
-  const total = pay + bonus + clean + (s.vtsBonus || 0);
-  const result = { pay, bonus, clean, onTime, late, frac, total, vts: s.vtsBonus || 0 };
+  const tip = s.dockTip || 0;
+  const total = pay + bonus + clean + (s.vtsBonus || 0) + tip;
+  const result = { pay, bonus, clean, onTime, late, frac, total, vts: s.vtsBonus || 0, tip };
   s.phase = 'done';
   s.doneT = 0;
   s.lastJob = result;

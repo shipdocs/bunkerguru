@@ -37,9 +37,111 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
   }
   const loadZone = zone('#ffe46b'),
     deliverZone = zone('#62e6b0');
+  // Beacon over the destination: a light column, a flag and a pulsing ring, so the
+  // place you are heading for is the clearest thing in the harbour.
+  const beacon = new T.Group();
+  const beamMat = new T.MeshBasicMaterial({
+    color: '#7dffc4',
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+  });
+  const beamMesh = new T.Mesh(new T.CylinderGeometry(1.6, 3.2, 70, 12, 1, true), beamMat);
+  beamMesh.position.y = 35;
+  beacon.add(beamMesh);
+  const flagMat = new T.MeshBasicMaterial({ color: '#7dffc4', side: T.DoubleSide });
+  const flag = new T.Mesh(new T.PlaneGeometry(14, 8), flagMat);
+  flag.position.set(7, 66, 0);
+  beacon.add(flag);
+  const pole = new T.Mesh(
+    new T.CylinderGeometry(0.35, 0.35, 70, 6),
+    new T.MeshBasicMaterial({ color: '#f2efe2' }),
+  );
+  pole.position.y = 35;
+  beacon.add(pole);
+  const ringMat = new T.MeshBasicMaterial({
+    color: '#7dffc4',
+    transparent: true,
+    opacity: 0.6,
+    depthWrite: false,
+    side: T.DoubleSide,
+  });
+  const ring = new T.Mesh(new T.RingGeometry(16, 19, 48), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.8;
+  beacon.add(ring);
+  beacon.visible = false;
+  scene.add(beacon);
+  let pulse = 0;
+  // Smoke from a damaged ship: grey puffs from the funnel, heavier as damage grows.
+  const smokeTex = (() => {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext?.('2d');
+    if (!g?.createRadialGradient) return null;
+    const r = g.createRadialGradient(32, 32, 4, 32, 32, 30);
+    if (!r) return null;
+    r.addColorStop(0, 'rgba(255,255,255,1)');
+    r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r;
+    g.fillRect(0, 0, 64, 64);
+    return new T.CanvasTexture(c);
+  })();
+  const smoke = [];
+  for (let i = 0; i < 28; i++) {
+    const sp = new T.Sprite(
+      new T.SpriteMaterial({
+        map: smokeTex,
+        color: '#55585a',
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }),
+    );
+    sp.visible = false;
+    scene.add(sp);
+    smoke.push({ sp, life: 0, vx: 0, vz: 0 });
+  }
+  let smokeIdx = 0,
+    smokeTick = 0;
+  function updateSmoke(s, dt, paused) {
+    smokeTick += dt;
+    const heavy = Math.max(0, (s.damage - 35) / 65);
+    if (heavy > 0 && !paused && smokeTick > 0.35 - heavy * 0.2) {
+      smokeTick = 0;
+      const p = smoke[smokeIdx++ % smoke.length];
+      const back = vesselProfile.length * 0.33;
+      p.sp.position.set(s.x - Math.sin(s.h) * back, 16, s.z + Math.cos(s.h) * back);
+      p.life = 1;
+      p.vx = (Math.random() - 0.5) * 1.5;
+      p.vz = (Math.random() - 0.5) * 1.5;
+      p.sp.material.color.set(heavy > 0.6 ? '#2f3133' : '#6b6e70');
+      p.sp.visible = true;
+    }
+    for (const p of smoke) {
+      if (p.life <= 0) continue;
+      p.life -= dt * 0.22;
+      p.sp.position.x += p.vx * dt;
+      p.sp.position.z += p.vz * dt;
+      p.sp.position.y += dt * 6;
+      const sz = 6 + (1 - p.life) * 22;
+      p.sp.scale.set(sz, sz, 1);
+      p.sp.material.opacity = Math.max(0, p.life) * 0.55;
+      p.sp.visible = p.life > 0;
+    }
+  }
   const zones = {
     update(s) {
       const t = target(s);
+      beacon.visible = !!t && !s.moored && s.phase !== 'bunker';
+      if (t) {
+        beacon.position.set(t.x, 0, t.z);
+        const col = t.kind === 'ship' ? '#7dffc4' : '#ffd84a';
+        beamMat.color.set(col);
+        flagMat.color.set(col);
+        ringMat.color.set(col);
+      }
       loadZone.show(s.phase === 'load');
       deliverZone.show(s.phase === 'sail' || s.phase === 'bunker');
       if (s.phase === 'load') loadZone.place(terminalOf(s));
@@ -87,6 +189,16 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
   let foamIdx = 0,
     foamTick = 0;
   function updateWake(s, dt, quality, paused) {
+    pulse += dt;
+    if (beacon.visible) {
+      const k = (pulse % 1.6) / 1.6;
+      ring.scale.setScalar(0.6 + k * 1.2);
+      ringMat.opacity = 0.7 * (1 - k);
+      flag.rotation.y = Math.sin(pulse * 3) * 0.25;
+      // Keep the beacon readable from far away without dominating close up.
+      beamMat.opacity = 0.18 + 0.12 * Math.sin(pulse * 2.5) ** 2;
+    }
+    updateSmoke(s, dt, paused);
     foamTick += dt;
     const power = Math.abs(s.rpm || 0);
     if ((Math.abs(s.u) > 0.25 || power > 0.12) && foamTick > 0.08 && !paused && !s.moored) {

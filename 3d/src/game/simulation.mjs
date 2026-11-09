@@ -8,6 +8,7 @@ import { createTraffic, updateTraffic } from './traffic.mjs';
 import { createGates, updateGates } from './gates.mjs';
 import { createRivals, updateRivals, rivalStartJob, saveRivals } from './rivals.mjs';
 import { createEvents, eventTick } from './events.mjs';
+import { dockRating } from './docking.mjs';
 import {
   MAP,
   LOGIC,
@@ -86,6 +87,11 @@ export function act(s) {
   }
   const c = mooringCandidate(s);
   if (!c.ok) return 'Kan niet vastmaken: ' + c.why;
+  // Rate the manoeuvre before the lines take the speed off.
+  if (c.to.kind !== 'wait') {
+    s.dockEvent = dockRating(s, c.to);
+    if (c.to.kind === 'ship') s.dockTip = s.dockEvent.tip;
+  }
   s.moored = true;
   s.mooredTo = c.to;
   s.braking = false;
@@ -260,10 +266,19 @@ function logicStep(s, world, dt, fx) {
     s.phase = 'sunk';
     s.sinkT = 0;
     s.teleIdx = 3;
-    const loss = MAP.id === 'training' ? 0 : Math.round(s.gold / 2);
+    // A story, not a wipe-out: the insurer pays most, the client remembers it.
+    const loss = MAP.id === 'training' ? 0 : Math.round(s.gold * 0.25);
     s.gold -= loss;
+    if (s.job) addRep(s, s.job.client, -5);
+    s.sinkLoss = loss;
     fx.sound('sink');
-    fx.say('🫧 Gezonken! Verzekering betaalt de helft: −' + loss + ' 🪙. Nieuwe boot volgt…', 6);
+    fx.say(
+      '🫧 Gezonken! De sleepboot brengt je naar de werf. Eigen risico −' +
+        loss +
+        ' 🪙' +
+        (s.job ? ', reputatie −5.' : '.'),
+      7,
+    );
   }
   if (s.phase === 'sunk') {
     s.sinkT += dt;
@@ -271,21 +286,39 @@ function logicStep(s, world, dt, fx) {
     s.v *= 0.9;
     s.r *= 0.9;
     if (s.sinkT > 5) {
+      // Raised and towed to the yard (W): lying there, still damaged, repairs start.
+      const yard = waits.find((w) => w.yard);
+      const off = yard
+        ? yard.wall * ((yard.alongZ ? yard.x1 - yard.x0 : yard.z1 - yard.z0) / 2 - 7)
+        : 0;
+      const spot = yard
+        ? {
+            x: yard.alongZ ? yard.x + off : yard.x,
+            z: yard.alongZ ? yard.z : yard.z + off,
+            h: yard.h,
+          }
+        : MAP.start;
       Object.assign(s, {
-        x: MAP.start.x,
-        z: MAP.start.z,
-        h: MAP.start.h,
+        x: spot.x,
+        z: spot.z,
+        h: spot.h,
         u: 0,
         v: 0,
         r: 0,
-        damage: 0,
+        damage: yard ? 45 : 0,
         rudder: 0,
         rudderCmd: 0,
         cargo: 0,
         rpm: 0,
+        engDir: 0,
+        startT: 0,
       });
+      if (yard) {
+        s.moored = true;
+        s.mooredTo = { kind: 'wait', id: yard.id };
+      }
       s.phase = s.job ? 'load' : 'free';
-      fx.board();
+      fx.say('🔧 Op de werf. Reparatie loopt (3 🪙/pt); M = los als je verder wilt.', 6);
     }
     return;
   }
@@ -372,6 +405,12 @@ function logicStep(s, world, dt, fx) {
   }
 }
 function beginBunker(s, fx) {
+  // Held alongside without lines: rate that too (once per job).
+  if (!s.moored && s.job) {
+    const b = berthOf(s);
+    s.dockEvent = dockRating(s, { kind: 'ship', id: b.id });
+    s.dockTip = s.dockEvent.tip;
+  }
   s.phase = 'bunker';
   s.deliver = s.cargo;
   s.bunkerT = 0;
