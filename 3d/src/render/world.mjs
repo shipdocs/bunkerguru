@@ -56,8 +56,17 @@ export function createWorld({
     },
     vertexShader: `varying vec3 d;void main(){d=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader: `varying vec3 d;uniform vec3 top;uniform vec3 low;uniform vec3 sunDir;uniform float glow;
-void main(){float h=clamp(d.y,0.,1.);vec3 c=mix(low,top,pow(h,.42));float s=max(dot(normalize(d),sunDir),0.);
-c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.);
+float hs(float x){return fract(sin(x*127.1)*43758.5453);}
+float vn(float x){float i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(hs(i),hs(i+1.),f);}
+void main(){vec3 n=normalize(d);float h=clamp(n.y,0.,1.);vec3 c=mix(low,top,pow(h,.36));
+float s=max(dot(n,sunDir),0.);
+c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;
+// The far shore: a hazy line of trees, roofs and the odd tower all round the horizon.
+float a=atan(n.z,n.x)*40.,y=n.y*100.;float trees=.35+vn(a*1.7)*.5+vn(a*9.)*.22;
+float town=step(.62,vn(a*.23+7.))*step(.45,hs(floor(a*6.)))*(.5+hs(floor(a*6.)+.5)*1.3);
+float tower=step(.965,hs(floor(a*3.)+9.))*step(.2,fract(a*3.))*step(fract(a*3.),.5)*2.6;
+float land=max(trees,max(town,tower));
+c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y));gl_FragColor=vec4(c,1.);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
 }`,
@@ -71,25 +80,27 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
   sky.renderOrder = -1;
   sky.onBeforeRender = (r, sc, cam) => sky.position.copy(cam.position);
   scene.add(sky);
-  const hemi = new T.HemisphereLight('#eaf6ff', '#8fae6e', 2.2);
+  const hemi = new T.HemisphereLight('#d6e9ff', '#b7a78c', 2.2);
   scene.add(hemi);
   const sun = new T.DirectionalLight('#ffe2b0', 3.1);
   sun.position.set(-220, 220, 160);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
+  // A wide shadow box: the quays you sail past keep their shadows, not just the boat.
+  sun.shadow.mapSize.set(quality.shadowSize * 2, quality.shadowSize * 2);
   Object.assign(sun.shadow.camera, {
-    left: -420,
-    right: 420,
-    top: 400,
-    bottom: -400,
-    near: 1,
-    far: 1000,
+    left: -640,
+    right: 640,
+    top: 620,
+    bottom: -620,
+    near: -600, // orthographic: also catch what stands between the boat and the sun
+    far: 1400,
   });
   sun.shadow.bias = -0.0005;
+  sun.shadow.normalBias = 0.4;
   scene.add(sun);
   const primitives = createPrimitives(scene);
   const { mesh, box, cyl, textSprite } = primitives;
-  const waterMat = createWater(mesh, MAP);
+  const waterMat = createWater(mesh, MAP, quality);
   const ship = createShipFactory(scene, primitives);
   // Land: a block per map rectangle, sides in the district colour, and a top with a
   // painted ground pattern (paving, concrete slabs, meadow) in world-size tiles.
@@ -99,10 +110,10 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
   const groundMat = (kind, col) => {
     const key = kind + col;
     if (!tops.has(key)) {
-      const tex = groundTexture(kind, col);
+      const tex = groundTexture(kind, col, quality.light ? 512 : 1024);
       tex.wrapS = tex.wrapT = T.RepeatWrapping;
       tex.colorSpace = T.SRGBColorSpace;
-      tex.anisotropy = 4;
+      tex.anisotropy = 8;
       tops.set(key, new T.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 }));
     }
     return tops.get(key);
@@ -357,6 +368,9 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
     hemi.intensity = look.hemi * (1 - gloom * 0.15);
     renderer.toneMappingExposure = look.exposure;
     waterMat.uniforms.night.value = look.night;
+    const lit = Math.max(0, (look.night - 0.2) / 0.8);
+    scenery.setNight(lit);
+    landmarks.setNight(lit);
     // Linear, like the rest of the shader: colorspace_fragment encodes the result.
     tmp.copy(scene.fog.color);
     waterMat.uniforms.fogCol.value.set(tmp.r, tmp.g, tmp.b);
@@ -431,6 +445,7 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
     // Fog incident: thick fog, otherwise light haze.
     const fog = world.events.fog > 0 ? 0.0045 : 0.00026 + wet * 0.0007;
     scene.fog.density += (fog - scene.fog.density) * 0.02;
+    waterMat.uniforms.fogDensity.value = scene.fog.density;
   }
   void waterAt;
   return {

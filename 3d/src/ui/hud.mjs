@@ -17,6 +17,7 @@ import { tideState, landAt } from '../maps/index.mjs';
 import { rankOf } from '../game/career.mjs';
 import { TELE_NAMES } from '../game/vessel.mjs';
 import { SHIP } from '../game/ship-profile.mjs';
+import { hintFor, isTouch } from './touch-text.mjs';
 const nl = (v, d = 1) => v.toFixed(d).replace('.', ',');
 // Free water beside the hull, port (−1) or starboard (+1): the smallest gap to land
 // measured from bow, midships and stern, up to 150 m. For the wheelhouse view, where
@@ -41,6 +42,9 @@ export function sideClearance(s, side, profile) {
   return best;
 }
 export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
+  const hint = hintFor(isTouch());
+  // Light up the control the skipper needs next (phones show it as a soft pulse).
+  const cue = (id, on) => $(id).classList.toggle('cue', !!on);
   return function update(s, paused, world) {
     const q = readiness(s),
       t = target(s),
@@ -193,7 +197,16 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
     else if (s.phase === 'bunker')
       [title, text] = ['Bunkeren', 'Bunkeren… ' + Math.round(s.cargo) + ' t aan boord'];
     $('missionTitle').textContent = title;
-    $('missionText').textContent = text;
+    $('missionText').textContent = hint(text);
+    // What now? Cast off when the job is on board or done here, make fast when the
+    // berth accepts it, and give some throttle when lying free and still.
+    const still = sp < 0.3,
+      going = !!job && (s.phase === 'load' || s.phase === 'sail'),
+      canMoor = !s.moored && !!t && q.inZone && q.speed < MOOR_KMH,
+      castOff = !!s.moored && going && !s.pumping && (s.phase === 'sail' || !atTerminal(s));
+    cue('moor', !paused && (canMoor || castOff));
+    cue('up', !paused && going && !s.moored && still && s.teleIdx === 3 && !q.inZone);
+    cue('next', !job || s.phase === 'done');
     const left = timeLeft(s);
     $('deadline').innerHTML = job
       ? (deadlineText(s)
@@ -209,8 +222,9 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
       : '';
     $('reward').textContent = job ? job.pay + ' 🪙' : '–';
     $('next').hidden = !!job && s.phase !== 'done';
-    $('next').textContent =
-      MAP.id === 'training' ? 'Oefenklus / havenkantoor (N) →' : 'Planning openen (N) →';
+    $('next').textContent = hint(
+      MAP.id === 'training' ? 'Oefenklus / havenkantoor (N) →' : 'Planning openen (N) →',
+    );
     for (let i = 1; i <= 3; i++)
       $('stage' + i).classList.toggle(
         'active',
@@ -245,23 +259,25 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
     const gate = world.gates.find(
       (g) => Math.hypot((g.x0 + g.x1) / 2 - s.x, (g.z0 + g.z1) / 2 - s.z) < 700,
     );
-    $('vts').textContent = ev.vts
-      ? '📻 VTS: wacht buiten de monding tot ' + ev.vts.sh.name + ' gepasseerd is'
-      : gate
-        ? (gate.state === 'open' ? '🟢 ' : gate.state === 'prep' ? '🟡 ' : '🔴 ') +
-          gate.name +
-          (gate.state === 'closed'
-            ? ' dicht · C = oproepen'
-            : gate.state === 'prep'
-              ? ' gaat open…'
-              : ' open')
-        : s.damage >= 40
-          ? '⚠ Schade ' + Math.round(s.damage) + ': lekkage. Werf (W) repareert.'
-          : s.fatigue >= 80
-            ? '🥱 Moe: rust uit aan een wachtplaats (P).'
-            : near
-              ? 'VTS · Verkeer dichtbij. Houd stuurboordwal en geef ruimte.'
-              : 'VTS · ' + (MAP.radio?.sectors?.[0] || MAP.name) + ' · ' + tide.label;
+    $('vts').textContent = hint(
+      ev.vts
+        ? '📻 VTS: wacht buiten de monding tot ' + ev.vts.sh.name + ' gepasseerd is'
+        : gate
+          ? (gate.state === 'open' ? '🟢 ' : gate.state === 'prep' ? '🟡 ' : '🔴 ') +
+            gate.name +
+            (gate.state === 'closed'
+              ? ' dicht · C = oproepen'
+              : gate.state === 'prep'
+                ? ' gaat open…'
+                : ' open')
+          : s.damage >= 40
+            ? '⚠ Schade ' + Math.round(s.damage) + ': lekkage. Werf (W) repareert.'
+            : s.fatigue >= 80
+              ? '🥱 Moe: rust uit aan een wachtplaats (P).'
+              : near
+                ? 'VTS · Verkeer dichtbij. Houd stuurboordwal en geef ruimte.'
+                : 'VTS · ' + (MAP.radio?.sectors?.[0] || MAP.name) + ' · ' + tide.label,
+    );
     $('dockGuide').textContent =
       t && q.distance < 400 && (s.phase === 'sail' || s.phase === 'load')
         ? 'AFMEREN  ' +

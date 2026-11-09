@@ -1,0 +1,1049 @@
+/* Phone layer, last in the cascade: two-thumb controls, one-line job strip, sheets and
+   dialogs that fit the screen. Portrait keeps one console; landscape (the comfortable
+   sailing layout) splits it into two thumb clusters with open water in between.
+   Desktop is untouched: everything sits inside the phone media queries, except the
+   touch-only elements that stay hidden there. */
+.touchOnly,
+.touchHelp {
+  display: none;
+}
+@keyframes cuePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 #ffd98a00;
+  }
+  50% {
+    box-shadow: 0 0 0 5px #ffd98a8c;
+  }
+}
+@media (pointer: coarse) {
+  /* Keys mean nothing on a touch screen: show the touch help instead. */
+  dialog ol.keysHelp,
+  .anchor kbd,
+  .fast kbd {
+    display: none;
+  }
+  dialog ol.touchHelp {
+    display: block;
+  }
+  button.touchOnly:not([hidden]) {
+    display: inline-block;
+  }
+}
+@media (max-width: 800px), (max-height: 550px) and (pointer: coarse) {
+  :root {
+    --sl: env(safe-area-inset-left, 0px);
+    --sr: env(safe-area-inset-right, 0px);
+    --st: env(safe-area-inset-top, 0px);
+    --sb: env(safe-area-inset-bottom, 0px);
+    --edge: var(--sb);
+    --hud-bottom: 8px;
+    --controls-height: 232px;
+    --top-bar: calc(56px + var(--st));
+  }
+  /* No page scroll, pinch-zoom, text selection or callout while sailing. */
+  html,
+  body {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  button.rudderHold {
+    display: block;
+  }
+  header,
+  .bottomHint,
+  :root .view #zoomIn,
+  :root .view #zoomOut,
+  :root .view span,
+  :root footer #bowStatus,
+  :root footer .engine > small,
+  :root footer .readout small,
+  :root footer .readout > span,
+  :root .anchor kbd {
+    display: none;
+  }
+
+  /* ---- top bar: chart and menu left, camera / pause / help right ---- */
+  :root .mobileTools {
+    position: absolute;
+    top: calc(6px + var(--st));
+    bottom: auto;
+    left: calc(8px + var(--sl));
+    right: auto;
+    display: flex;
+    gap: 6px;
+    z-index: 7;
+  }
+  :root .mobileTools button {
+    height: 44px;
+    min-width: 48px;
+    padding: 0 12px;
+    font-size: 13px;
+    border-radius: 22px;
+    background: #133340f2;
+    white-space: nowrap;
+  }
+  :root .view {
+    position: absolute;
+    top: calc(6px + var(--st));
+    right: calc(8px + var(--sr));
+    flex-direction: row;
+    padding: 0;
+    z-index: 7;
+    background: #112e3df2;
+  }
+  :root .view button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 17px;
+  }
+
+  /* ---- job strip: what do I do now, always in sight ---- */
+  :root .mission {
+    position: absolute;
+    top: var(--top-bar);
+    left: calc(8px + var(--sl));
+    right: calc(8px + var(--sr));
+    width: auto;
+    max-height: calc(100dvh - var(--top-bar) - var(--controls-height) - 24px - var(--sb));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: center;
+    padding: 8px 6px 8px 12px;
+    border-radius: 14px;
+    background: linear-gradient(120deg, #183b48f5, #132e3cf2);
+    z-index: 5;
+  }
+  :root .mission > .eyebrow,
+  :root .mission > .stages,
+  :root .mission > .missionFoot {
+    display: none;
+  }
+  :root .mission h1 {
+    grid-column: 1;
+    grid-row: auto;
+    margin: 0;
+    min-height: 0;
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: 0;
+    color: #ffe2a3;
+  }
+  :root .mission > #missionText {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    grid-column: 1;
+    margin: 2px 0 0;
+    font-size: 13px;
+    line-height: 1.35;
+    color: #e3ece8;
+  }
+  :root .mission > #deadline {
+    display: block;
+    grid-column: 1;
+    margin: 2px 0 0;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  :root .mission > #deadline:empty,
+  :root .mission > #dockGuide:empty {
+    display: none;
+  }
+  :root .mission > #dockGuide {
+    display: block;
+    grid-column: 1 / 3;
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.3;
+    color: #b9f3c9;
+  }
+  :root .mission .progress {
+    grid-column: 1 / 3;
+    grid-row: auto;
+    height: 3px;
+    margin: 6px 6px 0 0;
+  }
+  :root #missionToggle {
+    position: static;
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: start;
+    justify-self: end;
+    width: 44px;
+    height: 44px;
+    transform: none;
+    font-size: 22px;
+  }
+  :root .mission > .primary,
+  :root .mission > .fast {
+    grid-column: 1 / 3;
+    grid-row: auto;
+    width: auto;
+    min-height: 48px;
+    margin: 8px 6px 0 0;
+    padding: 12px 14px;
+    font-size: 15px;
+    border-radius: 12px;
+    justify-content: center;
+    text-align: center;
+  }
+  :root .mission > .fast {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  :root .mission.mobileOpen > .stages,
+  :root .mission.mobileOpen > .missionFoot {
+    display: flex;
+    grid-column: 1 / 3;
+    font-size: 12px;
+    margin: 8px 6px 0 0;
+  }
+  :root .mission.mobileOpen > #missionText {
+    display: block;
+  }
+  :root .mission.mobileOpen > #deadline {
+    white-space: normal;
+  }
+  :root .mission.mobileOpen h1,
+  :root .mission.mobileOpen > .progress,
+  :root .mission.mobileOpen > .primary {
+    margin-right: 6px;
+  }
+  :root .mission.mobileOpen #missionToggle {
+    position: static;
+  }
+
+  /* ---- bridge console: wheel under the left thumb, engine under the right ---- */
+  :root footer {
+    position: absolute;
+    left: calc(8px + var(--sl));
+    right: calc(8px + var(--sr));
+    bottom: calc(8px + var(--sb));
+    transform: none;
+    width: auto;
+    max-width: none;
+    height: auto;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 148px;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      'read engine'
+      'steer engine'
+      'steer moor';
+    gap: 6px 10px;
+    align-items: stretch;
+    border-radius: 18px;
+    touch-action: none;
+    z-index: 4;
+  }
+  :root footer .readout {
+    grid-area: read;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    min-width: 0;
+    height: 30px;
+  }
+  :root footer .readout strong {
+    display: block;
+    margin: 0;
+    font-size: 26px;
+    line-height: 30px;
+    white-space: nowrap;
+  }
+  :root footer .readout em {
+    font-size: 13px;
+  }
+  :root footer .steer {
+    grid-area: steer;
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr);
+    grid-template-areas:
+      'left wheel right'
+      'info info info'
+      'bow bow bow';
+    gap: 4px 6px;
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    order: 0;
+    align-self: end;
+  }
+  :root footer .steer .wheelRow {
+    display: contents;
+  }
+  :root footer .wheelMount {
+    grid-area: wheel;
+    width: 92px;
+    height: 92px;
+  }
+  :root footer .steer .rudderHold {
+    width: auto;
+    min-width: 44px;
+    height: 92px;
+    font-size: 22px;
+    border-radius: 14px;
+  }
+  :root footer .steer [data-hold='left'] {
+    grid-area: left;
+  }
+  :root footer .steer [data-hold='right'] {
+    grid-area: right;
+  }
+  :root footer #helmReadout {
+    grid-area: info;
+    display: block;
+    height: auto;
+    margin: 0;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.3px;
+    color: #f0dfb4;
+    text-align: center;
+  }
+  :root footer .steer .bow {
+    grid-area: bow;
+    position: static;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 0;
+    width: auto;
+    margin: 0;
+  }
+  :root footer .steer .bow button {
+    width: calc(50% - 30px);
+    min-width: 0;
+    height: 48px;
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.3px;
+    color: #e6d6ae;
+    border-radius: 12px;
+  }
+  :root footer .steer #helmMid {
+    position: absolute;
+    right: auto;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 50%;
+  }
+  :root footer .engine {
+    grid-area: engine;
+    width: auto;
+    order: 0;
+    align-self: end;
+  }
+  :root footer .engine > div:not(.notches) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'tele tele'
+      'down up';
+    gap: 6px;
+  }
+  :root footer #tele {
+    grid-area: tele;
+    min-width: 0;
+    padding: 0 6px;
+    font-size: 14px;
+    line-height: 30px;
+    height: 30px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  :root footer .engine #down,
+  :root footer .engine #up {
+    width: auto;
+    min-width: 0;
+    height: 56px;
+    font-size: 26px;
+    border-radius: 14px;
+  }
+  :root footer .engine #down {
+    grid-area: down;
+  }
+  :root footer .engine #up {
+    grid-area: up;
+    border-color: #ffd98a;
+  }
+  :root footer .engine .notches {
+    margin-top: 6px !important;
+  }
+  :root footer .engine .notches i {
+    width: 11px;
+    height: 4px;
+  }
+  :root footer .engine .stopControl {
+    width: 100%;
+    height: 46px;
+    min-height: 46px;
+    margin-top: 6px;
+    font-size: 14px;
+    letter-spacing: 1px;
+    border-radius: 12px;
+    background: #a8452a59;
+  }
+  :root footer .anchor {
+    grid-area: moor;
+    width: 100%;
+    height: 48px;
+    min-height: 48px;
+    margin: 0;
+    padding: 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 18px;
+    border-radius: 12px;
+    border-width: 2px;
+  }
+  :root footer .anchor span {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 650;
+  }
+  /* Pressed and "this one next": unmistakable under a thumb. */
+  :root footer button:active,
+  :root footer button.held {
+    transform: scale(0.96);
+  }
+  :root footer .steer #helmMid:active {
+    transform: translateX(-50%) scale(0.94);
+  }
+  :root footer .stopControl.held {
+    background: #ff8a65 !important;
+    color: #2b1108 !important;
+  }
+  :root button.cue {
+    animation: cuePulse 1.4s ease-in-out 6;
+    border-color: #ffd98a;
+  }
+  :root footer .anchor.cue {
+    background: #ffd98a2e;
+    color: #fff0c9;
+  }
+
+  /* ---- messages: above the console, never under a thumb ---- */
+  :root #toast {
+    top: auto;
+    bottom: calc(var(--controls-height) + 22px + var(--sb));
+    width: max-content;
+    max-width: calc(100vw - 24px - var(--sl) - var(--sr));
+    padding: 10px 16px;
+    font-size: 14px;
+    line-height: 1.35;
+    text-align: center;
+    z-index: 9;
+  }
+  :root .destination {
+    font-size: 12px;
+    padding: 5px 9px;
+  }
+
+  /* ---- chart: behind its button, then full screen (the game pauses) ---- */
+  :root .chart {
+    display: none;
+  }
+  :root .chart.expanded {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-height: none;
+    padding: calc(8px + var(--st)) calc(8px + var(--sr)) calc(8px + var(--sb)) calc(8px + var(--sl));
+    border: 0;
+    border-radius: 0;
+    background: #0b1f2a;
+    z-index: 40;
+    overflow: hidden;
+  }
+  :root .chart.expanded canvas {
+    display: block;
+    width: min(100%, calc((100dvh - 96px - var(--st) - var(--sb)) * 2));
+    margin: 8px auto;
+    border-radius: 8px;
+  }
+  :root .chart.expanded .eyebrow {
+    display: block;
+    font-size: 13px;
+    text-align: center;
+  }
+  :root .chart.expanded .eyebrow span {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: #ffe2a3;
+  }
+  :root .chart.expanded .legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 14px;
+    font-size: 12px;
+  }
+
+  /* ---- harbour menu: a sheet under the top bar ---- */
+  :root .harborBar {
+    display: none;
+  }
+  :root .harborBar.mobileOpen {
+    display: block;
+    position: absolute;
+    top: var(--top-bar);
+    bottom: auto;
+    left: calc(8px + var(--sl));
+    right: calc(8px + var(--sr));
+    width: auto;
+    max-height: calc(100dvh - var(--top-bar) - 12px - var(--sb));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding: 12px;
+    font-size: 13px;
+    background: linear-gradient(145deg, #193847, #0d2330);
+    z-index: 8;
+  }
+  :root .harborBar > span,
+  :root .harborBar small,
+  :root .harborBar summary {
+    display: block;
+    font-size: 13px;
+  }
+  :root .harborBar summary {
+    display: list-item;
+    padding: 12px 0;
+  }
+  :root .harborBar > div {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 10px 0;
+  }
+  :root .harborBar button {
+    min-height: 48px;
+    padding: 8px 6px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+  :root .soundPanel label {
+    font-size: 13px;
+    min-height: 44px;
+  }
+  :root .soundPanel input[type='range'] {
+    height: 44px;
+    touch-action: pan-x;
+  }
+  :root .momentCard {
+    left: calc(8px + var(--sl));
+    bottom: calc(var(--controls-height) + 22px + var(--sb));
+    width: min(420px, calc(100vw - 16px - var(--sl) - var(--sr)));
+  }
+  :root #radio {
+    bottom: calc(var(--controls-height) + 76px + var(--sb));
+    font-size: 12px;
+  }
+  body.bridgeView #bridgeLooks {
+    top: calc(var(--top-bar) + 64px);
+    font-size: 13px;
+  }
+  :root #bridgeLooks button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* ---- dialogs: fit the screen, scroll inside, the main button always in reach ---- */
+  :root dialog {
+    width: calc(100vw - 16px - var(--sl) - var(--sr));
+    max-width: 560px;
+    max-height: calc(100dvh - 16px - var(--st) - var(--sb));
+    padding: 16px 16px 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* A swipe that starts on a button or a job card still scrolls the dialog or sheet. */
+  :root dialog button,
+  :root dialog .offer,
+  :root .harborBar button,
+  :root .mission.mobileOpen button {
+    touch-action: pan-y;
+  }
+  :root dialog::after {
+    content: '';
+    display: block;
+    height: 16px;
+  }
+  :root dialog h2 {
+    font-size: 26px;
+    letter-spacing: -0.5px;
+    margin: 10px 0;
+  }
+  :root dialog p,
+  :root dialog ol,
+  :root dialog li,
+  :root dialog table,
+  :root .mapPick span,
+  :root .graphicsHint,
+  :root .muted,
+  :root .hall,
+  :root .credit {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  :root dialog .eyebrow {
+    font-size: 12px;
+    letter-spacing: 1.2px;
+  }
+  :root dialog button {
+    min-height: 48px;
+    font-size: 14px;
+  }
+  :root dialog .subtle {
+    padding: 10px 14px;
+    margin: 8px 6px 0 0;
+    border: 1px solid #b5dac740;
+    border-radius: 24px;
+  }
+  :root dialog .credit a {
+    display: inline-block;
+    padding: 12px 0;
+    color: #bfdfc9;
+  }
+  /* The way on: stuck to the bottom edge of the dialog while the rest scrolls. */
+  :root #start,
+  :root #closePort,
+  :root #paperClose,
+  :root #retireNew {
+    position: sticky;
+    bottom: 10px;
+    z-index: 2;
+    width: 100%;
+    min-height: 54px;
+    margin: 12px 0 0;
+    justify-content: center;
+    font-size: 17px;
+    border-radius: 14px;
+    box-shadow:
+      0 0 0 10px #142f3b,
+      0 -14px 18px 6px #142f3bcc;
+  }
+  :root .mapList {
+    grid-template-columns: 1fr;
+  }
+  :root .mapPick {
+    min-height: 56px;
+    font-size: 16px;
+  }
+  /* Harbour office. */
+  :root .port #portTitle {
+    display: none;
+  }
+  :root .port #portStats {
+    margin: 4px 0 8px;
+    font-size: 13px;
+  }
+  :root .port .tabs {
+    position: sticky;
+    top: -16px;
+    z-index: 2;
+    padding: 8px 0;
+    margin: 0 0 4px;
+    background: #173543;
+  }
+  :root .port .tabs button {
+    min-height: 44px;
+    font-size: 15px;
+  }
+  :root .offer {
+    position: relative;
+    gap: 10px;
+    padding: 12px 12px 40px;
+    border-width: 1.5px;
+  }
+  :root .offer:not(.taken)::after {
+    content: '▶';
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(110deg, #bfdfc9, #9dcab9);
+    color: #173e3c;
+    font-size: 12px;
+  }
+  :root .offer:not(.taken):active {
+    border-color: var(--lime);
+    background: #b5dac726;
+  }
+  :root .offer h3 {
+    font-size: 16px;
+    line-height: 1.3;
+    margin: 0 0 4px;
+  }
+  :root .offer p,
+  :root .offer .dilemma {
+    font-size: 13px;
+    line-height: 1.4;
+    margin: 0;
+  }
+  :root .offer .dilemma {
+    margin-top: 6px;
+  }
+  :root .offerK {
+    flex: 0 0 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+  :root .offerT {
+    flex: 0 0 58px;
+    font-size: 12px;
+  }
+  :root .offerT b {
+    font-size: 17px;
+  }
+  :root .offerT small,
+  :root .tag {
+    font-size: 12px;
+  }
+  :root .offer .sendBoat {
+    min-height: 44px;
+    font-size: 13px;
+  }
+}
+
+/* ---- landscape phone: two thumb clusters, the water between them ---- */
+@media (max-height: 500px) and (max-width: 800px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  :root {
+    --controls-height: 0px;
+    --top-bar: calc(6px + var(--st));
+    --tools-w: 112px;
+    --view-w: 136px;
+  }
+  :root .mobileTools button span {
+    display: none;
+  }
+  :root .mobileTools button {
+    padding: 0;
+    width: 48px;
+    font-size: 17px;
+  }
+  :root .mission {
+    left: calc(8px + var(--sl) + var(--tools-w));
+    right: calc(8px + var(--sr) + var(--view-w));
+    max-height: calc(100dvh - 12px - var(--st) - var(--sb));
+    padding: 5px 4px 6px 12px;
+  }
+  body:has(#fsBtn:not([hidden])) .mission {
+    right: calc(8px + var(--sr) + var(--view-w) + 44px);
+  }
+  :root .mission h1 {
+    font-size: 14px;
+  }
+  :root .mission > #missionText {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    font-size: 12px;
+  }
+  :root .mission:not(.mobileOpen) > #deadline {
+    display: none;
+  }
+  :root .mission {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  :root #missionToggle {
+    grid-column: 3;
+  }
+  :root .mission > .primary,
+  :root .mission > .fast {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: 132px;
+    min-height: 44px;
+    margin: 0;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  :root .mission.mobileOpen > .primary,
+  :root .mission.mobileOpen > .fast {
+    margin: 0;
+  }
+  :root .mission > #dockGuide,
+  :root .mission .progress,
+  :root .mission.mobileOpen > .stages,
+  :root .mission.mobileOpen > .missionFoot {
+    grid-column: 1 / 4;
+  }
+  :root .mission > #dockGuide {
+    font-size: 12px;
+  }
+  /* The console frame goes; its three parts become floating instruments. */
+  :root footer,
+  :root footer.glass {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 44px;
+    padding: 0;
+    display: block;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  :root footer > * {
+    pointer-events: auto;
+  }
+  :root footer .steer,
+  :root footer .engine {
+    position: absolute;
+    bottom: calc(8px + var(--sb));
+    padding: 6px;
+    border: 2px solid #b8893e;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #2a2219eb, #1a1611f0);
+    box-shadow: 0 6px 20px #0006;
+  }
+  :root footer .steer {
+    left: calc(8px + var(--sl));
+    width: 226px;
+    gap: 2px 6px;
+  }
+  :root footer .wheelMount {
+    width: 96px;
+    height: 96px;
+  }
+  :root footer .steer .rudderHold {
+    height: 96px;
+  }
+  :root footer .steer .bow button,
+  :root footer .steer #helmMid {
+    height: 44px;
+    min-height: 44px;
+  }
+  :root footer .steer #helmMid {
+    bottom: 6px;
+    width: 44px;
+    min-width: 44px;
+  }
+  :root footer #helmReadout {
+    font-size: 12px;
+    line-height: 14px;
+  }
+  :root footer .engine {
+    right: calc(8px + var(--sr));
+    width: 212px;
+  }
+  :root footer #tele {
+    height: 26px;
+    line-height: 26px;
+  }
+  :root footer .engine #down,
+  :root footer .engine #up {
+    height: 52px;
+  }
+  :root footer .engine .notches {
+    margin-top: 5px !important;
+  }
+  :root footer .engine .notches i {
+    width: 16px;
+  }
+  :root footer .engine .stopControl {
+    display: block;
+    width: calc(50% - 3px);
+    margin: 5px auto 0 0;
+    height: 48px;
+    min-height: 48px;
+    font-size: 12px;
+    letter-spacing: 0.3px;
+  }
+  :root footer .anchor {
+    position: absolute;
+    right: calc(16px + var(--sr));
+    bottom: calc(16px + var(--sb));
+    width: 97px;
+    height: 48px;
+    min-height: 48px;
+    gap: 4px;
+    font-size: 15px;
+    background: #2a2219;
+  }
+  :root footer .anchor span {
+    font-size: 12px;
+    line-height: 1.1;
+  }
+  :root footer .readout {
+    position: absolute;
+    left: 50%;
+    bottom: calc(6px + var(--sb));
+    transform: translateX(-50%);
+    height: 34px;
+    padding: 0 14px;
+    border: 1.5px solid #b8893e;
+    border-radius: 17px;
+    background: #1f1a13e6;
+    pointer-events: none;
+  }
+  :root footer .readout strong {
+    font-size: 22px;
+    line-height: 32px;
+  }
+  :root #toast {
+    top: calc(64px + var(--st));
+    bottom: auto;
+    max-width: min(46vw, calc(100vw - 480px));
+    font-size: 13px;
+  }
+  :root .momentCard {
+    left: calc(128px + var(--sl));
+    right: auto;
+    bottom: auto;
+    top: calc(64px + var(--st));
+    width: min(380px, calc(100vw - 280px));
+  }
+  :root .momentCard:not(.show) {
+    transform: translateX(-250%);
+  }
+  :root #radio {
+    top: calc(64px + var(--st));
+    bottom: auto;
+    max-width: calc(100vw - 480px);
+  }
+  :root .harborBar.mobileOpen {
+    right: auto;
+    width: min(420px, calc(100vw - 16px - var(--sl) - var(--sr)));
+    top: calc(56px + var(--st));
+    max-height: calc(100dvh - 64px - var(--st) - var(--sb));
+  }
+  body.bridgeView #bridgeLooks {
+    top: calc(64px + var(--st));
+  }
+  /* Dialogs: every pixel of height counts. */
+  :root dialog {
+    max-width: 720px;
+    padding-top: 10px;
+  }
+  :root dialog > .eyebrow {
+    display: none;
+  }
+  :root dialog h2 {
+    font-size: 20px;
+    margin: 4px 0;
+  }
+  :root dialog h2 br {
+    display: none;
+  }
+  :root .port .tabs {
+    top: -10px;
+    padding: 6px 0;
+  }
+  :root .mapList {
+    grid-template-columns: 1fr 1fr;
+  }
+  :root #start,
+  :root #closePort,
+  :root #paperClose,
+  :root #retireNew {
+    min-height: 48px;
+    font-size: 16px;
+  }
+}
+/* Narrow phones: icons only in the top bar, so it never wraps. */
+@media (max-width: 440px) {
+  :root .mobileTools #menuToggle span {
+    display: none;
+  }
+}
+@media (max-width: 379px) {
+  :root .mobileTools button span {
+    display: none;
+  }
+}
+
+/* Narrow phones (320–379 px wide), portrait: the steering column would otherwise push
+   its buttons under the engine column. Everything a little smaller, nothing overlaps. */
+@media (max-width: 379px) and (orientation: portrait) {
+  :root footer {
+    grid-template-columns: minmax(0, 1fr) 118px;
+    padding: 6px;
+  }
+  :root footer .steer {
+    grid-template-columns: minmax(30px, 1fr) auto minmax(30px, 1fr);
+    gap: 2px 3px;
+  }
+  :root footer .wheelMount {
+    width: 68px;
+  }
+  :root footer .steer .rudderHold {
+    min-width: 30px;
+    font-size: 18px;
+  }
+  :root footer .steer .bow button {
+    width: calc(50% - 23px);
+    font-size: 10px;
+    letter-spacing: 0;
+    padding: 0 2px;
+  }
+  :root footer .steer #helmMid {
+    width: 42px;
+    min-width: 42px;
+    height: 44px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+  :root footer #helmReadout {
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+  :root footer .readout strong {
+    font-size: 22px;
+  }
+}

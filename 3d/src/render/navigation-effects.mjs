@@ -1,8 +1,19 @@
 import * as T from '../../vendor/three.js';
 import { target } from '../game/simulation.mjs';
 import { routePoints, customers, terminalOf } from '../game/harbor.mjs';
-import { land, currentAt } from '../maps/index.mjs';
+import { land, currentAt, tideLevel } from '../maps/index.mjs';
 import { driftLines, currentArrow } from '../game/drift.mjs';
+import {
+  wakePools,
+  wakeStrength,
+  bowStrength,
+  sprayRate,
+  propWash,
+  thrusterWash,
+  kelvinHalfWidth,
+  kelvinLength,
+  createTrail,
+} from '../game/wake.mjs';
 // Target zone on the water, route, mooring lines, bunker hose and wake foam.
 export function createNavigationEffects(scene, mesh, vesselProfile) {
   function zone(color) {
@@ -184,6 +195,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       foamGeo,
       new T.MeshBasicMaterial({
         color: '#c8ded2',
+        map: smokeTex, // soft round patches where a canvas is available
         transparent: true,
         opacity: 0,
         depthWrite: false,
@@ -259,6 +271,9 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
     m.rotation.y = Math.atan2(-dz, dx);
     m.scale.set(len, 1, width);
   };
+  let streamX = 0,
+    streamZ = 0,
+    waterLevel = 0;
   function updateDrift(s) {
     const under = !s.moored && s.phase !== 'sunk';
     const dl = under && driftLines(s),
@@ -272,7 +287,10 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       dashTex.repeat.x = (dl.length + half) / 9;
       headLine.material.opacity = cogLine.material.opacity = dl.alpha;
     }
-    const ca = under && currentArrow(currentAt(s.x, s.z, s.tideSpeed || 0));
+    const cur = under && currentAt(s.x, s.z, s.tideSpeed || 0);
+    streamX = cur ? cur.x : 0;
+    streamZ = cur ? cur.z : 0;
+    const ca = cur && currentArrow(cur);
     arrow.visible = arrowLabel.visible = !!ca;
     if (ca) {
       const ax = s.x + sn * (half + 34),
@@ -298,7 +316,376 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       arrowLabel.scale.set(30, 7.5, 1);
     }
   }
-  function updateWake(s, dt, quality, paused) {
+  // --- Bow wave, spray, prop wash, thruster wash and Kelvin wake (engine.js
+  // particlesTick, drawBowWave, drawKelvin, drawTrailWake). Numbers: game/wake.mjs.
+  // Everything lives in three draw calls with fixed buffers: one ribbon mesh (wake
+  // band, the two V arms, the bow collar), one quad mesh (wash) and instanced puffs.
+  const POOL = wakePools(false),
+    POOL_LIGHT = wakePools(true);
+  const TRAIL_N = POOL.trail,
+    COLLAR_N = 8,
+    RIB_PTS = TRAIL_N * 3 + COLLAR_N * 2;
+  const trail = createTrail(TRAIL_N, POOL.spacing);
+  const ribPos = new Float32Array(RIB_PTS * 9),
+    ribCol = new Float32Array(RIB_PTS * 12).fill(1),
+    ribIdx = [];
+  for (const [from, n] of [
+    [0, TRAIL_N],
+    [TRAIL_N, TRAIL_N],
+    [TRAIL_N * 2, TRAIL_N],
+    [TRAIL_N * 3, COLLAR_N],
+    [TRAIL_N * 3 + COLLAR_N, COLLAR_N],
+  ])
+    for (let i = from; i < from + n - 1; i++) {
+      const a = i * 3,
+        b = a + 3;
+      ribIdx.push(a, b, a + 1, a + 1, b, b + 1, a + 1, b + 1, a + 2, a + 2, b + 1, b + 2);
+    }
+  const dynamic = (arr, size) => {
+    const at = new T.BufferAttribute(arr, size);
+    at.setUsage(T.DynamicDrawUsage);
+    return at;
+  };
+  const waterFx = (geo, map) => {
+    const m = new T.Mesh(
+      geo,
+      new T.MeshBasicMaterial({
+        color: '#f4fbf8',
+        map,
+        vertexColors: true,
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+      }),
+    );
+    m.frustumCulled = false; // follows the ship; saves recomputing bounds every frame
+    m.visible = false;
+    m.renderOrder = 1;
+    scene.add(m);
+    return m;
+  };
+  const ribGeo = new T.BufferGeometry();
+  ribGeo.setAttribute('position', dynamic(ribPos, 3));
+  ribGeo.setAttribute('color', dynamic(ribCol, 4));
+  ribGeo.setIndex(ribIdx);
+  const ribbons = waterFx(ribGeo, null);
+  // One cross-section of a ribbon: edge, centre, edge. Alpha fades to the edges.
+  function rib(pi, x, z, nx, nz, hw, y, aC, aE) {
+    let o = pi * 9;
+    ribPos[o] = x - nx * hw;
+    ribPos[o + 1] = y;
+    ribPos[o + 2] = z - nz * hw;
+    ribPos[o + 3] = x;
+    ribPos[o + 4] = y;
+    ribPos[o + 5] = z;
+    ribPos[o + 6] = x + nx * hw;
+    ribPos[o + 7] = y;
+    ribPos[o + 8] = z + nz * hw;
+    o = pi * 12 + 3;
+    ribCol[o] = aE;
+    ribCol[o + 4] = aC;
+    ribCol[o + 8] = aE;
+  }
+  const trX = new Float32Array(TRAIL_N),
+    trZ = new Float32Array(TRAIL_N),
+    trD = new Float32Array(TRAIL_N);
+  // Wash: flat round foam patches that spread and fade.
+  const WASH_N = POOL.wash;
+  const wash = {
+    x: new Float32Array(WASH_N),
+    z: new Float32Array(WASH_N),
+    vx: new Float32Array(WASH_N),
+    vz: new Float32Array(WASH_N),
+    life: new Float32Array(WASH_N),
+    max: new Float32Array(WASH_N),
+    size: new Float32Array(WASH_N),
+    alpha: new Float32Array(WASH_N),
+  };
+  const washPos = new Float32Array(WASH_N * 12),
+    washCol = new Float32Array(WASH_N * 16).fill(1),
+    washUv = new Float32Array(WASH_N * 8),
+    washIdx = [];
+  for (let i = 0; i < WASH_N; i++) {
+    washUv.set([0, 0, 1, 0, 1, 1, 0, 1], i * 8);
+    washIdx.push(i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3);
+  }
+  const washGeo = new T.BufferGeometry();
+  washGeo.setAttribute('position', dynamic(washPos, 3));
+  washGeo.setAttribute('color', dynamic(washCol, 4));
+  washGeo.setAttribute('uv', new T.BufferAttribute(washUv, 2));
+  washGeo.setIndex(washIdx);
+  const washMesh = waterFx(washGeo, smokeTex);
+  let washNext = 0,
+    washAlive = 0;
+  function spawnWash(limit, x, z, vx, vz, life, size, alpha) {
+    const i = washNext++ % limit;
+    wash.x[i] = x;
+    wash.z[i] = z;
+    wash.vx[i] = vx;
+    wash.vz[i] = vz;
+    wash.life[i] = wash.max[i] = life;
+    wash.size[i] = size;
+    wash.alpha[i] = alpha;
+  }
+  // Spray: small white puffs thrown out of the bow shoulders in a low arc.
+  const SPRAY_N = POOL.spray;
+  const spray = {
+    x: new Float32Array(SPRAY_N),
+    y: new Float32Array(SPRAY_N),
+    z: new Float32Array(SPRAY_N),
+    vx: new Float32Array(SPRAY_N),
+    vy: new Float32Array(SPRAY_N),
+    vz: new Float32Array(SPRAY_N),
+    life: new Float32Array(SPRAY_N),
+    max: new Float32Array(SPRAY_N),
+    size: new Float32Array(SPRAY_N),
+  };
+  const sprayMesh = new T.InstancedMesh(
+    new T.IcosahedronGeometry(1, 0),
+    new T.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85 }),
+    SPRAY_N,
+  );
+  sprayMesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
+  sprayMesh.frustumCulled = false;
+  sprayMesh.visible = false;
+  scene.add(sprayMesh);
+  const sprayM = new T.Matrix4();
+  let sprayNext = 0,
+    sprayAlive = 0,
+    sprayAcc = 0,
+    washAcc = 0,
+    jetAcc = 0,
+    waterT = 0,
+    waterOn = false;
+  function writeWash(dt) {
+    let alive = 0;
+    const drag = Math.exp(-2.6 * dt);
+    for (let i = 0; i < WASH_N; i++) {
+      const o = i * 12,
+        c = i * 16 + 3;
+      let a = 0,
+        h = 0;
+      if (wash.life[i] > 0) {
+        wash.life[i] -= dt;
+        wash.x[i] += wash.vx[i] * dt;
+        wash.z[i] += wash.vz[i] * dt;
+        wash.vx[i] *= drag;
+        wash.vz[i] *= drag;
+        const k = Math.max(0, wash.life[i] / wash.max[i]);
+        // Quick fade in, slow fade out, spreading as it ages.
+        a = wash.alpha[i] * Math.min(1, (1 - k) * 8) * k;
+        h = wash.size[i] * (0.6 + (1 - k) * 1.3);
+        alive++;
+      }
+      const x = wash.x[i],
+        z = wash.z[i];
+      washPos[o] = washPos[o + 9] = x - h;
+      washPos[o + 3] = washPos[o + 6] = x + h;
+      washPos[o + 2] = washPos[o + 5] = z - h;
+      washPos[o + 8] = washPos[o + 11] = z + h;
+      washPos[o + 1] = washPos[o + 4] = washPos[o + 7] = washPos[o + 10] = 0.82;
+      washCol[c] = washCol[c + 4] = washCol[c + 8] = washCol[c + 12] = a;
+    }
+    if (alive || washAlive) {
+      washGeo.attributes.position.needsUpdate = true;
+      washGeo.attributes.color.needsUpdate = true;
+    }
+    washAlive = alive;
+  }
+  function writeSpray(dt) {
+    let alive = 0;
+    if (!sprayAlive) return;
+    for (let i = 0; i < SPRAY_N; i++) {
+      let r = 0;
+      if (spray.life[i] > 0) {
+        spray.life[i] -= dt;
+        spray.vy[i] -= 9 * dt;
+        spray.x[i] += spray.vx[i] * dt;
+        spray.y[i] += spray.vy[i] * dt;
+        spray.z[i] += spray.vz[i] * dt;
+        if (spray.y[i] < 0.3) spray.life[i] = 0;
+        r = spray.size[i] * Math.max(0, spray.life[i] / spray.max[i]) ** 0.6;
+        alive++;
+      }
+      sprayM.makeScale(r, r, r).setPosition(spray.x[i], spray.y[i], spray.z[i]);
+      sprayMesh.setMatrixAt(i, sprayM);
+    }
+    sprayMesh.instanceMatrix.needsUpdate = true;
+    sprayAlive = alive;
+  }
+  function resetWater() {
+    trail.clear();
+    wash.life.fill(0);
+    spray.life.fill(0);
+    for (let i = 3; i < ribCol.length; i += 4) ribCol[i] = 0;
+    ribGeo.attributes.color.needsUpdate = true;
+    washAlive = sprayAlive = 1;
+    sprayAcc = washAcc = jetAcc = 0;
+    writeWash(0);
+    writeSpray(0);
+  }
+  function updateWater(s, dt, quality, paused, bowInput) {
+    const on = !s.moored && s.phase !== 'sunk';
+    if (on !== waterOn) {
+      waterOn = on;
+      resetWater();
+      ribbons.visible = washMesh.visible = sprayMesh.visible = on;
+    }
+    if (!on || paused) return;
+    waterT += dt;
+    const light = !!quality?.light,
+      pool = light ? POOL_LIGHT : POOL,
+      L = vesselProfile.length,
+      B = vesselProfile.beam,
+      sn = Math.sin(s.h),
+      cs = Math.cos(s.h),
+      // Speed through the water: the stream carries ship and wake alike.
+      uw = s.u - (streamX * sn - streamZ * cs),
+      // Velocity over the ground, for what is thrown off the hull.
+      gx = sn * s.u + cs * s.v,
+      gz = -cs * s.u + sn * s.v;
+    ribbons.position.y = washMesh.position.y = sprayMesh.position.y = waterLevel;
+    // Kelvin arms and trailing band along the track the stern has really sailed.
+    const k = wakeStrength(uw),
+      sx = s.x - sn * L * 0.5,
+      sz = s.z + cs * L * 0.5;
+    trail.spacing = pool.spacing;
+    if (k > 0) trail.push(sx, sz);
+    else trail.clear();
+    const n = Math.min(trail.count, pool.trail - 1) + 1;
+    trX[0] = sx;
+    trZ[0] = sz;
+    trD[0] = 0;
+    for (let j = 1; j < n; j++) {
+      trX[j] = trail.x(j - 1);
+      trZ[j] = trail.z(j - 1);
+      trD[j] = trD[j - 1] + Math.hypot(trX[j] - trX[j - 1], trZ[j] - trZ[j - 1]);
+    }
+    const reach = Math.min(kelvinLength(L, k), trD[n - 1]);
+    let tx = sn,
+      tz = -cs;
+    for (let j = 0; j < TRAIL_N; j++) {
+      const q = Math.min(j, n - 1),
+        d = trD[q],
+        f = j < n && reach > 1 ? Math.max(0, 1 - d / reach) : 0;
+      if (j < n) {
+        const a = Math.max(q - 1, 0),
+          b = Math.min(q + 1, n - 1),
+          dx = trX[a] - trX[b],
+          dz = trZ[a] - trZ[b],
+          dl = Math.hypot(dx, dz);
+        if (dl > 0.5) {
+          tx = dx / dl;
+          tz = dz / dl;
+        }
+      }
+      const nx = -tz,
+        nz = tx,
+        x = trX[q],
+        z = trZ[q],
+        off = kelvinHalfWidth(d, B),
+        armA = 0.62 * k * f * (0.72 + 0.28 * Math.sin(d * 0.4 + waterT * 2.2)),
+        armW = 0.7 + (1 - f) * 2.2;
+      rib(j, x, z, nx, nz, B * (0.4 + (1 - f) * 1.1), 0.76, (0.1 + 0.26 * k) * f, 0);
+      rib(TRAIL_N + j, x - nx * off, z - nz * off, nx, nz, armW, 0.8, armA, armA * 0.25);
+      rib(TRAIL_N * 2 + j, x + nx * off, z + nz * off, nx, nz, armW, 0.8, armA, armA * 0.25);
+    }
+    // Bow collar: a foam ribbon from the stem back along each shoulder.
+    const bk = bowStrength(uw),
+      shown = Math.min(1, bk * 5);
+    for (let side = -1, base = TRAIL_N * 3; side <= 1; side += 2, base += COLLAR_N) {
+      const f0 = L * 0.5 + 1.2,
+        f1 = L * 0.5 - 5,
+        f2 = L * 0.5 - 13 - 15 * bk,
+        d0 = side * 0.2,
+        d1 = side * (B * 0.5 + 1.2),
+        d2 = side * (B * 0.5 + 2.6 + 6 * bk);
+      for (let i = 0; i < COLLAR_N; i++) {
+        const t = i / (COLLAR_N - 1),
+          m = 1 - t,
+          f = m * m * f0 + 2 * m * t * f1 + t * t * f2,
+          d = m * m * d0 + 2 * m * t * d1 + t * t * d2,
+          df = m * (f1 - f0) + t * (f2 - f1),
+          dd = m * (d1 - d0) + t * (d2 - d1),
+          wx = sn * df + cs * dd,
+          wz = -cs * df + sn * dd,
+          wl = Math.hypot(wx, wz) || 1,
+          a = (0.5 + 0.4 * bk) * shown * (1 - t) ** 0.7;
+        rib(
+          base + i,
+          s.x + sn * f + cs * d,
+          s.z - cs * f + sn * d,
+          -wz / wl,
+          wx / wl,
+          (0.5 + 1.5 * bk) * (0.45 + 0.55 * Math.sin(Math.PI * Math.min(1, t * 1.4))),
+          0.86,
+          a,
+          a * 0.45,
+        );
+      }
+    }
+    ribGeo.attributes.position.needsUpdate = true;
+    ribGeo.attributes.color.needsUpdate = true;
+    // Spray from both bow shoulders.
+    sprayAcc = Math.min(4, sprayAcc + sprayRate(uw, light) * dt * 2);
+    for (; sprayAcc >= 1; sprayAcc--) {
+      const i = sprayNext++ % SPRAY_N,
+        side = i & 1 ? 1 : -1,
+        out = side * (3 + uw * 0.8 + Math.random() * 2.5),
+        fo = L * (0.47 - Math.random() * 0.07),
+        so = side * B * (0.25 + Math.random() * 0.2);
+      spray.x[i] = s.x + sn * fo + cs * so;
+      spray.y[i] = 0.9;
+      spray.z[i] = s.z - cs * fo + sn * so;
+      spray.vx[i] = gx * 0.55 + cs * out + (Math.random() - 0.5);
+      spray.vy[i] = 3 + Math.random() * 2.5 + bk * 2;
+      spray.vz[i] = gz * 0.55 + sn * out + (Math.random() - 0.5);
+      spray.life[i] = spray.max[i] = 0.7 + Math.random() * 0.5;
+      spray.size[i] = B * (0.055 + Math.random() * 0.05 + bk * 0.035);
+      sprayAlive++;
+    }
+    // Prop wash behind the stern: follows engine power, also at a standstill.
+    const pw = propWash(s.rpm, light);
+    washAcc = Math.min(4, washAcc + pw.rate * dt);
+    for (; washAcc >= 1; washAcc--) {
+      const lat = (Math.random() - 0.5) * B * (pw.dir > 0 ? 1.5 : 0.6),
+        back = L * 0.5 + (pw.dir > 0 ? -1 : 1.5),
+        sp = pw.dir * pw.speed * (0.6 + Math.random() * 0.6),
+        ls = (Math.random() - 0.5) * 3 + (pw.dir > 0 ? Math.sign(lat) * 2.5 : 0);
+      spawnWash(
+        pool.wash,
+        s.x - sn * back + cs * lat,
+        s.z + cs * back + sn * lat,
+        gx * 0.3 + sn * sp + cs * ls,
+        gz * 0.3 - cs * sp + sn * ls,
+        1.3 + Math.random() * 0.9,
+        2 + pw.strength * 2.6,
+        0.45 + pw.strength * 0.4,
+      );
+    }
+    // Bow thruster: a short jet of foam out of the side opposite to the push.
+    const jet = thrusterWash(s.blackout > 0 ? 0 : bowInput, light);
+    jetAcc = Math.min(4, jetAcc + jet.rate * dt);
+    for (; jetAcc >= 1; jetAcc--) {
+      const fo = L * 0.38 + (Math.random() - 0.5) * 2,
+        so = jet.side * B * 0.5,
+        sp = jet.side * jet.speed * (0.7 + Math.random() * 0.6),
+        fs = (Math.random() - 0.5) * 2;
+      spawnWash(
+        pool.wash,
+        s.x + sn * fo + cs * so,
+        s.z - cs * fo + sn * so,
+        gx * 0.3 + cs * sp + sn * fs,
+        gz * 0.3 + sn * sp - cs * fs,
+        0.8 + Math.random() * 0.4,
+        1.9,
+        0.85,
+      );
+    }
+    writeWash(dt);
+    writeSpray(dt);
+  }
+  function updateWake(s, dt, quality, paused, bow = 0) {
     pulse += dt;
     if (beacon.visible) {
       const k = (pulse % 1.6) / 1.6;
@@ -310,6 +697,8 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
     }
     updateSmoke(s, dt, paused);
     updateDrift(s);
+    waterLevel = tideLevel(s.clock || 0, s.tidePhase || 0);
+    updateWater(s, dt, quality, paused, bow);
     foamTick += dt;
     const power = Math.abs(s.rpm || 0);
     if ((Math.abs(s.u) > 0.25 || power > 0.12) && foamTick > 0.08 && !paused && !s.moored) {
@@ -319,7 +708,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       f.m.visible = true;
       f.m.position.set(
         s.x - Math.sin(s.h) * (vesselProfile.length / 2 + 1) + (Math.random() - 0.5) * 3,
-        0.75,
+        waterLevel + 0.75,
         s.z + Math.cos(s.h) * (vesselProfile.length / 2 + 1) + (Math.random() - 0.5) * 3,
       );
       f.m.rotation.z = -s.h;

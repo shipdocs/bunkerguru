@@ -223,8 +223,22 @@ const kitMaterial = new T.MeshStandardMaterial({
   metalness: 0.04,
   side: T.DoubleSide,
 });
+// Lit windows on the towers: plain bright panes in a second mesh per landmark, shown
+// only when night falls (world.mjs sets the strength through setNight).
+const lightsMaterial = new T.MeshBasicMaterial({
+  color: '#ffd596',
+  transparent: true,
+  opacity: 0,
+  depthWrite: false,
+  side: T.DoubleSide,
+});
+const lightMeshes = [];
+let lightSeed = 4177;
+const lightRnd = () =>
+  (lightSeed = (Math.imul(lightSeed, 1664525) + 1013904223) >>> 0) / 4294967296;
 class Kit {
   constructor() {
+    this.lit = [];
     this.b = new GeometryBatch();
     this.o = new T.Object3D();
     this.n = 0;
@@ -269,8 +283,35 @@ class Kit {
   // A tower block with window bands on all four sides.
   tower(w, h, d, c, x, y, z, glass = '#4f7184', step = 7) {
     this.box(w, h, d, c, x, y, z);
-    for (let b = y + 4; b < y + h - 3; b += step)
+    for (let b = y + 4; b < y + h - 3; b += step) {
       this.box(w + 0.4, step * 0.42, d + 0.4, glass, x, b, z);
+      // some panes of every window band are lit at night
+      const y0 = b + step * 0.06,
+        y1 = b + step * 0.36;
+      for (const [along, deep, flip] of [
+        [w, d, false],
+        [d, w, true],
+      ]) {
+        const n = Math.max(1, Math.round(along / 6)),
+          pane = along / n;
+        for (const side of [-1, 1])
+          for (let i = 0; i < n; i++) {
+            if (lightRnd() > 0.42) continue;
+            const a0 = -along / 2 + i * pane + 0.5,
+              a1 = a0 + pane - 1,
+              off = side * (deep / 2 + 0.5),
+              p = (a, yy) => (flip ? [x + off, yy, z + a] : [x + a, yy, z + off]);
+            this.lit.push(
+              ...p(a0, y0),
+              ...p(a1, y0),
+              ...p(a1, y1),
+              ...p(a0, y0),
+              ...p(a1, y1),
+              ...p(a0, y1),
+            );
+          }
+      }
+    }
     return this;
   }
   mesh(parent, x = 0, y = 0, z = 0) {
@@ -279,6 +320,15 @@ class Kit {
     m.castShadow = m.receiveShadow = true;
     m.name = 'landmark';
     parent.add(m);
+    if (this.lit.length) {
+      const g = new T.BufferGeometry();
+      g.setAttribute('position', new T.Float32BufferAttribute(this.lit, 3));
+      const lights = new T.Mesh(g, lightsMaterial);
+      lights.name = 'landmark-lights';
+      lights.visible = false;
+      m.add(lights);
+      lightMeshes.push(lights);
+    }
     return m;
   }
 }
@@ -893,6 +943,10 @@ export function createLandmarks(scene, { mesh, textSprite }) {
         fl.m.scale.set(s * 0.55, s * 2, s * 0.55);
         fl.m.position.y = fl.y + s;
       }
+    },
+    setNight(v) {
+      lightsMaterial.opacity = Math.min(1, v * 1.2);
+      for (const m of lightMeshes) m.visible = v > 0.02;
     },
     onLand: () => landmarkSpots().every((p) => landAt(p.x, p.z)),
   };

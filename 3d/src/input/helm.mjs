@@ -3,6 +3,7 @@ import { tempoLabel, nextTempo } from '../game/time-scale.mjs';
 import { act, clamp } from '../game/simulation.mjs';
 import { stopShip } from '../game/vessel.mjs';
 import { bindKeyboard, nextTelegraph } from './keyboard.mjs';
+import { haptic } from './haptics.mjs';
 // Input changes the command. Releasing a key must never centre the persistent helm.
 export function bindHelm({
   $,
@@ -19,7 +20,10 @@ export function bindHelm({
     if (!isPlaying()) return;
     const was = getState().moored,
       msg = act(getState());
-    if (getState().moored !== was) sound?.('rope');
+    if (getState().moored !== was) {
+      sound?.('rope');
+      haptic(getState().moored ? [18, 50, 30] : 18);
+    }
     toast(msg);
     save();
   }
@@ -32,7 +36,10 @@ export function bindHelm({
     if (getState().phase === 'sunk') return;
     getState().braking = false;
     if (getState().engineOff) toast('Motor staat uit – O = starten');
-    getState().teleIdx = nextTelegraph(getState().teleIdx, v, getState().handling !== 'arcade');
+    const before = getState().teleIdx;
+    getState().teleIdx = nextTelegraph(before, v, getState().handling !== 'arcade');
+    // One tick per notch; a longer one on STOP so the thumb finds neutral without looking.
+    if (getState().teleIdx !== before) haptic(getState().teleIdx === 3 ? 30 : 12);
   }
   function setHelm(degrees) {
     if (!isPlaying() || document.querySelector('dialog[open]')) return;
@@ -52,6 +59,7 @@ export function bindHelm({
   function brake() {
     if (!isPlaying() || document.querySelector('dialog[open]')) return;
     stopShip(getState());
+    haptic(30);
     toast(
       getState().handling === 'arcade' ? 'Afstoppen' : 'Afstoppen: volle kracht achteruit tot stil',
     );
@@ -59,6 +67,7 @@ export function bindHelm({
   $('stop').onclick = brake;
   $('helmMid').onclick = () => {
     centreHelm();
+    haptic(12);
     toast('Roer midscheeps');
   };
   function helmFeedback() {
