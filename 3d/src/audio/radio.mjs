@@ -1,6 +1,6 @@
 // VHF radio from the 2D game (radio.js): browser speech, or radio babble when no voice
 // is available. Lines: {who, spk, text}. Needs the sound engine for squelch and babble.
-export function createRadio(SND, box = () => document.getElementById('radio')) {
+export function createRadio(SND, box = () => document.getElementById('radio'), face = () => '') {
 
   let on = true, queue = [], busy = false, nextAt = 0, voices = [], mode = 'auto', speechBroken = false, lastErr = '', lastHow = '';
   try { mode = localStorage.getItem('bunker_radiomode') || 'auto'; } catch (e) {}
@@ -16,7 +16,7 @@ export function createRadio(SND, box = () => document.getElementById('radio')) {
   }
   // één regel uitspreken; speaker = 0..3 bepaalt stemhoogte/stem
   function playLine(line, lang, done) {
-    const b = box(); if (b) { b.innerHTML = `<b>📻 ${line.who}</b><br>${line.text}`; b.style.opacity = 1; }
+    const b = box(); if (b) { b.innerHTML = `<span class="radioFace">${face(line.who)}</span><span><b>📻 ${line.who}</b><br>${line.text}</span>`; b.style.opacity = 1; }
     SND.radioOpen && SND.radioOpen();
     const finish = () => { SND.radioClose && SND.radioClose(); setTimeout(done, 700); };
     if (SND.muted || (SND.speechVol && SND.speechVol() <= 0.01)) { setTimeout(finish, 1200 + line.text.length * 55); return; }

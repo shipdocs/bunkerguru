@@ -31,3 +31,20 @@ export function saveGraphicsMode(mode) {
     localStorage.setItem(STORAGE_KEYS.graphics, mode);
   } catch {}
 }
+// Hall of fame: the five best retirements in this browser (fase 2).
+const HALL_KEY = 'bunkerguru3d-hall';
+export function loadHall() {
+  try {
+    const h = JSON.parse(localStorage.getItem(HALL_KEY));
+    return Array.isArray(h) ? h.slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
+export function addToHall(entry) {
+  const h = [...loadHall(), entry].sort((a, b) => b.score - a.score).slice(0, 5);
+  try {
+    localStorage.setItem(HALL_KEY, JSON.stringify(h));
+  } catch {}
+  return h;
+}

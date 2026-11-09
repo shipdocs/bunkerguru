@@ -9,6 +9,7 @@ import { createGates, updateGates } from './gates.mjs';
 import { createRivals, updateRivals, rivalStartJob, saveRivals } from './rivals.mjs';
 import { createEvents, eventTick } from './events.mjs';
 import { dockRating } from './docking.mjs';
+import { addNews } from './career.mjs';
 import {
   MAP,
   LOGIC,
@@ -90,7 +91,10 @@ export function act(s) {
   // Rate the manoeuvre before the lines take the speed off.
   if (c.to.kind !== 'wait') {
     s.dockEvent = dockRating(s, c.to);
-    if (c.to.kind === 'ship') s.dockTip = s.dockEvent.tip;
+    if (c.to.kind === 'ship') {
+      s.dockTip = s.dockEvent.tip;
+      s.jobAnchors = s.dockEvent.anchors;
+    }
   }
   s.moored = true;
   s.mooredTo = c.to;
@@ -168,6 +172,11 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
   const stolen = updateRivals(world.rivals, sim, s, world.traffic, fx, world.gates);
   if (stolen && s.job && s.phase !== 'done') {
     fx.say('📻 ' + stolen.rival.name + ' was eerder bij ' + berthOf(s).name + ' – klus kwijt!', 6);
+    addNews(
+      s,
+      'stole',
+      stolen.rival.name + ' kaapt klus bij ' + berthOf(s).name + ' voor de neus van Bunkerguru weg',
+    );
     fx.sound('alarm', 2);
     s.job = null;
     s.phase = 'free';
@@ -188,6 +197,11 @@ function rivalHit(s, r, impact, share, fx) {
   r.damage += od;
   r.cur *= 0.3;
   fx.sound('hit', pd);
+  if (share > 0.6) addNews(s, 'rammed', r.name + ' snijdt Bunkerguru af – en betaalt de schade');
+  else if (share < 0.4) {
+    addNews(s, 'ram', 'Bunkerguru ramt ' + r.name + '! Wraak broeit op de kade');
+    r.grudge = (r.grudge || 0) + 1; // remembered: this rival will race you more often
+  }
   if (share > 0.6) {
     const fee = pd * 5;
     r.gold = Math.max(0, r.gold - fee);
@@ -271,6 +285,14 @@ function logicStep(s, world, dt, fx) {
     s.gold -= loss;
     if (s.job) addRep(s, s.job.client, -5);
     s.sinkLoss = loss;
+    addNews(s, 'sunk', 'Bunkerboot gezonken in de ' + MAP.name + ' – sleepboot schiet te hulp');
+    fx.card?.({
+      who: 'Sleepboot',
+      title: 'Gezonken!',
+      text: 'Houd je vast, we slepen je naar de werf.',
+      kind: 'alarm',
+      seconds: 6,
+    });
     fx.sound('sink');
     fx.say(
       '🫧 Gezonken! De sleepboot brengt je naar de werf. Eigen risico −' +
@@ -410,6 +432,7 @@ function beginBunker(s, fx) {
     const b = berthOf(s);
     s.dockEvent = dockRating(s, { kind: 'ship', id: b.id });
     s.dockTip = s.dockEvent.tip;
+    s.jobAnchors = s.dockEvent.anchors;
   }
   s.phase = 'bunker';
   s.deliver = s.cargo;
@@ -433,18 +456,29 @@ export function takeJob(s, world, id, fx = noFx, rnd = Math.random) {
   }
   // …or race you for your ship: the first one alongside gets the job.
   const free = world.rivals.filter((r) => r.mode === 'idle');
-  if (!berthOf(s).gate && free.length && rnd() < 0.55) {
-    const r = free[Math.floor(rnd() * free.length)];
+  // A rival you rammed holds a grudge and races you more often.
+  const grudge = free.reduce((g, r) => Math.max(g, r.grudge || 0), 0);
+  if (!berthOf(s).gate && free.length && rnd() < Math.min(0.85, 0.55 + grudge * 0.1)) {
+    const angriest = free.slice().sort((a, b) => (b.grudge || 0) - (a.grudge || 0))[0];
+    const r = angriest.grudge > 0 ? angriest : free[Math.floor(rnd() * free.length)];
+    fx.card?.({
+      who: r.name,
+      title: r.name + ' gaat ook voor ' + berthOf(s).name,
+      text:
+        (r.grudge ? '"Dit is voor die klap van laatst!" ' : '') +
+        'Wie het eerst langszij ligt, krijgt de klus.',
+    });
     rivalStartJob(r, s.job.berth, world.rivals, true);
     fx.sound('radio');
-    fx.say(
-      '📻 ' +
-        r.name +
-        ': "Ik ga ook voor ' +
-        berthOf(s).name +
-        '!" – wie het eerst langszij ligt krijgt de klus',
-      5,
-    );
+    if (!fx.card)
+      fx.say(
+        '📻 ' +
+          r.name +
+          ': "Ik ga ook voor ' +
+          berthOf(s).name +
+          '!" – wie het eerst langszij ligt krijgt de klus',
+        5,
+      );
     fx.radio([
       {
         who: r.name,

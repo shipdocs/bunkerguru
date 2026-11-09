@@ -2,6 +2,7 @@
 // shop upgrades and payment. No DOM. Times are "logic seconds" (see LOGIC).
 import { MAP, terminals, waits, customers, waterRoute, nextHighWater } from '../maps/index.mjs';
 import { inRect } from '../maps/index.mjs';
+import { xpForJob, gainXp, addNews } from './career.mjs';
 export { MAP, terminals, waits, customers };
 export const HARBOR = MAP;
 export const berths = customers;
@@ -199,6 +200,7 @@ function startJob(s) {
     jobDamage: s.damage,
     vtsBonus: 0,
     dockTip: 0,
+    jobAnchors: 0,
   });
 }
 export function deadlineText(s) {
@@ -250,6 +252,26 @@ export function settle(s) {
     s.gold += 300;
     result.dayGoal = true;
   }
+  // Career: points, perhaps a promotion, and a line for the Havenkrant.
+  const b = customers[j?.berth ?? 0];
+  result.anchors = s.jobAnchors || 0;
+  result.xp = xpForJob(result, result.anchors);
+  result.promotion = gainXp(s, result.xp);
+  if (result.anchors === 3) addNews(s, 'strak', 'Bunkerguru legt STRAK aan bij ' + b.name);
+  if (!onTime)
+    addNews(
+      s,
+      'late',
+      'Bunkerboot te laat bij ' + b.name + ' – ' + (j?.client || 'rederij') + ' morrend',
+    );
+  else
+    addNews(
+      s,
+      'job',
+      'Bunkerguru levert ' + Math.round(s.deliver || s.target) + ' t aan ' + b.name,
+    );
+  if (result.promotion)
+    addNews(s, 'rank', 'Bunkerguru gepromoveerd tot ' + result.promotion.name + '!');
   s.job = null;
   return result;
 }

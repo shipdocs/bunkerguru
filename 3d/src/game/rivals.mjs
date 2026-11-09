@@ -34,6 +34,7 @@ export function createRivals(saved = []) {
       cur: 0,
       gold: sv.gold ?? 300,
       jobs: sv.jobs ?? 0,
+      grudge: sv.grudge ?? 0,
       damage: 0,
       mode: 'idle',
       path: [],
@@ -47,7 +48,14 @@ export function createRivals(saved = []) {
   });
 }
 export const saveRivals = (rivals) =>
-  rivals.map((r) => ({ gold: Math.round(r.gold), jobs: r.jobs, x: r.x, z: r.z, h: r.h }));
+  rivals.map((r) => ({
+    gold: Math.round(r.gold),
+    jobs: r.jobs,
+    x: r.x,
+    z: r.z,
+    h: r.h,
+    grudge: r.grudge || 0,
+  }));
 
 function terminalSpot(r, rivals) {
   const byDist = terminals
@@ -281,28 +289,46 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       fx0 = Math.sin(r.h) * sgn,
       fz0 = -Math.cos(r.h) * sgn;
     const me = rivals.indexOf(r);
+    const moored = (o) => o.mode === 'loading' || o.mode === 'bunkering';
     const obstacles = [
-      { x: player.x, z: player.z, len: 110 },
+      { x: player.x, z: player.z, len: 110, still: player.moored },
       ...rivals
         .filter((o) => o !== r && o.mode !== 'sunk')
         // Two rivals face to face: the second one gives way, the first goes on.
         .filter((o) => !(o.yieldTo === me && me < rivals.indexOf(o)))
-        .map((o) => ({ x: o.x, z: o.z, len: 110, rival: rivals.indexOf(o) })),
-      ...traffic.map((t) => ({ x: t.x, z: t.z, len: t.length })),
+        .map((o) => ({ x: o.x, z: o.z, len: 110, rival: rivals.indexOf(o), still: moored(o) })),
+      ...traffic.map((t) => ({
+        x: t.x,
+        z: t.z,
+        len: t.length,
+        vx: t.axis === 'x' ? t.v * t.k : 0,
+        vz: t.axis === 'z' ? t.v * t.k : 0,
+      })),
     ];
+    // Patience runs out: after half a minute of waiting, pass with care (the hull
+    // contacts still keep everyone apart) instead of waiting for ever.
+    r.waitT = r.yield ? (r.waitT || 0) + dt : 0;
+    const impatient = r.waitT > 30 * SIM;
     r.yieldTo = null;
-    for (const o of obstacles) {
-      const ox = o.x - r.x,
-        oz = o.z - r.z,
-        ahead = ox * fx0 + oz * fz0,
-        lat = Math.abs(ox * -fz0 + oz * fx0);
-      const reach = RL + o.len / 2 + 30 + Math.abs(r.cur) * 12;
-      if (ahead > 0 && ahead < reach && lat < 30 + o.len * 0.15) {
-        target = Math.min(target, ahead < RL + o.len / 2 + 10 ? 0 : 0.8);
-        r.yield = true;
-        if (o.rival !== undefined) r.yieldTo = o.rival;
+    r.yield = false;
+    if (!impatient)
+      for (const o of obstacles) {
+        const ox = o.x - r.x,
+          oz = o.z - r.z,
+          ahead = ox * fx0 + oz * fz0,
+          lat = Math.abs(ox * -fz0 + oz * fx0);
+        // A boat lying alongside a quay is passed, not waited for.
+        if (o.still && lat > 16) continue;
+        const reach = RL + o.len / 2 + 30 + Math.abs(r.cur) * 12;
+        if (ahead > 0 && ahead < reach && lat < 30 + o.len * 0.15) {
+          // Behind a ship going the same way: follow at its speed, don't stop dead.
+          const along = (o.vx || 0) * fx0 + (o.vz || 0) * fz0;
+          const follow = along > 0.5 && ahead > RL + o.len / 2 ? along * 0.9 : null;
+          target = Math.min(target, follow ?? (ahead < RL + o.len / 2 + 10 ? 0 : 0.8));
+          if (follow === null) r.yield = true;
+          if (o.rival !== undefined) r.yieldTo = o.rival;
+        }
       }
-    }
     // A basin with another rival manoeuvring in it: wait at the mouth (engine.js).
     const inBasin = (p) => basins.find((b) => p.x > b.x0 && p.x < b.x1 && p.z > b.z0 && p.z < b.z1);
     const mine = inBasin(r),

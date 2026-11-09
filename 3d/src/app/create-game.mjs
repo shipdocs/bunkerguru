@@ -7,6 +7,12 @@ import { radioChatter } from '../game/chatter.mjs';
 import { renderYaw } from '../game/vessel.mjs';
 import { fresh, step, createWorldState, takeJob } from '../game/simulation.mjs';
 import { nearestGate, callGate } from '../game/gates.mjs';
+import { saveRivals } from '../game/rivals.mjs';
+import { newspaper, paperDue, retirement, rankOf } from '../game/career.mjs';
+import { createCards } from '../ui/cards.mjs';
+import { portraitFor } from '../ui/portraits.mjs';
+import { clockStr, dayClock, berthOf, terminalOf } from '../game/harbor.mjs';
+import { addToHall } from './storage.mjs';
 import { fastTravel, planFastTravel } from '../game/fast-travel.mjs';
 import { createWorld } from '../render/world.mjs';
 import { createNavigationEffects } from '../render/navigation-effects.mjs';
@@ -24,18 +30,23 @@ export function createGame({ createRenderer } = {}) {
   let s = loadCareer();
   const sim = createWorldState(s);
   const sound = new HarborAudio();
-  const radio = createRadio({
-    get muted() {
-      return sound.muted;
+  const radio = createRadio(
+    {
+      get muted() {
+        return sound.muted;
+      },
+      radioOpen: () => sound.fx('radioOpen'),
+      radioClose: () => sound.fx('radioClose'),
+      babble: (text, spk, done) =>
+        sound.sound && !sound.muted
+          ? sound.sound.babble(text, spk, done)
+          : setTimeout(done, 900 + text.length * 50),
+      speechVol: () => (sound.muted ? 0 : (sound.sound?.speechVol?.() ?? 0.8)),
     },
-    radioOpen: () => sound.fx('radioOpen'),
-    radioClose: () => sound.fx('radioClose'),
-    babble: (text, spk, done) =>
-      sound.sound && !sound.muted
-        ? sound.sound.babble(text, spk, done)
-        : setTimeout(done, 900 + text.length * 50),
-    speechVol: () => (sound.muted ? 0 : (sound.sound?.speechVol?.() ?? 0.8)),
-  });
+    undefined,
+    portraitFor,
+  );
+  const card = createCards($('momentCard'));
   sim.radioOn = radio.on;
   let graphicsMode = loadGraphicsMode();
   const screenInfo = () => ({
@@ -67,23 +78,20 @@ export function createGame({ createRenderer } = {}) {
     $('toast').style.opacity = 1;
   }
   function save() {
-    s.rivals = sim.rivals.map((r) => ({
-      gold: Math.round(r.gold),
-      jobs: r.jobs,
-      x: r.x,
-      z: r.z,
-      h: r.h,
-    }));
+    s.rivals = saveRivals(sim.rivals);
     saveCareer(s);
   }
   const fx = {
     say: toast,
+    card: (c) => card(c),
     sound: (name, ...args) => {
       if (name === 'hit') shake = Math.min(1, 0.3 + (args[0] || 0) / 12);
       sound.fx(name, ...args);
     },
     radio: (lines) => radio.say(lines, 'nl'),
     board: () => {
+      // Every third job the Havenkrant comes first, then the schedule.
+      if (paperDue(s) && MAP.id !== 'training') return setTimeout(showPaper, 900);
       if (MAP.id !== 'training')
         setTimeout(
           () => started && !document.querySelector('dialog[open]') && openPort('jobs'),
@@ -92,6 +100,14 @@ export function createGame({ createRenderer } = {}) {
     },
     done: (r) => {
       coinFly(r.total);
+      if (r.promotion)
+        card({
+          who: 'Havenmeester',
+          title: 'Promotie: ' + r.promotion.name + '!',
+          text: promotionText(r.promotion.name),
+          kind: 'gold',
+          seconds: 8,
+        });
       toast(
         '✅ Klaar! 🪙 +' +
           r.pay +
@@ -132,10 +148,15 @@ export function createGame({ createRenderer } = {}) {
     const ok = takeJob(s, sim, id, fx);
     if (ok) {
       const j = s.job;
-      toast(
-        'Opdracht: ' + j.target + ' t. Laden bij de gele terminal, dan naar de groene zone.',
-        6,
-      );
+      card({
+        who: 'Havenmeester',
+        title: j.target + ' t voor ' + berthOf(s).name,
+        text:
+          'Laden bij ' +
+          terminalOf(s).name +
+          ' (geel), dan langszij in de groene zone. ' +
+          (j.client || ''),
+      });
     }
     return ok;
   }
@@ -226,7 +247,7 @@ export function createGame({ createRenderer } = {}) {
     save();
   };
   $('handling').textContent = 'Vaargedrag: ' + s.handling;
-  mapButtons($('mapList'), MAP.id, (id) => (id === MAP.id ? begin() : switchMap(id, save)));
+  mapButtons($('mapList'), MAP.id, (id) => (id === MAP.id ? begin() : switchMap(id, save)), s);
   bindMobilePanels($);
   const renderPort = bindPort({
     $,
@@ -253,7 +274,101 @@ export function createGame({ createRenderer } = {}) {
     },
     save,
     toast,
+    retire: doRetire,
   });
+  function promotionText(rank) {
+    const unlock = {
+      Stuurman: ' Rotterdam is vrijgespeeld.',
+      Schipper: ' Europoort is vrijgespeeld.',
+      Kapitein: ' Antwerpen is vrijgespeeld – en je kunt met pensioen.',
+    };
+    return (
+      'Gefeliciteerd, ' + rank.toLowerCase() + '.' + (unlock[rank] || ' De haven kijkt naar je op.')
+    );
+  }
+  // De Havenkrant: three headlines and the standing of the bunker companies.
+  function showPaper() {
+    const p = newspaper(s, sim.rivals);
+    $('paperDate').textContent = MAP.name.toUpperCase() + ' · ' + clockStr(dayClock(s));
+    $('paperIssue').textContent = 'editie ' + p.issue;
+    $('paperLead').textContent = p.headlines[0];
+    $('paperNews').innerHTML = p.headlines
+      .slice(1)
+      .map((h) => '<li>' + h + '</li>')
+      .join('');
+    $('paperStanding').innerHTML =
+      '<tr><th colspan="3">Stand van de bunkerbedrijven</th></tr>' +
+      p.standing
+        .map(
+          (x, i) =>
+            '<tr><td>' +
+            (i + 1) +
+            '.</td><td>' +
+            x.name +
+            '</td><td>' +
+            x.gold +
+            ' 🪙 · ' +
+            x.jobs +
+            ' klussen</td></tr>',
+        )
+        .join('');
+    release();
+    paused = true;
+    $('paper').showModal();
+    save();
+  }
+  $('paperClose').onclick = () => {
+    $('paper').close();
+    paused = false;
+    started = true;
+    if (!s.job) setTimeout(() => openPort('jobs'), 300);
+  };
+  $('paper').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    $('paperClose').click();
+  });
+  // Retirement: a title in the paper, an entry in the hall of fame, a fresh start.
+  function doRetire() {
+    const r = retirement(s);
+    addToHall({ ...r, date: new Date().toISOString().slice(0, 10) });
+    $('port').close();
+    $('retireTitle').textContent = r.title;
+    $('retireText').textContent =
+      'Na ' +
+      r.jobs +
+      ' klussen gaat ' +
+      r.rank.toLowerCase() +
+      ' Bunkerguru aan wal. Kas: ' +
+      r.gold +
+      ' 🪙, gemiddelde reputatie ' +
+      r.rep +
+      '.';
+    $('retireScore').textContent = 'Score ' + r.score;
+    paused = true;
+    $('retireDlg').showModal();
+  }
+  $('retireNew').onclick = () => {
+    const keep = { handling: s.handling, timeScale: s.timeScale, trainingDone: true };
+    s = Object.assign(fresh(), keep);
+    for (const r of sim.rivals)
+      Object.assign(r, {
+        gold: 300,
+        jobs: 0,
+        grudge: 0,
+        damage: 0,
+        mode: 'idle',
+        target: null,
+        racing: false,
+        path: [],
+        cur: 0,
+        wait: 6,
+      });
+    save();
+    $('retireDlg').close();
+    paused = false;
+    toast('Een nieuwe carrière begint. Matroos, aan dek!', 5);
+    setTimeout(() => openPort('jobs'), 600);
+  };
   $('horn').onclick = () => sound.horn();
   $('fastBtn').onclick = doFastTravel;
   function showDockStamp(e) {
@@ -431,5 +546,6 @@ export function createGame({ createRenderer } = {}) {
     scene,
     ui,
     renderPort,
+    showPaper, // debug/browser tests
   };
 }

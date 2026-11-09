@@ -13,6 +13,7 @@ import {
   atTerminal,
 } from '../game/harbor.mjs';
 import { tideState } from '../maps/index.mjs';
+import { rankOf } from '../game/career.mjs';
 import { TELE_NAMES } from '../game/vessel.mjs';
 import { SHIP } from '../game/ship-profile.mjs';
 const nl = (v, d = 1) => v.toFixed(d).replace('.', ',');
@@ -176,6 +177,8 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
     const r = world.rivals;
     const d = s.day || {};
     $('career').textContent =
+      rankOf(s).name +
+      ' · ' +
       s.jobs +
       ' klussen · dagdoel ' +
       Math.min(d.onTime || 0, d.clean || 0) +
