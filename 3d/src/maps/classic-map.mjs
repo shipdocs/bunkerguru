@@ -3,6 +3,7 @@
 // z = across (n < 0 = north = −z). The river is drawn straight (TH ignored).
 // Exactly as in the 2D game, K enlarges the world while ships keep their size and
 // berths, terminals and waiting places stay against their quay.
+import { createWarp, warpParams } from './warp.mjs';
 const SCALE = 2, // pixels per metre in the 2D game
   SH = 52; // seagoing ship beam in pixels (26 m)
 const COLS = ['#e67e22', '#27ae60', '#2980b9', '#e74c3c', '#f1c40f'];
@@ -298,8 +299,10 @@ export function buildClassic(def) {
   const lanes = def.lanes
     ? { down: M(def.lanes.down * K), up: M(def.lanes.up * K), mouth: M(def.lanes.mouth * K) }
     : null;
+  const warp = createWarp(warpParams(def.id), riverHalf);
   return {
     id: def.id,
+    warp,
     name: def.name,
     icon: def.icon,
     desc: def.desc,
