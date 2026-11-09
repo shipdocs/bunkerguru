@@ -23,23 +23,28 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
   const g = new T.Group();
   const L = profile.length,
     B = profile.beam,
-    hull = opts.color || '#ba6539',
+    // As on the Rotterdam bunker boats (Burando's Zeeland, Leonore): a black hull,
+    // grey deck, silver pipes with blue valves, white bow bulwark and house; the
+    // company colour runs as a broad stripe under the sheer and in the bow name.
+    company = opts.color || '#ba6539',
+    hull = '#24292c',
     name = opts.name || 'BUNKERGURU';
   const C = {
     boot: '#7d2a20',
-    deck: '#4d6b5a',
-    walk: '#6f7d74',
-    pipe: '#d9b44a',
-    pipe2: '#9aa6a3',
-    flange: '#c7432f',
-    house: '#eeeae0',
-    trim: '#d8d3c4',
+    deck: '#858d8f',
+    walk: '#a3aaab',
+    pipe: '#c3c9ca',
+    pipe2: '#949ea0',
+    flange: '#2f5fae',
+    house: '#f1f1ec',
+    trim: '#dcdcd4',
     window: '#22323b',
     dark: '#1f2a2e',
-    rail: '#e6e2d4',
-    crane: '#e8b72e',
+    rail: '#f2f2ee',
+    crane: '#2a3034',
     black: '#141a1c',
   };
+  const zBul = -0.37 * L; // forward of this the hull carries a high white bulwark
   // ---- Hull lines ----
   const zb0 = -L * (0.5 - 16 / 220), // end of the parallel body, bow side
     zs0 = L * (0.5 - 4 / 220); // stern side
@@ -92,11 +97,11 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
     const at = (y) => hw + (hd - hw) * Math.max(0, Math.min(1, y / yd));
     return { yd, hd, hw, at };
   };
-  // Topside in the hull colour, from the boot-top (0.6 m) to just under the sheer strake.
+  // Black topside from the boot-top (0.6 m) to the company stripe.
   band((z) => {
     const s = side(z);
     return [
-      [-s.at(s.yd - 0.3), s.yd - 0.3, z],
+      [-s.at(s.yd - 1.0), s.yd - 1.0, z],
       [-s.at(0.6), 0.6, z],
     ];
   }, hull);
@@ -104,9 +109,28 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
     const s = side(z);
     return [
       [s.at(0.6), 0.6, z],
-      [s.at(s.yd - 0.3), s.yd - 0.3, z],
+      [s.at(s.yd - 1.0), s.yd - 1.0, z],
     ];
   }, hull);
+  // The company stripe under the sheer: the rival you see coming, by colour.
+  for (const k of [-1, 1])
+    band((z) => {
+      const s = side(z);
+      return [
+        [k * s.at(s.yd - 1.0), s.yd - 1.0, z],
+        [k * s.at(s.yd - 0.3), s.yd - 0.3, z],
+      ];
+    }, company);
+  // High white bulwark round the bow (forward of zBul), flat to the deck aft of it.
+  for (const k of [-1, 1])
+    band((z) => {
+      const s = side(z),
+        h = z < zBul ? 1.3 * Math.min(1, (zBul - z) / 3) : 0;
+      return [
+        [k * s.hd, s.yd, z],
+        [k * s.hd, s.yd + h, z],
+      ];
+    }, C.rail);
   // White sheer strake along the deck edge.
   for (const k of [-1, 1])
     band((z) => {
@@ -140,7 +164,7 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
   for (let i = 0; i < N; i += 2) {
     const z = stations[i];
     const s = side(z);
-    if (s.hd < 0.5) continue;
+    if (s.hd < 0.5 || z < zBul) continue;
     for (const k of [-1, 1]) box(0.08, 1.0, 0.08, C.rail, k * (s.hd - 0.12), s.yd + 0.5, z, g);
   }
   for (const k of [-1, 1])
@@ -149,7 +173,7 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
         z1 = stations[i + 1],
         a = side(z0),
         b = side(z1);
-      if (a.hd < 0.5 || b.hd < 0.5) continue;
+      if (a.hd < 0.5 || b.hd < 0.5 || z1 < zBul) continue;
       beam([k * (a.hd - 0.12), a.yd + 1, z0], [k * (b.hd - 0.12), b.yd + 1, z1], 0.05, C.rail, g);
     }
   // ---- Bow: forecastle, anchors, windlass, folding foremast ----
@@ -167,17 +191,26 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
   // ---- Cargo deck: pipe rack, tank domes, vents, catwalk ----
   const zA = -0.38 * L,
     zB = 0.2 * L;
-  box(1.1, 0.12, zB - zA, C.walk, 1.6, 3.9, (zA + zB) / 2, g); // catwalk
-  for (let z = zA; z < zB; z += 6) box(0.1, 0.8, 0.1, C.walk, 1.6, 3.4, z, g);
+  // Raised catwalk (loopbrug) on the centre line, white railings both sides.
+  box(1.2, 0.12, zB - zA, C.walk, 0, 4.6, (zA + zB) / 2, g);
+  for (let z = zA; z <= zB; z += 6) {
+    box(0.12, 1.6, 0.12, C.walk, 0, 3.8, z, g);
+    for (const k of [-1, 1]) box(0.06, 1.0, 0.06, C.rail, k * 0.6, 5.1, z, g);
+  }
+  for (const k of [-1, 1]) beam([k * 0.6, 5.6, zA], [k * 0.6, 5.6, zB], 0.04, C.rail, g);
+  // Cargo lines beside it, with blue valves at every tank.
   for (const [x, r, c] of [
-    [-0.3, 0.22, C.pipe],
-    [0.25, 0.18, C.pipe],
-    [0.75, 0.14, C.pipe2],
+    [-1.7, 0.22, C.pipe],
+    [-1.2, 0.18, C.pipe2],
+    [1.25, 0.2, C.pipe],
+    [1.75, 0.14, C.pipe2],
   ]) {
-    const p = cyl(r, zB - zA, c, x, 3.55, (zA + zB) / 2, g);
+    const p = cyl(r, zB - zA, c, x, 3.45, (zA + zB) / 2, g);
     p.rotation.x = Math.PI / 2;
   }
-  for (let z = zA + 3; z < zB; z += 7) box(2.2, 0.15, 0.25, C.pipe2, 0.2, 3.35, z, g); // pipe supports
+  for (let z = zA + 3; z < zB; z += 7) box(4.2, 0.15, 0.25, C.pipe2, 0, 3.2, z, g); // pipe supports
+  for (let z = zA + 6; z < zB; z += 9.5)
+    for (const x of [-1.7, 1.25]) box(0.55, 0.5, 0.4, C.flange, x, 3.75, z, g);
   for (let z = zA + 5, i = 0; z < zB - 4; z += 9.5, i++) {
     for (const x of [-B * 0.27, B * 0.27]) {
       cyl(0.65, 0.5, C.trim, x, 3.25, z, g); // tank dome / hatch
@@ -194,13 +227,14 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
     cyl(0.38, 0.15, C.flange, k * B * 0.41, 3.6, zM, g).rotation.z = Math.PI / 2;
     box(1.4, 0.3, 2.2, C.dark, k * B * 0.38, 3.15, zM, g); // drip tray
   }
-  cyl(0.45, 2.6, C.crane, -B * 0.3, 4.3, zM + 3, g); // crane pedestal
-  beam([-B * 0.3, 5.5, zM + 3], [-B * 0.05, 9.2, zM - 4], 0.22, C.crane, g); // boom
-  beam([-B * 0.05, 9.2, zM - 4], [-B * 0.05, 6.2, zM - 4], 0.04, C.dark, g); // wire
+  // The long dark hose crane that reaches up to a seagoing ship's rail.
+  cyl(0.5, 2.8, C.crane, -B * 0.3, 4.4, zM + 3, g); // pedestal
+  beam([-B * 0.3, 5.8, zM + 3], [-B * 0.15, 15, zM - 9], 0.26, C.crane, g); // boom
+  beam([-B * 0.15, 15, zM - 9], [-B * 0.15, 9.5, zM - 9], 0.04, C.dark, g); // wire
   const hose = new T.TubeGeometry(
     new T.CatmullRomCurve3([
-      new T.Vector3(-B * 0.05, 6.2, zM - 4),
-      new T.Vector3(-B * 0.2, 4.4, zM - 2),
+      new T.Vector3(-B * 0.15, 9.5, zM - 9),
+      new T.Vector3(-B * 0.25, 6, zM - 4),
       new T.Vector3(-B * 0.38, 3.9, zM),
     ]),
     12,
@@ -295,26 +329,33 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
     );
     ring.rotation.y = 0;
   }
-  // Name painted on both bows (a canvas texture: not batched, stays sharp).
+  // Name on the white bow bulwark, in the company colour (as LEONORE, ZEELAND).
   const cv = document.createElement('canvas');
   cv.width = 512;
   cv.height = 80;
   const cx = cv.getContext('2d');
   if (cx) {
-    cx.fillStyle = '#f4f1e6';
-    cx.font = 'bold 54px sans-serif';
+    cx.fillStyle = company;
+    cx.font = 'bold 56px sans-serif';
     cx.textAlign = 'center';
     cx.textBaseline = 'middle';
     cx.fillText(name, 256, 42);
   }
   const tex = new T.CanvasTexture(cv);
   const nameMat = new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
-  const zN = -0.4 * L,
-    sN = side(zN);
+  const zFwd = -0.445 * L,
+    zAft = -0.395 * L;
   for (const k of [-1, 1]) {
-    const plate = new T.Mesh(new T.PlaneGeometry(8, 1.25), nameMat);
-    plate.position.set(k * (sN.at(sN.yd - 1.1) + 0.06), sN.yd - 1.1, zN);
-    plate.rotation.y = k > 0 ? Math.PI / 2 : -Math.PI / 2;
+    // Follow the curving bow: from aft to fore on starboard, fore to aft on port,
+    // so the name reads left to right from either side.
+    const a = { x: k * (side(zAft).hd + 0.06), z: zAft },
+      f = { x: k * (side(zFwd).hd + 0.06), z: zFwd },
+      [p0, p1] = k > 0 ? [a, f] : [f, a];
+    const len = Math.hypot(p1.x - p0.x, p1.z - p0.z);
+    const plate = new T.Mesh(new T.PlaneGeometry(len, len / 6.4), nameMat);
+    const y = Math.max(side(zAft).yd, side(zFwd).yd) + 0.65;
+    plate.position.set((p0.x + p1.x) / 2, y, (p0.z + p1.z) / 2);
+    plate.rotation.y = Math.atan2(-(p1.z - p0.z), p1.x - p0.x);
     g.add(plate);
   }
   return g;
