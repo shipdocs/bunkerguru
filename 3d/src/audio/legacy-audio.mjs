@@ -1,7 +1,11 @@
 // Sound engine from shipdocs/bunkerguru audio.js, blob f0e0f97720ca1d9ed1721d68c4ea95f4348fb8a5.
 // Adaptations: factory export, music off, pause gate, scheduler catch-up guard, save-key namespace.
 // ---------- geluid (Web Audio, alles gegenereerd) ----------
+// 3D: the main engine is now the slow-speed diesel of diesel.mjs (Motorlab choice 1A);
+// the old thump scheduler, drone and turbo stay silent.
+import { createDiesel } from './diesel.mjs';
 export function createLegacySound() {
+  let diesel = null, dieselGain = null;
   let active = false;
   let ac = null, master, engLoadUntil = 0, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, turboT = 0, turboPw = 0, turboLast = 0, bowGain, washGain, pumpGain, muted = false, musicOn = false, musicGain = null, musicTimer = null;
   try { musicOn = false; } catch (e) {}
@@ -25,7 +29,10 @@ export function createLegacySound() {
     const rum = loopNoise('lowpass', 70, 0.25); rum.g.connect(engBus); rumGain = rum.g; // diepe rommel onder de slagen
     turboOsc = ac.createOscillator(); turboOsc.type = 'sine'; turboOsc2 = ac.createOscillator(); turboOsc2.type = 'sine'; turboGain = ac.createGain(); turboGain.gain.value = 0; const t2g = ac.createGain(); t2g.gain.value = 0.5;
     turboOsc.connect(turboGain); turboOsc2.connect(t2g); t2g.connect(turboGain); turboGain.connect(sfx); turboOsc.start(); turboOsc2.start(); // turbofluit, alleen bovenin het toerenbereik, nauwelijks hoorbaar
-    engTimer = setInterval(scheduleEngine, 50); engNext = ac.currentTime + 0.1;
+    engTimer = null; // oude slagen-planner uit: de diesel hieronder is de motor
+    diesel = createDiesel(); dieselGain = ac.createGain(); dieselGain.gain.value = 0.9;
+    const dp = ac.createScriptProcessor(1024, 0, 1); dp.onaudioprocess = (e) => diesel.render(e.outputBuffer.getChannelData(0), ac.sampleRate);
+    dp.connect(dieselGain); dieselGain.connect(sfx);
     const b = loopNoise('bandpass', 900, 1.5); bowGain = b.g;
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
     pumpGain = loopNoise('lowpass', 180, 0.7).g;
@@ -148,9 +155,11 @@ export function createLegacySound() {
     const tdt = Math.min(0.5, Math.max(0, now - (turboLast || now))); turboLast = now;
     if (Math.abs(pw - turboPw) > 0.03) { turboT = 0; turboPw = pw; } else turboT += tdt; // referentie verschuift pas na een echte toerenverandering: geleidelijk optoeren telt ook
     const turboFade = turboT < 3 ? 1 : Math.max(0.08, Math.exp(-(turboT - 3) / 4));
-    engGain.gain.setTargetAtTime(on * (0.55 + pw * 0.4), now, 0.3);
-    if (rumGain) rumGain.gain.setTargetAtTime(on * (0.25 + pw * 0.5), now, 0.5);
-    if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.0055 * turboFade; turboGain.gain.setTargetAtTime(on * ta, now, 0.4); }
+    engGain.gain.setTargetAtTime(0, now, 0.3);
+    if (rumGain) rumGain.gain.setTargetAtTime(0, now, 0.5);
+    // De diesel: aan tenzij de motor uit staat (pauze dempt via master, start niet opnieuw).
+    if (diesel) diesel.set(!st.engineOff, pw);
+    if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.0055 * turboFade; turboGain.gain.setTargetAtTime(0 * ta, now, 0.4); }
     pumpGain.gain.setTargetAtTime(run && st.pumping ? 0.12 : 0, now, 0.2);
     bowGain.gain.setTargetAtTime(run * (st.bow ? 0.35 : 0), now, 0.15);
     washGain.gain.setTargetAtTime(run * Math.min(0.5, st.speed * 0.07), now, 0.4);
