@@ -1,5 +1,6 @@
 // Harbour rules from the 2D game (engine.js): job schedule, clients and reputation,
 // shop upgrades and payment. No DOM. Times are "logic seconds" (see LOGIC).
+import { jobScore, addJob } from './ranking.mjs';
 import { MAP, terminals, waits, customers, waterRoute, nextHighWater } from '../maps/index.mjs';
 import { inRect } from '../maps/index.mjs';
 import { xpForJob, gainXp, addNews } from './career.mjs';
@@ -270,6 +271,9 @@ export function settle(s) {
   s.gold += total;
   s.jobs++;
   s.earned = (s.earned || 0) + total;
+  // Leaderboard of this harbour: the job's score joins the running shift.
+  result.score = jobScore({ onTime, late, damage: s.damage, vts: s.vtsBonus });
+  result.shift = { ...addJob(s, MAP.id, result.score) };
   const d = (s.day = s.day || { jobs: 0, onTime: 0, clean: 0, goalDone: false });
   d.jobs++;
   if (onTime) d.onTime++;

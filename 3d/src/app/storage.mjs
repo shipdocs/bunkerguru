@@ -1,5 +1,6 @@
 import { fresh, restore } from '../game/simulation.mjs';
 import { GRAPHICS_MODES } from '../render/graphics.mjs';
+import { ranked, RANK_SIZE } from '../game/ranking.mjs';
 // These keys are a compatibility contract: changing them loses existing careers/preferences.
 export const STORAGE_KEYS = Object.freeze({
   career: 'bunkerguru3d-v1',
@@ -30,6 +31,23 @@ export function saveGraphicsMode(mode) {
   try {
     localStorage.setItem(STORAGE_KEYS.graphics, mode);
   } catch {}
+}
+// Leaderboard per harbour: the five best shifts in this browser (ranking.mjs).
+const rankKey = (mapId) => 'bunkerguru3d-rank-' + mapId;
+export function loadRanking(mapId) {
+  try {
+    const r = JSON.parse(localStorage.getItem(rankKey(mapId)));
+    return Array.isArray(r) ? r.slice(0, RANK_SIZE) : [];
+  } catch {
+    return [];
+  }
+}
+export function saveShift(mapId, shift, date = new Date().toISOString().slice(0, 10)) {
+  const list = ranked(loadRanking(mapId), shift, date);
+  try {
+    localStorage.setItem(rankKey(mapId), JSON.stringify(list));
+  } catch {}
+  return list;
 }
 // Hall of fame: the five best retirements in this browser (fase 2).
 const HALL_KEY = 'bunkerguru3d-hall';
