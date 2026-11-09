@@ -5,6 +5,7 @@
 // Times in logic seconds; positions in metres.
 import { MAP, basins, currentAt, landAt } from '../maps/index.mjs';
 import { addRep, up } from './harbor.mjs';
+import { addNews } from './career.mjs';
 
 export function createEvents() {
   return {
@@ -74,6 +75,12 @@ export function eventTick(ev, s, dt, world, fx) {
     s.blackout = 18 + Math.random() * 14;
     s.teleIdx = 3;
     fx.say('⚠️ BLACKOUT – hoofdmotor uitgevallen! We drijven…', 6);
+    fx.card?.({
+      who: 'Machinist',
+      title: 'Blackout!',
+      text: 'Hoofdmotor uitgevallen – we drijven. Boegschroef ook dood.',
+      kind: 'alarm',
+    });
     fx.radio([
       {
         who: 'Bunkerguru',
@@ -85,6 +92,12 @@ export function eventTick(ev, s, dt, world, fx) {
     fx.sound('alarm', 3);
     s.jamT = 9 + Math.random() * 6;
     fx.say('⚠️ Stuurmachine klemt – roer blijft staan!', 5);
+    fx.card?.({
+      who: 'Machinist',
+      title: 'Roer klemt!',
+      text: 'De stuurmachine zit vast. Stuur met machine en boegschroef.',
+      kind: 'alarm',
+    });
   } else if (pick === 2) {
     fx.sound('alarm', 2);
     ev.fog = 70 + Math.random() * 40;
@@ -160,6 +173,7 @@ function vtsTick(ev, s, dt, world, fx) {
       ev.vtsCd = 90;
       if (s.job) addRep(s, s.job.client, -6);
       fx.say('📻 VTS: aanwijzing genegeerd! Reputatie −6', 5);
+      addNews(s, 'vts', 'VTS berispt Bunkerguru: aanwijzing genegeerd bij ' + MAP.name);
       fx.radio([
         {
           who: sector(),
@@ -209,6 +223,11 @@ function vtsTick(ev, s, dt, world, fx) {
       if (eta < 8 || eta > 40) continue;
       ev.vts = { sh, x0, x1, mx, side, side0: Math.sign(sh.x - mx), T: eta + 25 };
       fx.say('📻 VTS: wacht bij de ' + b.name + ' tot ' + sh.name + ' gepasseerd is', 6);
+      fx.card?.({
+        who: sector(),
+        title: 'VTS: wachten bij de ' + b.name,
+        text: sh.name + ' komt eraan. Blijf buiten de monding tot hij gepasseerd is.',
+      });
       fx.sound('alarm', 1);
       fx.radio([
         {

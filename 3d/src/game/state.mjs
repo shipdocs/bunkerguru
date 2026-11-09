@@ -54,6 +54,10 @@ export function fresh() {
     rivals: [],
     trainingDone: false,
     pumping: false,
+    xp: 0,
+    news: [],
+    paperJobs: 0,
+    paperIssue: 0,
   };
 }
 function startBerth() {
@@ -79,6 +83,10 @@ export function restore(raw) {
   if (['schipper', 'arcade'].includes(raw.handling)) s.handling = raw.handling;
   if (TEMPOS.includes(raw.timeScale)) s.timeScale = raw.timeScale;
   if (typeof raw.trainingDone === 'boolean') s.trainingDone = raw.trainingDone;
+  // Career (fase 2). Careers from before get points for the jobs they already did.
+  s.xp = isNum(raw.xp) ? Math.max(0, raw.xp) : s.jobs * 150;
+  if (Array.isArray(raw.news)) s.news = raw.news.slice(-40);
+  for (const k of ['paperJobs', 'paperIssue']) if (isNum(raw[k])) s[k] = raw[k];
   // Rivals keep their money everywhere, their position only on the same map.
   if (Array.isArray(raw.rivals))
     s.rivals = raw.rivals.map((r) => (raw.mapId === MAP.id ? r : { gold: r?.gold, jobs: r?.jobs }));

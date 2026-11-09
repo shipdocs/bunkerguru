@@ -17,14 +17,33 @@ import {
 import { MAP_LIST, MAP_KEY } from '../maps/index.mjs';
 import { tideState } from '../maps/index.mjs';
 import { recover } from '../game/simulation.mjs';
+import {
+  mapUnlocked,
+  mapRankName,
+  rankOf,
+  nextRank,
+  canRetire,
+  RETIRE_MIN_JOBS,
+} from '../game/career.mjs';
+import { loadHall } from '../app/storage.mjs';
 
-export function mapButtons(container, current, onPick) {
+// Harbours open up with your rank; a locked one says what it takes.
+export function mapButtons(container, current, onPick, s = null) {
   container.replaceChildren();
   for (const m of MAP_LIST) {
     const b = document.createElement('button');
-    b.className = 'mapPick' + (m.id === current ? ' selected' : '');
-    b.innerHTML = '<b>' + m.icon + ' ' + m.name + '</b><span>' + (m.desc?.nl || '') + '</span>';
-    b.onclick = () => onPick(m.id);
+    const open = !s || m.id === current || mapUnlocked(s, m.id);
+    b.className = 'mapPick' + (m.id === current ? ' selected' : '') + (open ? '' : ' locked');
+    b.innerHTML =
+      '<b>' +
+      (open ? m.icon : '🔒') +
+      ' ' +
+      m.name +
+      '</b><span>' +
+      (open ? m.desc?.nl || '' : 'Vrij vanaf rang ' + mapRankName(m.id) + '.') +
+      '</span>';
+    b.disabled = !open;
+    b.onclick = () => open && onPick(m.id);
     container.append(b);
   }
 }
@@ -48,6 +67,7 @@ export function bindPort({
   resetCareer,
   save,
   toast,
+  retire,
 }) {
   let tab = 'jobs';
   function renderPort(which = tab) {
@@ -199,7 +219,38 @@ export function bindPort({
       '/100 · vermoeidheid ' +
       Math.round(s.fatigue) +
       '% · reparatie op de werf (W), 3 🪙 per punt.';
-    mapButtons($('mapList2'), MAP.id, (id) => switchMap(id, save));
+    mapButtons($('mapList2'), MAP.id, (id) => switchMap(id, save), s);
+    // Career: rank, progress to the next one, retirement and the hall of fame.
+    const rank = rankOf(s),
+      nxt = nextRank(s);
+    $('careerBox').innerHTML =
+      '<b>' +
+      rank.name +
+      '</b> · ' +
+      Math.round(s.xp) +
+      ' punten' +
+      (nxt ? ' · volgende rang: ' + nxt.name + ' bij ' + nxt.xp : ' · hoogste rang bereikt') +
+      '<div class="xpBar"><i style="width:' +
+      (nxt ? Math.min(100, ((s.xp - rank.xp) / (nxt.xp - rank.xp)) * 100) : 100) +
+      '%"></i></div>';
+    $('retireInfo').textContent = canRetire(s)
+      ? 'Je kunt met pensioen. Je titel en score komen in de erelijst; daarna begin je opnieuw.'
+      : 'Pensioen kan vanaf ' + RETIRE_MIN_JOBS + ' klussen (nu ' + s.jobs + ').';
+    $('retire').disabled = !canRetire(s);
+    $('hallOfFame').innerHTML = loadHall()
+      .map(
+        (h) =>
+          '<li><b>' +
+          h.score +
+          '</b> ' +
+          h.title +
+          ' <small>(' +
+          h.jobs +
+          ' klussen, ' +
+          h.date +
+          ')</small></li>',
+      )
+      .join('');
   }
   $('office').onclick = () => openPort('jobs');
   $('maintenance').onclick = () => openPort('shop');
@@ -230,6 +281,10 @@ export function bindPort({
     toast('Pechhulp: teruggesleept naar het startpunt (−100 🪙).');
   };
   $('restart').onclick = () => ($('resetConfirm').hidden = false);
+  $('retire').onclick = () => {
+    if (!canRetire(getState())) return;
+    retire?.();
+  };
   $('cancelReset').onclick = () => ($('resetConfirm').hidden = true);
   $('confirmReset').onclick = () => {
     resetCareer();

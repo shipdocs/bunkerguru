@@ -340,3 +340,147 @@ footer .stopControl {
 footer .anchor {
   border-color: #b8893e;
 }
+
+/* ---- Fase 2: faces, the paper and the career ---- */
+.momentCard {
+  position: absolute;
+  left: 28px;
+  bottom: 220px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: min(420px, calc(100vw - 32px));
+  padding: 10px 14px 10px 10px;
+  border-radius: 12px;
+  background: linear-gradient(#f3e6c4, #e2cf9f);
+  color: #2b2414;
+  border: 2px solid #8a6a2c;
+  box-shadow: 0 10px 30px #0008;
+  transform: translateX(-120%);
+  transition: transform 0.35s ease;
+  pointer-events: none;
+  z-index: 8;
+}
+.momentCard.show {
+  transform: translateX(0);
+}
+.momentCard.gold {
+  border-color: #c99a2e;
+  background: linear-gradient(#fff2c2, #f0d27c);
+}
+.momentCard.alarm {
+  border-color: #b33a2a;
+}
+.momentCard .cardFace svg,
+#radio .radioFace svg {
+  width: 64px;
+  height: 64px;
+  display: block;
+  border-radius: 10px;
+}
+.momentCard .cardText small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #7a5a1c;
+}
+.momentCard .cardText b {
+  display: block;
+  font-size: 17px;
+  margin: 2px 0;
+}
+.momentCard .cardText span {
+  font-size: 12px;
+}
+#radio {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+#radio .radioFace svg {
+  width: 40px;
+  height: 40px;
+}
+.paper {
+  background: #f4ecd6;
+  color: #231d12;
+  max-width: 560px;
+  font-family: Georgia, 'Times New Roman', serif;
+  border: 3px double #5a4a2a;
+}
+.paper .paperHead {
+  text-align: center;
+  border-bottom: 3px double #5a4a2a;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+.paper .paperHead h2 {
+  font-size: 40px;
+  margin: 4px 0;
+  letter-spacing: 1px;
+}
+.paper .paperHead small {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #5a4a2a;
+}
+.paper h3 {
+  font-size: 24px;
+  line-height: 1.15;
+  margin: 8px 0;
+}
+.paper ul {
+  padding-left: 18px;
+  font-size: 15px;
+}
+.paper table {
+  width: 100%;
+  border-top: 1px solid #5a4a2a;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.paper th {
+  text-align: left;
+  padding-top: 6px;
+}
+.paper .primary {
+  margin-top: 14px;
+}
+.retireScore {
+  font-size: 30px;
+  font-weight: 700;
+  text-align: center;
+}
+.careerBox {
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #ffffff08;
+  border: 1px solid #e6ae5455;
+}
+.xpBar {
+  height: 6px;
+  border-radius: 3px;
+  background: #ffffff1a;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.xpBar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #e6ae54, #ffd84a);
+}
+.hall {
+  font-size: 12px;
+  padding-left: 18px;
+}
+.mapPick.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 800px) {
+  .momentCard {
+    left: 12px;
+    bottom: 300px;
+  }
+}
