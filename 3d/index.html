@@ -79,6 +79,15 @@
     <div id="dockStamp" aria-live="polite"></div>
     <div id="momentCard" class="momentCard" aria-live="polite"></div>
     <div id="coinFly"></div>
+    <!-- Wheelhouse view (camera F → Stuurhuis): window frame, wing buttons, distances. -->
+    <div id="bridgeFrame" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div id="bridgeLooks" class="glass" role="group" aria-label="Kijkrichting stuurhuis">
+      <button data-look="-1" title="Bakboordvleugel (Z)">◀ BB</button
+      ><button data-look="0" title="Vooruit">Vooruit</button
+      ><button data-look="1" title="Stuurboordvleugel (X)">SB ▶</button
+      ><button id="binoculars" title="Verrekijker (ook scrollen of +/−)">🔭</button>
+      <span id="bridgeInfo"></span>
+    </div>
     <aside class="chart glass" id="chartPanel">
       <div class="eyebrow">HAVENKAART <span>TIK OM TE VERGROTEN · N ↑</span></div>
       <canvas

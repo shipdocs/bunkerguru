@@ -13,11 +13,33 @@ import {
   up,
   atTerminal,
 } from '../game/harbor.mjs';
-import { tideState } from '../maps/index.mjs';
+import { tideState, landAt } from '../maps/index.mjs';
 import { rankOf } from '../game/career.mjs';
 import { TELE_NAMES } from '../game/vessel.mjs';
 import { SHIP } from '../game/ship-profile.mjs';
 const nl = (v, d = 1) => v.toFixed(d).replace('.', ',');
+// Free water beside the hull, port (−1) or starboard (+1): the smallest gap to land
+// measured from bow, midships and stern, up to 150 m. For the wheelhouse view, where
+// you cannot see your own side.
+export function sideClearance(s, side, profile) {
+  const L = profile.length,
+    B = profile.beam,
+    fx = Math.sin(s.h),
+    fz = -Math.cos(s.h),
+    // Starboard is to the right of the heading: (−fz, fx).
+    sx = -fz * side,
+    sz = fx * side;
+  let best = 150;
+  for (const a of [0.42, 0, -0.42])
+    for (let d = 0; d < best; d += 1) {
+      const r = B / 2 + d;
+      if (landAt(s.x + fx * a * L + sx * r, s.z + fz * a * L + sz * r)) {
+        best = d;
+        break;
+      }
+    }
+  return best;
+}
 export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
   return function update(s, paused, world) {
     const q = readiness(s),
@@ -38,6 +60,18 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
     $('clockInfo').textContent = '🕐 ' + clockStr(dayClock(s)) + ' · ' + tide.label;
     $('job').textContent = String(s.jobs + 1).padStart(2, '0');
     $('speed').textContent = nl(sp);
+    if (document.body?.classList?.contains?.('bridgeView')) {
+      const c = (side) => {
+        const d = sideClearance(s, side, vesselProfile);
+        return d >= 150 ? '>150 m' : Math.round(d) + ' m';
+      };
+      $('bridgeInfo').textContent =
+        'BB ' +
+        c(-1) +
+        ' · SB ' +
+        c(1) +
+        (t && Number.isFinite(q.distance) ? ' · doel ' + Math.round(q.distance) + ' m' : '');
+    }
     for (const name of ['bowL', 'bowR']) {
       const active = !!keys[name] && !s.moored && !paused;
       const b = document.querySelector('[data-hold=' + name + ']');
