@@ -176,7 +176,8 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
       );
     // Zones on the water.
     zones.update(s);
-    const r = world.rivals;
+    const r = world.rivals.filter((x) => !x.own),
+      own = world.rivals.filter((x) => x.own);
     const d = s.day || {};
     $('career').textContent =
       rankOf(s).name +
@@ -187,6 +188,13 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
       '/3' +
       (r.length
         ? ' · ' + r.map((x) => x.name.split(' ')[1] + ' ' + Math.round(x.gold)).join(' · ')
+        : '') +
+      (own.length
+        ? ' · 🚢 ' +
+          own.filter((x) => x.mode !== 'idle').length +
+          '/' +
+          own.length +
+          ' aan het werk'
         : '');
     $('radioBtn').textContent = 'Marifoon ' + (world.radioOn ? 'aan' : 'uit');
     // VTS line: nearest relevant information.

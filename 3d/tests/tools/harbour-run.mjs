@@ -11,7 +11,8 @@ import {
 } from '../../src/maps/index.mjs';
 import { fresh, step, createWorldState, mooringCandidate } from '../../src/game/simulation.mjs';
 import { hullContacts } from '../../src/game/collisions.mjs';
-import { quickJob } from '../../src/game/harbor.mjs';
+import { quickJob, planTick } from '../../src/game/harbor.mjs';
+import { buyBoat, dispatch, idleBoats, fleetOf } from '../../src/game/fleet.mjs';
 import { landmarkSpots } from '../../src/render/landmarks.mjs';
 // Reproducible run: a fixed seed instead of real randomness (a few seeds left the
 // Antwerpen rivals without a finished job in 30 minutes, a flaky test).
@@ -89,22 +90,36 @@ void quickJob;
 const s = fresh(),
   world = createWorldState(s);
 const fx = { say() {}, sound() {}, radio() {}, board() {}, done() {} };
+// BUNKERGURU_FLEET=1: also two boats of your own, always given the next job.
+const withFleet = !!process.env.BUNKERGURU_FLEET && MAP.id !== 'training';
+if (withFleet) {
+  Object.assign(s, { xp: 8000, gold: 1e5 });
+  buyBoat(s, world);
+  buyBoat(s, world);
+}
 const before = world.rivals.map((r) => r.jobs);
 for (let i = 0; i < 60 * 600; i++) {
   step(s, world, 1 / 60, {}, fx);
   if (i % 30) continue;
+  if (withFleet)
+    for (const b of idleBoats(world)) {
+      planTick(s);
+      const o = s.offers.find((x) => !x.taken && !customers[x.berth].gate);
+      if (o) dispatch(s, world, b.name, o.id);
+    }
   for (const r of world.rivals) {
     if (![r.x, r.z, r.h, r.cur].every(Number.isFinite)) bad(r.name + ' NaN');
     if (r.mode !== 'sunk' && !waterAt(r.x, r.z, 0))
       bad(r.name + ' on land at ' + Math.round(r.x) + ',' + Math.round(r.z));
     if (r.stuckT > 44 * 3) out.rivalTows++;
   }
-  if (world.rivals.length === 2) {
+  if (world.rivals.length === 2 && !withFleet) {
     const [a, b] = world.rivals;
     out.minRivalGap = Math.min(out.minRivalGap, Math.hypot(a.x - b.x, a.z - b.z));
   }
   for (const t of world.traffic) if (![t.x, t.z].every(Number.isFinite)) bad(t.name + ' NaN');
 }
-out.rivalJobs = world.rivals.reduce((n, r, i) => n + r.jobs - before[i], 0);
+out.rivalJobs = world.rivals.reduce((n, r, i) => n + (r.own ? 0 : r.jobs - before[i]), 0);
+out.fleetJobs = fleetOf(world).reduce((n, r) => n + r.jobs, 0);
 out.problems = [...new Set(out.problems)].slice(0, 12);
 console.log(JSON.stringify(out));

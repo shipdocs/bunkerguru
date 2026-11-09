@@ -505,3 +505,38 @@ footer .anchor {
   outline: 3px solid #f4d35e;
   outline-offset: 2px;
 }
+
+/* Fase 4: your own fleet. */
+.fleetBox .fleetRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.fleetBox .fleetRow i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.fleetBox .fleetRow small {
+  flex-basis: 100%;
+  opacity: 0.75;
+  padding-left: 20px;
+}
+.offer .sendBoat {
+  margin: 6px 6px 0 0;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #e67e22;
+  background: rgba(230, 126, 34, 0.15);
+  color: #ffe2c4;
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.offer .sendBoat:hover {
+  background: rgba(230, 126, 34, 0.35);
+}
