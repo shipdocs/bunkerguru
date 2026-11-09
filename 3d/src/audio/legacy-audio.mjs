@@ -3,7 +3,7 @@
 // ---------- geluid (Web Audio, alles gegenereerd) ----------
 export function createLegacySound() {
   let active = false;
-  let ac = null, master, engLoadUntil = 0, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, bowGain, washGain, pumpGain, muted = false, musicOn = false, musicGain = null, musicTimer = null;
+  let ac = null, master, engLoadUntil = 0, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, turboT = 0, turboPw = 0, turboLast = 0, bowGain, washGain, pumpGain, muted = false, musicOn = false, musicGain = null, musicTimer = null;
   try { musicOn = false; } catch (e) {}
   try { muted = localStorage.getItem('bunkerguru3d_legacy_mute') === '1'; } catch (e) {}
   // volumes 0–100 per kanaal
@@ -142,14 +142,18 @@ export function createLegacySound() {
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.12, t0 + att); g.gain.setValueAtTime(0.12, t0 + dur - rel); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); n.connect(f); f.connect(g); g.connect(out); n.start(t0); n.stop(t0 + dur + 0.05);
   }
   function update(st) { // st: {tele, rpm (werkelijk motorvermogen 0..1), speed (m/s door water), bow, moored, running}
-    if (!ac || muted) return; const now = ac.currentTime, on = st.running ? 1 : 0;
+    if (!ac || muted) return; const now = ac.currentTime, run = st.running ? 1 : 0, on = run && !st.engineOff ? 1 : 0; // motor uit: geen motorgeluid, wel boeg/pomp/water
     const pw = Math.abs(st.rpm !== undefined ? st.rpm : st.tele); engRpm = pw; engOn = on;
+    // Turbofluit: hoorbaar bij het optoeren; blijft het vermogen een paar seconden vol, dan ebt hij langzaam weg.
+    const tdt = Math.min(0.5, Math.max(0, now - (turboLast || now))); turboLast = now;
+    if (Math.abs(pw - turboPw) > 0.015) turboT = 0; else turboT += tdt; turboPw = pw;
+    const turboFade = turboT < 3 ? 1 : Math.max(0.08, Math.exp(-(turboT - 3) / 4));
     engGain.gain.setTargetAtTime(on * (0.55 + pw * 0.4), now, 0.3);
-    if (rumGain) rumGain.gain.setTargetAtTime(0.25 + pw * 0.5, now, 0.5);
-    if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.0055; turboGain.gain.setTargetAtTime(on * ta, now, 0.4); }
-    pumpGain.gain.setTargetAtTime(on && st.pumping ? 0.12 : 0, now, 0.2);
-    bowGain.gain.setTargetAtTime(on * (st.bow ? 0.35 : 0), now, 0.15);
-    washGain.gain.setTargetAtTime(on * Math.min(0.5, st.speed * 0.07), now, 0.4);
+    if (rumGain) rumGain.gain.setTargetAtTime(on * (0.25 + pw * 0.5), now, 0.5);
+    if (turboOsc) { const f = 700 + Math.pow(pw, 1.5) * 1700; turboOsc.frequency.setTargetAtTime(f, now, 0.5); turboOsc2.frequency.setTargetAtTime(f * 2, now, 0.5); const ta = Math.pow(Math.max(0, (pw - 0.8) / 0.2), 2) * 0.0055 * turboFade; turboGain.gain.setTargetAtTime(on * ta, now, 0.4); }
+    pumpGain.gain.setTargetAtTime(run && st.pumping ? 0.12 : 0, now, 0.2);
+    bowGain.gain.setTargetAtTime(run * (st.bow ? 0.35 : 0), now, 0.15);
+    washGain.gain.setTargetAtTime(run * Math.min(0.5, st.speed * 0.07), now, 0.4);
   }
   function tone(type, f0, f1, dur, vol, delay, out) { if (!ac || muted) return; const t0 = ac.currentTime + (delay || 0); const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); o.connect(g); g.connect(out || sfx); o.start(t0); o.stop(t0 + dur + 0.05); }
   function burst(freq, dur, vol, type, out) { if (!ac || muted) return; const s = ac.createBufferSource(); s.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = type || 'lowpass'; f.frequency.value = freq; const g = ac.createGain(), t0 = ac.currentTime; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(g); g.connect(out || sfx); s.start(); s.stop(t0 + dur + 0.05); }

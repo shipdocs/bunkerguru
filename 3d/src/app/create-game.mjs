@@ -183,6 +183,21 @@ export function createGame({ createRenderer } = {}) {
     gate: () => started && !paused && toast(callGate(nearestGate(sim.gates, s))),
     chart: () => setChartBig(!$('chartPanel').classList.contains?.('expanded')),
     lookLeft: () => cameraControl.lookLeft(),
+    // Main engine off / on. Starting takes a few seconds (air start, then running).
+    engine: () => {
+      if (!started || paused || s.phase === 'sunk') return;
+      s.engineOff = !s.engineOff;
+      if (s.engineOff) {
+        s.teleIdx = 3;
+        s.braking = false;
+        toast('🔇 Hoofdmotor uit – O = weer starten');
+      } else {
+        s.startT = 3;
+        s.engDir = 0;
+        sound.clutch(false);
+        toast('🔊 Hoofdmotor start…');
+      }
+    },
     lookRight: () => cameraControl.lookRight(),
     warp: () => {
       s.timeScale = s.timeScale === 6 ? 3 : 6;

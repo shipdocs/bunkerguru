@@ -22,6 +22,7 @@ export class HarborAudio {
     this.sound.update({
       running: active,
       rpm: s.rpm,
+      engineOff: !!s.engineOff,
       tele: s.tele,
       speed: Math.hypot(s.u, s.v),
       bow: !s.moored && (keys.bowR ? 1 : 0) - (keys.bowL ? 1 : 0),

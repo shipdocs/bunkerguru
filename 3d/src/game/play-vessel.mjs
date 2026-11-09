@@ -32,7 +32,7 @@ export function playStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 
       s.braking = false;
       continue;
     }
-    const wanted = stopping ? 0 : tele,
+    const wanted = stopping || s.engineOff ? 0 : tele,
       direction = Math.sign(wanted);
     if (direction !== 0 && direction !== s.engDir) {
       onClutch(s.engDir !== 0);
