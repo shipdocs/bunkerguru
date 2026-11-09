@@ -3,6 +3,52 @@ import { hullOutline } from '../game/ship-profile.mjs';
 import { createPrimitives } from './primitives.mjs';
 import { batchVessel } from './scene-batch.mjs';
 
+// Arcs of the navigation lights (RPR/BPR art. 3.08, bijlage 3), bearing in degrees from
+// right ahead, positive to starboard: masthead 225° (112.5° each side), side lights
+// 112.5° from ahead to 22.5° abaft the beam, stern light the remaining 135° aft.
+export function navSector(kind, bearing) {
+  const a = ((((bearing + 180) % 360) + 360) % 360) - 180;
+  if (kind === 'masthead') return Math.abs(a) <= 112.5;
+  // Side lights cut off 1–3° across the bow, so right ahead both are seen.
+  if (kind === 'starboard') return a >= -2 && a <= 112.5;
+  if (kind === 'port') return a <= 2 && a >= -112.5;
+  if (kind === 'stern') return Math.abs(a) >= 112.5;
+  return true;
+}
+let glowTexture = null;
+// Soft additive glow; only in a browser (the GLB export and tests run without a DOM).
+function glowSprite(color, x, y, z, parent, size) {
+  if (typeof document === 'undefined') return null;
+  if (!glowTexture) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const c = cv.getContext('2d'),
+      g = c?.createRadialGradient?.(32, 32, 1, 32, 32, 31);
+    if (g) {
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(0.18, 'rgba(255,255,255,0.85)');
+      g.addColorStop(0.45, 'rgba(255,255,255,0.25)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, 64, 64);
+    }
+    glowTexture = new T.CanvasTexture(cv);
+  }
+  const sp = new T.Sprite(
+    new T.SpriteMaterial({
+      map: glowTexture,
+      color,
+      transparent: true,
+      depthWrite: false,
+      blending: T.AdditiveBlending,
+    }),
+  );
+  sp.position.set(x, y, z);
+  sp.scale.set(size, size, 1);
+  parent.add(sp);
+  return sp;
+}
+
 // Leonore-inspired tanker. Metres, waterline y=0, bow -z, port -x.
 // Batch each rigid assembly BEFORE parenting/posing it: moving parts stay movable.
 export function createBunkerTanker(profile, { editable = false } = {}) {
@@ -198,7 +244,8 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
   // Anchor windlass and foremast.
   box(B * 0.38, 0.4, 1.4, C.blue, 0, 2.95, -L * 0.41);
   rod([-B * 0.18, 3.5, -L * 0.41], [B * 0.18, 3.5, -L * 0.41], 0.18, C.steel);
-  rod([0, 2.8, -L * 0.435], [0, 7.4, -L * 0.435], 0.1);
+  // Foremast carries the masthead light at least 1 m above the side lights (RPR/BPR 3.08).
+  rod([0, 2.8, -L * 0.435], [0, 8.4, -L * 0.435], 0.1);
   rod([-1.8, 7.2, -L * 0.435], [1.8, 7.2, -L * 0.435], 0.06);
   rod([0, 8.5, L * 0.3], [0, 11.1, L * 0.3], 0.09);
   for (const x of [-B * 0.32, B * 0.32]) rod([x, 8.5, L * 0.3], [x, 10.9, L * 0.3], 0.025);
@@ -266,11 +313,26 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
     white = glow('#fff2cc');
   const lamp = (x, y, z, material, group, radius = 0.14) =>
     mesh(new T.SphereGeometry(radius, 8, 6), material, x, y, z, group);
-  lamp(-B * 0.4, 7.2, L * 0.255, red, nav);
-  lamp(B * 0.4, 7.2, L * 0.255, green, nav);
-  lamp(0, 7.45, -L * 0.435, white, nav);
-  lamp(0, 11.15, L * 0.3, white, nav);
-  lamp(0, 3.4, L * 0.49, white, nav);
+  // Navigation lights of a motor vessel under way (RPR/BPR art. 3.08), each with the
+  // arc it may be seen in (see navSector). The lamp bodies are tiny at game distance,
+  // so every light also gets a glow sprite that shows only inside its own arc.
+  const navLights = [
+    ['masthead', 0, 8.45, -L * 0.435, white, '#fff4d6'],
+    ['masthead', 0, 11.15, L * 0.3, white, '#fff4d6'], // second, higher masthead light aft
+    ['port', -B * 0.4, 7.2, L * 0.255, red, '#ff3b2f'],
+    ['starboard', B * 0.4, 7.2, L * 0.255, green, '#2bff7a'],
+    ['stern', 0, 3.4, L * 0.49, white, '#fff4d6'],
+  ].map(([kind, x, y, z, material, color]) => ({
+    kind,
+    lamp: lamp(x, y, z, material, nav),
+    glow: glowSprite(color, x, y, z, nav, kind === 'stern' ? 9 : 11),
+  }));
+  // Moored (BPR 3.20): navigation lights off, one white all-round light instead.
+  const mooring = new T.Group();
+  mooring.name = 'Mooring-light';
+  root.add(mooring);
+  lamp(0, 11.15, L * 0.3, white, mooring);
+  const mooringGlow = glowSprite('#fff4d6', 0, 11.15, L * 0.3, mooring, 11);
   for (const z of [-L * 0.23, L * 0.13]) {
     lamp(0, 5.1, z, white, deckLights, 0.19);
     // Two bounded lights only; no shadow maps on mobile.
@@ -316,11 +378,40 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
     lift.rotation.x = -elevation;
     hose.position.set(0, Math.sin(elevation) * boomLength, Math.cos(elevation) * boomLength);
     hose.visible = elevation > 0.5;
-    nav.visible = settings.navigation !== false;
+    nav.visible = settings.navigation !== false && !settings.moored;
+    mooring.visible = settings.navigation !== false && settings.moored === true;
     deckLights.visible = settings.deck === true;
     cabin.visible = settings.cabin === true;
   }
   update(0);
-  root.userData.tanker = { controls, update, radar, slew, lift, hose, nav, deckLights, cabin };
+  // Per frame: each glow only inside its arc as seen from the camera, brighter at night.
+  const eye = new T.Vector3();
+  function lights(cameraWorld, night = 1) {
+    const strength = 0.35 + 0.65 * Math.min(1, Math.max(0, night));
+    for (const n of navLights) {
+      if (!n.glow) continue;
+      eye.copy(cameraWorld);
+      n.lamp.parent.worldToLocal(eye).sub(n.lamp.position);
+      // 0° = right ahead (−z), positive towards starboard (+x).
+      const bearing = (Math.atan2(eye.x, -eye.z) * 180) / Math.PI;
+      n.glow.visible = navSector(n.kind, bearing);
+      n.glow.material.opacity = strength;
+    }
+    if (mooringGlow) mooringGlow.material.opacity = strength;
+  }
+  root.userData.tanker = {
+    controls,
+    update,
+    lights,
+    radar,
+    slew,
+    lift,
+    hose,
+    nav,
+    navLights,
+    mooring,
+    deckLights,
+    cabin,
+  };
   return root;
 }

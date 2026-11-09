@@ -20,6 +20,7 @@ import { createNavigationEffects } from '../render/navigation-effects.mjs';
 import { createCameraController } from '../render/camera-controller.mjs';
 import { bindVesselEquipment } from '../ui/vessel-equipment.mjs';
 import { boomSettings } from '../game/vessel-equipment.mjs';
+import { skyLook } from '../render/daylight.mjs';
 import { bindHelm } from '../input/helm.mjs';
 import { bindPort, mapButtons, switchMap } from '../ui/port.mjs';
 import { bindMobilePanels } from '../ui/mobile-panels.mjs';
@@ -579,6 +580,7 @@ export function createGame({ createRenderer } = {}) {
   }
   let hudElapsed = 0,
     planElapsed = 0;
+  const eyePos = camera.position.clone();
   function frame(now) {
     requestAnimationFrame(frame);
     const elapsed = (now - last) / 1000;
@@ -622,12 +624,14 @@ export function createGame({ createRenderer } = {}) {
       s.equipment.boomSide = 0;
       s.equipment.boomRaised = false;
     }
-    boat.userData.tanker.update(
-      playing ? dt : 0,
-      boomSettings(s, s.job && berthOf(s), up(s, 'pomp')),
-    );
+    boat.userData.tanker.update(playing ? dt : 0, {
+      ...boomSettings(s, s.job && berthOf(s), up(s, 'pomp')),
+      moored: !!s.moored,
+    });
     sound.update(s, playing, keys);
     cameraControl.update(s, dt);
+    // Navigation lights: each glow only inside its arc as seen from the camera.
+    boat.userData.tanker.lights(camera.getWorldPosition(eyePos), skyLook(dayClock(s)).night);
     if (shake > 0) {
       camera.position.x += (Math.random() - 0.5) * shake * 3;
       camera.position.y += (Math.random() - 0.5) * shake * 2;

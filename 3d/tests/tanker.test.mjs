@@ -114,3 +114,58 @@ test('delivering raises the boom and swings the hose over the customer ship', as
   const s = fresh();
   assert.equal(boomSettings(s, null), s.equipment, 'saved setting untouched outside delivery');
 });
+
+test('navigation light arcs follow RPR/BPR 3.08: masthead 225°, sides 112.5°, stern 135°', async () => {
+  const { navSector } = await import('../src/render/bunker-tanker.mjs');
+  const seen = (b) =>
+    ['masthead', 'port', 'starboard', 'stern'].filter((k) => navSector(k, b)).join(',');
+  assert.equal(seen(0), 'masthead,port,starboard', 'right ahead: masthead and both side lights');
+  assert.equal(seen(45), 'masthead,starboard');
+  assert.equal(seen(-45), 'masthead,port');
+  assert.equal(seen(100), 'masthead,starboard', '10° abaft the beam: still green');
+  assert.equal(seen(130), 'stern', 'beyond 22.5° abaft the beam: stern light only');
+  assert.equal(seen(-130), 'stern');
+  assert.equal(seen(180), 'stern');
+  assert.equal(seen(540), 'stern', 'bearing wraps');
+
+  // In the world: camera around the ship at several headings sees the right lights.
+  const { renderYaw } = await import('../src/game/vessel.mjs');
+  for (const h of [0, 1.1, -2.3]) {
+    const model = createBunkerTanker(PROFILES.legacy),
+      rig = model.userData.tanker;
+    for (const n of rig.navLights) {
+      n.glow = new T.Sprite(new T.SpriteMaterial());
+      n.lamp.parent.add(n.glow);
+    }
+    model.position.set(50, 0, -20);
+    model.rotation.y = renderYaw(h);
+    model.updateMatrixWorld(true);
+    // World directions: ahead = (sin h, −cos h), starboard = (cos h, sin h).
+    const at = (fwd, stb) =>
+      new T.Vector3(
+        50 + 400 * (fwd * Math.sin(h) + stb * Math.cos(h)),
+        10,
+        -20 + 400 * (-fwd * Math.cos(h) + stb * Math.sin(h)),
+      );
+    const lit = (cam) => {
+      rig.lights(cam, 1);
+      return [...new Set(rig.navLights.filter((n) => n.glow.visible).map((n) => n.kind))]
+        .sort()
+        .join(',');
+    };
+    assert.equal(lit(at(1, 0)), 'masthead,port,starboard', `h=${h} from ahead`);
+    assert.equal(lit(at(0.2, 1)), 'masthead,starboard', `h=${h} from starboard`);
+    assert.equal(lit(at(0.2, -1)), 'masthead,port', `h=${h} from port`);
+    assert.equal(lit(at(-1, 0)), 'stern', `h=${h} from astern`);
+  }
+});
+
+test('moored: navigation lights off and one white all-round light on; switch off = dark', () => {
+  const rig = createBunkerTanker(PROFILES.legacy).userData.tanker;
+  rig.update(0, { navigation: true, moored: false });
+  assert(rig.nav.visible && !rig.mooring.visible);
+  rig.update(0, { navigation: true, moored: true });
+  assert(!rig.nav.visible && rig.mooring.visible);
+  rig.update(0, { navigation: false, moored: false });
+  assert(!rig.nav.visible && !rig.mooring.visible);
+});
