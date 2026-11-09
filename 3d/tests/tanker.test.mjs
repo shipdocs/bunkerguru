@@ -157,6 +157,8 @@ test('navigation light arcs follow RPR/BPR 3.08: masthead 225°, sides 112.5°, 
     assert.equal(lit(at(0.2, 1)), 'masthead,starboard', `h=${h} from starboard`);
     assert.equal(lit(at(0.2, -1)), 'masthead,port', `h=${h} from port`);
     assert.equal(lit(at(-1, 0)), 'stern', `h=${h} from astern`);
+    const port = rig.navLights.find((n) => n.kind === 'port');
+    assert(!port.lamp.visible, 'red lamp body hidden outside its arc too');
   }
 });
 

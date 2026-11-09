@@ -327,7 +327,8 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
     lamp: lamp(x, y, z, material, nav),
     glow: glowSprite(color, x, y, z, nav, kind === 'stern' ? 9 : 11),
   }));
-  // Moored (BPR 3.20): navigation lights off, one white all-round light instead.
+  // Moored (BPR 3.20): navigation lights off, one white all-round light instead
+  // (simplified: on the wheelhouse mast rather than on the fairway side).
   const mooring = new T.Group();
   mooring.name = 'Mooring-light';
   root.add(mooring);
@@ -394,7 +395,8 @@ export function createBunkerTanker(profile, { editable = false } = {}) {
       n.lamp.parent.worldToLocal(eye).sub(n.lamp.position);
       // 0° = right ahead (−z), positive towards starboard (+x).
       const bearing = (Math.atan2(eye.x, -eye.z) * 180) / Math.PI;
-      n.glow.visible = navSector(n.kind, bearing);
+      // Lamp body and glow alike: the colour is never seen outside its arc.
+      n.glow.visible = n.lamp.visible = navSector(n.kind, bearing);
       n.glow.material.opacity = strength;
     }
     if (mooringGlow) mooringGlow.material.opacity = strength;
