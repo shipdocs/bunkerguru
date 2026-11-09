@@ -3,7 +3,8 @@ import { createPrimitives } from './primitives.mjs';
 import { createWater } from './water.mjs';
 import { createShipFactory } from './ship-model.mjs';
 import { createBunkerTanker } from './bunker-tanker.mjs';
-import { createHarborScenery } from './scenery.mjs';
+import { createHarborScenery, landColor } from './scenery.mjs';
+import { groundTexture, GROUND_TILE } from './ground.mjs';
 import { batchVessel } from './scene-batch.mjs';
 import {
   MAP,
@@ -41,9 +42,35 @@ export function createWorld({
   renderer.toneMappingExposure = 1.2; // a bright, saturated, toy-like harbour
   const scene = new T.Scene();
   scene.background = new T.Color('#9fd4ea');
-  scene.fog = new T.FogExp2('#c1d9d3', 0.00045);
+  scene.fog = new T.FogExp2('#cfe6ea', 0.00026);
   const camera = new T.PerspectiveCamera(44, 1, 0.5, 6000);
-  const hemi = new T.HemisphereLight('#eef8ff', '#6f9a5a', 2.2);
+  // Sky dome: zenith colour fading to the haze on the horizon, a warm glow round the
+  // sun. It travels with the camera, so the horizon never comes closer.
+  const skyMat = new T.ShaderMaterial({
+    uniforms: {
+      top: { value: new T.Color('#63b4e8') },
+      low: { value: new T.Color('#cfe6ea') },
+      sunDir: { value: new T.Vector3(-0.6, 0.6, 0.45).normalize() },
+      glow: { value: 1 },
+    },
+    vertexShader: `varying vec3 d;void main(){d=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader: `varying vec3 d;uniform vec3 top;uniform vec3 low;uniform vec3 sunDir;uniform float glow;
+void main(){float h=clamp(d.y,0.,1.);vec3 c=mix(low,top,pow(h,.42));float s=max(dot(normalize(d),sunDir),0.);
+c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.);
+#include <tonemapping_fragment>
+#include <colorspace_fragment>
+}`,
+    side: T.BackSide,
+    depthWrite: false,
+    fog: false,
+  });
+  const sky = new T.Mesh(new T.SphereGeometry(5200, 24, 12), skyMat);
+  sky.name = 'sky';
+  sky.frustumCulled = false;
+  sky.renderOrder = -1;
+  sky.onBeforeRender = (r, sc, cam) => sky.position.copy(cam.position);
+  scene.add(sky);
+  const hemi = new T.HemisphereLight('#eaf6ff', '#8fae6e', 2.2);
   scene.add(hemi);
   const sun = new T.DirectionalLight('#ffe2b0', 3.1);
   sun.position.set(-220, 220, 160);
@@ -63,32 +90,45 @@ export function createWorld({
   const { mesh, box, cyl, textSprite } = primitives;
   const waterMat = createWater(mesh, MAP);
   const ship = createShipFactory(scene, primitives);
+  // Land: a block per map rectangle, sides in the district colour, and a top with a
+  // painted ground pattern (paving, concrete slabs, meadow) in world-size tiles.
   const terrain = new T.Group();
-  const landColor = (k) =>
-    ['north', 'park', 'island', 'base'].includes(k)
-      ? '#7fae5a'
-      : ['town', 'town2', 'city'].includes(k)
-        ? '#d4c29c'
-        : k === 'tanks'
-          ? '#c6c2a2'
-          : k === 'pillar'
-            ? '#c9c9c4'
-            : '#c9bf9e';
+  const sides = new T.Group();
+  const tops = new Map();
+  const groundMat = (kind, col) => {
+    const key = kind + col;
+    if (!tops.has(key)) {
+      const tex = groundTexture(kind, col);
+      tex.wrapS = tex.wrapT = T.RepeatWrapping;
+      tex.colorSpace = T.SRGBColorSpace;
+      tex.anisotropy = 4;
+      tops.set(key, new T.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 }));
+    }
+    return tops.get(key);
+  };
   for (const l of land) {
     if (l.kind === 'pillar') continue;
-    box(
-      l.x1 - l.x0,
-      7,
-      l.z1 - l.z0,
-      landColor(l.kind),
-      (l.x0 + l.x1) / 2,
-      0.5,
-      (l.z0 + l.z1) / 2,
-      terrain,
-    );
+    const w = l.x1 - l.x0,
+      d = l.z1 - l.z0,
+      cx = (l.x0 + l.x1) / 2,
+      cz = (l.z0 + l.z1) / 2;
+    box(w, 6.9, d, landColor(l), cx, 0.45, cz, sides);
+    const g = new T.PlaneGeometry(w, d);
+    g.rotateX(-Math.PI / 2);
+    // World-space UVs: the pattern runs on across neighbouring rectangles.
+    const uv = g.getAttribute('uv'),
+      pos = g.getAttribute('position');
+    for (let i = 0; i < uv.count; i++)
+      uv.setXY(i, (pos.getX(i) + cx) / GROUND_TILE, (pos.getZ(i) + cz) / GROUND_TILE);
+    const top = new T.Mesh(g, groundMat(l.kind, landColor(l)));
+    top.position.set(cx, 4, cz);
+    top.receiveShadow = true;
+    top.name = 'terrain-top';
+    terrain.add(top);
   }
-  batchVessel(terrain);
-  if (terrain.children[0]) terrain.children[0].name = 'terrain-surface';
+  batchVessel(sides);
+  if (sides.children[0]) sides.children[0].name = 'terrain-surface';
+  terrain.add(sides);
   scene.add(terrain);
   const scenery = createHarborScenery(scene, quality);
   const landmarks = createLandmarks(scene, primitives);
@@ -253,6 +293,9 @@ export function createWorld({
     const look = skyLook(dayClock(st));
     scene.background = skyCol.set(look.sky);
     scene.fog.color.set(look.fog);
+    skyMat.uniforms.top.value.set(look.sky);
+    skyMat.uniforms.low.value.set(look.fog);
+    skyMat.uniforms.glow.value = 1 - look.night;
     sun.color.set(look.sunColor);
     sun.intensity = look.sun;
     hemi.intensity = look.hemi;
@@ -324,7 +367,7 @@ export function createWorld({
       }
     });
     // Fog incident: thick fog, otherwise light haze.
-    const fog = world.events.fog > 0 ? 0.0045 : 0.00045;
+    const fog = world.events.fog > 0 ? 0.0045 : 0.00026;
     scene.fog.density += (fog - scene.fog.density) * 0.02;
   }
   void waterAt;
