@@ -140,6 +140,19 @@ export function createChart(canvas) {
       const [x, y] = project(r.x, r.z);
       map.fillStyle = r.color;
       map.beginPath();
+      if (r.own) {
+        // Your own boats: a diamond with a light edge, like your own arrow.
+        map.moveTo(x, y - 2.2);
+        map.lineTo(x + 2.2, y);
+        map.lineTo(x, y + 2.2);
+        map.lineTo(x - 2.2, y);
+        map.closePath();
+        map.fill();
+        map.strokeStyle = '#ffdd92';
+        map.lineWidth = 0.5;
+        map.stroke();
+        continue;
+      }
       map.arc(x, y, 1.6, 0, 7);
       map.fill();
     }

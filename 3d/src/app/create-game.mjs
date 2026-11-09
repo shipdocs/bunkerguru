@@ -8,6 +8,7 @@ import { renderYaw } from '../game/vessel.mjs';
 import { fresh, step, createWorldState, takeJob } from '../game/simulation.mjs';
 import { nearestGate, callGate } from '../game/gates.mjs';
 import { saveRivals } from '../game/rivals.mjs';
+import { saveFleet, clearFleet } from '../game/fleet.mjs';
 import { newspaper, paperDue, retirement, rankOf } from '../game/career.mjs';
 import { createCards } from '../ui/cards.mjs';
 import { portraitFor } from '../ui/portraits.mjs';
@@ -79,6 +80,10 @@ export function createGame({ createRenderer } = {}) {
   }
   function save() {
     s.rivals = saveRivals(sim.rivals);
+    if (MAP.id !== 'training') {
+      s.fleet = saveFleet(sim.rivals);
+      s.fleetMap = MAP.id;
+    }
     saveCareer(s);
   }
   const fx = {
@@ -260,6 +265,7 @@ export function createGame({ createRenderer } = {}) {
     resetCareer: () => {
       const keep = { handling: s.handling, timeScale: s.timeScale };
       s = Object.assign(fresh(), keep);
+      clearFleet(sim);
       for (const r of sim.rivals)
         Object.assign(r, {
           gold: 300,
@@ -289,7 +295,10 @@ export function createGame({ createRenderer } = {}) {
   }
   // De Havenkrant: three headlines and the standing of the bunker companies.
   function showPaper() {
-    const p = newspaper(s, sim.rivals);
+    const p = newspaper(
+      s,
+      sim.rivals.filter((r) => !r.own),
+    );
     $('paperDate').textContent = MAP.name.toUpperCase() + ' · ' + clockStr(dayClock(s));
     $('paperIssue').textContent = 'editie ' + p.issue;
     $('paperLead').textContent = p.headlines[0];
@@ -351,6 +360,7 @@ export function createGame({ createRenderer } = {}) {
   $('retireNew').onclick = () => {
     const keep = { handling: s.handling, timeScale: s.timeScale, trainingDone: true };
     s = Object.assign(fresh(), keep);
+    clearFleet(sim);
     for (const r of sim.rivals)
       Object.assign(r, {
         gold: 300,

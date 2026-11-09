@@ -52,6 +52,8 @@ export function fresh() {
     clock: 0,
     tidePhase: 1.3,
     rivals: [],
+    fleet: [],
+    fleetMap: null,
     trainingDone: false,
     pumping: false,
     xp: 0,
@@ -90,6 +92,10 @@ export function restore(raw) {
   // Rivals keep their money everywhere, their position only on the same map.
   if (Array.isArray(raw.rivals))
     s.rivals = raw.rivals.map((r) => (raw.mapId === MAP.id ? r : { gold: r?.gold, jobs: r?.jobs }));
+  // Your own boats (fase 4) belong to the career: kept on every map.
+  if (Array.isArray(raw.fleet))
+    s.fleet = raw.fleet.filter((b) => b && typeof b === 'object').slice(0, 2);
+  if (typeof raw.fleetMap === 'string') s.fleetMap = raw.fleetMap;
   if (isNum(raw.rudderCmd)) s.rudderCmd = clamp(raw.rudderCmd, -1, 1);
   s.rudder = isNum(raw.rudder) ? clamp(raw.rudder, -1, 1) : s.rudderCmd;
   // Voyage state only on the same map and save version.

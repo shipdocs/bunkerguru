@@ -9,6 +9,7 @@ export const LANDMARKS = {
   amsterdam: [
     { kind: 'tower', name: "A'DAM Toren", x: 2250, z: -420 },
     { kind: 'mill', name: 'Molen', x: -900, z: -520 },
+    { kind: 'plant', name: 'Hemwegcentrale', x: 250, z: 520 },
   ],
   rotterdam: [{ kind: 'euromast', name: 'Euromast', x: -680, z: -560 }],
   europoort: [
@@ -53,6 +54,15 @@ export function createLandmarks(scene, { box, cyl, mesh, textSprite }) {
       cyl(2.4, 80, '#c9ccd2', x, 139, z, root);
       beacon(x, 180, z);
       label(l.name, x, 196, z);
+    } else if (l.kind === 'plant') {
+      // Power station: a long brick hall and one tall chimney, red-white at the top.
+      box(70, 34, 44, '#7d4e3a', x, 17, z, root);
+      box(72, 4, 46, '#5e3a2c', x, 36, z, root);
+      cyl(6, 150, '#b9b4ab', x + 45, 75, z, root);
+      for (let k = 0; k < 3; k++)
+        cyl(6.3, 6, k % 2 ? '#f4f1ea' : '#c0392b', x + 45, 135 + k * 6, z, root);
+      beacon(x + 45, 152, z);
+      label(l.name, x + 45, 166, z);
     } else if (l.kind === 'tower') {
       // A dark office tower with a red-lit crown.
       box(30, 82, 30, '#323a47', x, 41, z, root);

@@ -48,14 +48,16 @@ export function createRivals(saved = []) {
   });
 }
 export const saveRivals = (rivals) =>
-  rivals.map((r) => ({
-    gold: Math.round(r.gold),
-    jobs: r.jobs,
-    x: r.x,
-    z: r.z,
-    h: r.h,
-    grudge: r.grudge || 0,
-  }));
+  rivals
+    .filter((r) => !r.own)
+    .map((r) => ({
+      gold: Math.round(r.gold),
+      jobs: r.jobs,
+      x: r.x,
+      z: r.z,
+      h: r.h,
+      grudge: r.grudge || 0,
+    }));
 
 function terminalSpot(r, rivals) {
   const byDist = terminals
@@ -71,7 +73,11 @@ function terminalSpot(r, rivals) {
     len(terminals[i]) < 4 * RL + 40;
   const ti = byDist.find((i) => !busy(i)) ?? byDist[0],
     t = terminals[ti];
-  const slot = rivals.indexOf(r),
+  // Two berths along a long terminal: take the one no other boat is heading for.
+  const taken = rivals.some(
+    (o) => o !== r && o.term === ti && o.slot === 0 && ['toTerminal', 'loading'].includes(o.mode),
+  );
+  const slot = (r.slot = r.own ? (taken ? 1 : 0) : rivals.indexOf(r)),
     l = len(t),
     d = l < 4 * RL + 40 ? 0 : (slot - 0.5) * (2 * RL + 20);
   // Lie against the wall: half a beam plus a fender off the quay.
@@ -187,6 +193,7 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
     }
     if (r.mode === 'idle') {
       r.cur = 0;
+      if (r.own) continue; // your own boats wait for orders (fleet.mjs)
       r.wait -= dt;
       if (r.wait <= 0) {
         const pool = customers
@@ -214,6 +221,10 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
         if (r.mode === 'loading') {
           r.mode = 'toShip';
           plan(r, berthSpot(r.target));
+        } else if (r.own) {
+          // Paid by fleetTick from the job it carried.
+          Object.assign(r, { finished: true, target: null, mode: 'idle', wait: 0 });
+          r.jobs++;
         } else {
           r.gold += 400 + Math.round(Math.random() * 500);
           r.jobs++;

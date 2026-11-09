@@ -156,14 +156,18 @@ export function createWorld({
     textSprite(b.name, 0, 14, 0, 22, '#e8e3bd', m);
     return m;
   });
-  const rivalMeshes = sim.rivals.map((r) => {
+  // Rivals and your own fleet: meshes per boat, made on first sight (a boat bought
+  // later gets one too) and hidden when a boat leaves the list (new career).
+  const vesselMesh = (r) => {
     const m = ship(110, 11, r.color, true, vesselProfile);
     // Rivals carry their colour loud and clear: a hull band and a painted funnel.
     box(11.6, 1.4, 100, r.color, 0, 2.2, 0, m);
     box(4, 9, 4, r.color, 0, 13, 40, m);
-    textSprite(r.name.toUpperCase(), 0, 19, 0, 26, '#ffd9cf', m, 0.1);
+    textSprite(r.name.toUpperCase(), 0, 19, 0, 26, r.own ? '#ffe7b0' : '#ffd9cf', m, 0.1);
     return m;
-  });
+  };
+  const meshOf = new Map(sim.rivals.map((r) => [r, vesselMesh(r)]));
+  const rivalMeshes = [...meshOf.values()];
   // Movable bridges and lock gates: a coloured barrier that slides away when open.
   const gateMeshes = sim.gates.map((g) => {
     const grp = new T.Group();
@@ -271,8 +275,13 @@ export function createWorld({
       trafficMeshes[i].position.set(b.x, level, b.z);
       trafficMeshes[i].rotation.y = renderYaw(b.h);
     }
+    for (const m of meshOf.values()) m.visible = false;
     for (const [i, r] of world.rivals.entries()) {
-      const m = rivalMeshes[i];
+      let m = meshOf.get(r);
+      if (!m) {
+        meshOf.set(r, (m = vesselMesh(r)));
+        mastLight(m);
+      }
       const sinking = r.mode === 'sunk' ? Math.min(1, r.sinkT / 12) : 0;
       m.position.set(r.x, level + Math.sin(time * 1.1 + i) * 0.07 - sinking * 8, r.z);
       m.rotation.set(sinking * 0.3, renderYaw(r.h), 0);

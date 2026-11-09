@@ -7,6 +7,7 @@ import { currentAt, tideSpeed } from '../maps/index.mjs';
 import { createTraffic, updateTraffic } from './traffic.mjs';
 import { createGates, updateGates } from './gates.mjs';
 import { createRivals, updateRivals, rivalStartJob, saveRivals } from './rivals.mjs';
+import { createFleet, saveFleet, fleetTick } from './fleet.mjs';
 import { createEvents, eventTick } from './events.mjs';
 import { dockRating } from './docking.mjs';
 import { addNews } from './career.mjs';
@@ -35,7 +36,7 @@ export function createWorldState(s) {
   return {
     traffic: createTraffic(),
     gates: createGates(),
-    rivals: createRivals(s.rivals),
+    rivals: [...createRivals(s.rivals), ...createFleet(s.fleet, MAP.id, s.fleetMap)],
     events: createEvents(),
   };
 }
@@ -183,14 +184,29 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
     fx.board();
   }
   eventTick(ev, s, logic, world, fx);
+  fleetTick(s, world, logic, fx);
   logicStep(s, world, logic, fx);
   s.rivals = saveRivals(world.rivals);
+  if (MAP.id !== 'training') {
+    s.fleet = saveFleet(world.rivals);
+    s.fleetMap = MAP.id;
+  }
 }
 
 function rivalHit(s, r, impact, share, fx) {
   if (impact <= 0.7 || s.hitCD > 0 || r.hitCD > 0) return;
   s.hitCD = r.hitCD = 1.8;
   const k = (impact - 0.4) * 9;
+  if (r.own) {
+    // Your own boat: both take damage, nobody pays anybody, no grudge.
+    const pd = Math.max(1, Math.round(k * up(s, 'fender')));
+    s.damage = Math.min(100, s.damage + pd);
+    r.damage += Math.max(1, Math.round(k));
+    r.cur *= 0.3;
+    fx.sound('hit', pd);
+    fx.say('💥 Je raakt je eigen ' + r.name + '! +' + pd + ' schade', 3);
+    return;
+  }
   const pd = Math.max(1, Math.round(k * (0.8 + 0.4 * (1 - share)) * up(s, 'fender'))),
     od = Math.max(1, Math.round(k * (0.8 + 0.4 * share)));
   s.damage = Math.min(100, s.damage + pd);
@@ -444,7 +460,7 @@ function beginBunker(s, fx) {
 export function takeJob(s, world, id, fx = noFx, rnd = Math.random) {
   if (!acceptOffer(s, id)) return false;
   s.boardShown = true;
-  const idle = world.rivals.filter((r) => r.mode === 'idle');
+  const idle = world.rivals.filter((r) => r.mode === 'idle' && !r.own);
   // Rivals take one of the remaining jobs now and then.
   const cands = s.offers.filter((o) => !customers[o.berth].gate && !o.taken);
   // A race job keeps one idle rival free for the race.
@@ -457,7 +473,7 @@ export function takeJob(s, world, id, fx = noFx, rnd = Math.random) {
     rivalStartJob(r, o.berth, world.rivals);
   }
   // …or race you for your ship: the first one alongside gets the job.
-  const free = world.rivals.filter((r) => r.mode === 'idle');
+  const free = world.rivals.filter((r) => r.mode === 'idle' && !r.own);
   // A rival you rammed holds a grudge and races you more often.
   const grudge = free.reduce((g, r) => Math.max(g, r.grudge || 0), 0);
   const forced = spare > 0;

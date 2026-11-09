@@ -27,6 +27,7 @@ import {
   RETIRE_MIN_JOBS,
 } from '../game/career.mjs';
 import { loadHall } from '../app/storage.mjs';
+import { idleBoats, fleetOf, nextBoat, buyBoat, dispatch, CREW_SHARE } from '../game/fleet.mjs';
 
 // Harbours open up with your rank; a locked one says what it takes.
 export function mapButtons(container, current, onPick, s = null) {
@@ -152,6 +153,24 @@ export function bindPort({
             '</span>'
           : '') +
         '</p></div>';
+      // Hand it to one of your own idle boats instead of sailing it yourself.
+      if (!o.taken && !b.gate)
+        for (const fb of idleBoats(getWorld())) {
+          const send = document.createElement('button');
+          send.className = 'sendBoat';
+          send.textContent =
+            '🚢 ' + fb.name + ' · +' + Math.round(o.pay * (1 - CREW_SHARE)) + ' 🪙';
+          send.title = 'Laat ' + fb.name + ' deze klus varen (bemanning houdt 30%)';
+          send.onclick = (e) => {
+            e.stopPropagation();
+            if (dispatch(getState(), getWorld(), fb.name, o.id)) {
+              toast('🚢 ' + fb.name + ' vaart naar ' + b.name + '.');
+              save();
+              renderPort('jobs');
+            }
+          };
+          card.querySelector('.offerBody').append(send);
+        }
       if (!o.taken)
         card.onclick = () => {
           if (takeJob(o.id)) {
@@ -177,7 +196,7 @@ export function bindPort({
       };
       $('offers').append(card);
     }
-    const r = getWorld().rivals;
+    const r = getWorld().rivals.filter((x) => !x.own);
     const d = s.day || {};
     $('rank').textContent =
       'Dagdoel: 3 klussen op tijd en schadevrij · ' +
@@ -230,6 +249,44 @@ export function bindPort({
       Math.round(s.fatigue) +
       '% · reparatie op de werf (W), 3 🪙 per punt.';
     mapButtons($('mapList2'), MAP.id, (id) => switchMap(id, save), s);
+    // Fleet: your boats, what they do, and the next one to buy.
+    const fleet = fleetOf(getWorld());
+    const doing = (fb) =>
+      fb.mode === 'idle'
+        ? 'wacht op orders'
+        : fb.mode === 'sunk'
+          ? 'gezonken – sleepboot onderweg'
+          : (fb.mode === 'bunkering'
+              ? 'bunkert '
+              : fb.mode === 'loading'
+                ? 'laadt voor '
+                : 'vaart naar ') + (customers[fb.target]?.name || '?');
+    $('fleetBox').innerHTML = fleet.length
+      ? fleet
+          .map(
+            (fb) =>
+              '<div class="fleetRow"><i style="background:' +
+              fb.color +
+              '"></i><b>' +
+              fb.name +
+              '</b> · ' +
+              doing(fb) +
+              '<small>' +
+              fb.jobs +
+              ' klussen · ' +
+              Math.round(fb.earned || 0) +
+              ' 🪙 verdiend</small></div>',
+          )
+          .join('')
+      : '<p>Nog geen eigen schepen. Vanaf rang Havenbaas koop je een tweede bunkerboot die klussen voor je vaart; je geeft ze een klus in de planning (de bemanning houdt 30%).</p>';
+    const nb = nextBoat(s);
+    $('buyBoat').hidden = !nb.def;
+    $('buyBoat').disabled = !nb.ok || MAP.id === 'training';
+    $('buyBoat').textContent = nb.def
+      ? nb.def.name + ' kopen · ' + nb.def.cost + ' 🪙'
+      : 'Vloot compleet';
+    if (nb.def && !nb.ok && !$('fleetMessage').textContent)
+      $('fleetMessage').textContent = nb.reason;
     // Career: rank, progress to the next one, retirement and the hall of fame.
     const rank = rankOf(s),
       nxt = nextRank(s);
@@ -284,6 +341,11 @@ export function bindPort({
       closePort();
     }
   });
+  $('buyBoat').onclick = () => {
+    $('fleetMessage').textContent = buyBoat(getState(), getWorld());
+    save();
+    renderPort('service');
+  };
   $('tow').onclick = () => {
     recover(getState());
     save();
