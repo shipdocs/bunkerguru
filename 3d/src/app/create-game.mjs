@@ -1,3 +1,4 @@
+import { createTiltShift } from '../render/tilt-shift.mjs';
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
 import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/graphics.mjs';
 import { MAP, quickJob, planTick, LOGIC, up } from '../game/harbor.mjs';
@@ -70,6 +71,8 @@ export function createGame({ createRenderer } = {}) {
   const world = createWorld({ canvas: $('world'), state: s, world: sim, quality, createRenderer });
   const { renderer, scene, camera, sun, waterMat, scenery, boat, vesselProfile, zoomLimits } =
     world;
+  const tiltShift = createTiltShift(renderer),
+    focusPoint = camera.position.clone();
   const effects = createNavigationEffects(scene, world.primitives.mesh, vesselProfile);
   // "JOUW SCHIP" over the boat for the first seconds, as in the 2D game.
   const ownLabel = world.primitives.textSprite(
@@ -753,7 +756,12 @@ export function createGame({ createRenderer } = {}) {
     }
     toastTime -= dt;
     if (toastTime <= 0) $('toast').style.opacity = 0;
-    renderer.render(scene, camera);
+    // Miniature look in the rich mode; plain drawing on phones and in the wheelhouse.
+    if (tiltShift && !quality.light && cameraControl.mode !== 'bridge') {
+      // Keep the band on the ship: where she is on screen, bottom 0 … top 1.
+      focusPoint.set(s.x, 0, s.z).project(camera);
+      tiltShift.render(scene, camera, Math.min(0.8, Math.max(0.2, focusPoint.y * 0.5 + 0.5)));
+    } else renderer.render(scene, camera);
   }
   scenery.update(s.clock, camera, quality, true);
   planTick(s);
