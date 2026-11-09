@@ -545,8 +545,12 @@ export function createGame({ createRenderer } = {}) {
   $('langBtn').textContent = getLang() === 'en' ? 'Nederlands' : 'English';
   $('langBtn').onclick = () => {
     save();
-    setLang(getLang() === 'en' ? 'nl' : 'en');
-    location.reload();
+    const next = setLang(getLang() === 'en' ? 'nl' : 'en');
+    // A ?lang= in the address wins over the saved choice: carry the new one along.
+    const url = new URL(location.href);
+    if (url.searchParams.has('lang')) url.searchParams.set('lang', next);
+    location.href = url.toString();
+    if (!url.searchParams.has('lang')) location.reload();
   };
   $('graphics').onclick = () => {
     graphicsMode =
