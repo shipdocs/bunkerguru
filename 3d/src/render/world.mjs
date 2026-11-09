@@ -284,6 +284,22 @@ export function createWorld({
       m.rotation.set(sinking * 0.3, renderYaw(r.h), 0);
       m.visible = sinking < 1;
     }
+    // A boat that left the list (new career) takes its mesh and name textures with it.
+    // Colour materials are shared through primitives' cache; only textured ones are per boat.
+    if (meshOf.size > world.rivals.length) {
+      const live = new Set(world.rivals);
+      for (const [r, m] of meshOf) {
+        if (live.has(r)) continue;
+        m.removeFromParent();
+        m.traverse((o) => {
+          o.geometry?.dispose();
+          for (const mat of [o.material].flat()) if (mat?.map) (mat.map.dispose(), mat.dispose());
+        });
+        meshOf.delete(r);
+        const i = rivalMeshes.indexOf(m);
+        if (i >= 0) rivalMeshes.splice(i, 1);
+      }
+    }
     for (const gm of gateMeshes) {
       const open = gm.g.state === 'open' ? 1 : 0;
       const k = (gm.k = (gm.k ?? 0) + (open - (gm.k ?? 0)) * 0.05);
