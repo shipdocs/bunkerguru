@@ -84,11 +84,14 @@ export function createWorld({
       b.labelZ ?? (b.z0 + b.z1) / 2,
       Math.min(110, b.x1 - b.x0) * 0.7,
       '#dce4d2',
+      scene,
+      0.11,
     );
   for (const l of labels)
-    textSprite(l.text, l.x, 16, l.z, Math.max(40, (l.size || 14) * 6), '#f4efd8');
+    textSprite(l.text, l.x, 16, l.z, Math.max(40, (l.size || 14) * 6), '#f4efd8', scene, 0.12);
   for (const l of land)
-    if (l.label) textSprite(l.label, (l.x0 + l.x1) / 2, 18, (l.z0 + l.z1) / 2, 60, '#f4efd8');
+    if (l.label)
+      textSprite(l.label, (l.x0 + l.x1) / 2, 18, (l.z0 + l.z1) / 2, 60, '#f4efd8', scene, 0.11);
   // Terminal strips (yellow quay edge) and waiting places (blue P, yellow W = yard).
   for (const t of [...terminals, ...waits]) {
     const col = t.kind === 'terminal' ? '#e8c64a' : t.yard ? '#f0b429' : '#4d8fd6';
@@ -109,6 +112,8 @@ export function createWorld({
       t.z,
       48,
       t.kind === 'terminal' ? '#ffe9a0' : '#d8ecff',
+      scene,
+      0.12,
     );
   }
   for (const side of [-1, 1])
@@ -127,7 +132,7 @@ export function createWorld({
     const m = ship(b.length, b.beam, b.color);
     m.position.set(b.shipX, 0, b.shipZ);
     m.rotation.y = renderYaw(b.h);
-    textSprite(b.name, b.shipX, 22, b.shipZ, 40);
+    textSprite(b.name, b.shipX, 22, b.shipZ, 40, '#e9edda', scene, 0.11);
   }
   const trafficMeshes = sim.traffic.map((b) => {
     const m = ship(b.length, b.beam, b.color, b.length < 80);
@@ -163,7 +168,7 @@ export function createWorld({
       grp,
     );
     grp.position.set((g.x0 + g.x1) / 2, 0, (g.z0 + g.z1) / 2);
-    textSprite(g.name, 0, 20, 0, 40, '#ffe9a0', grp);
+    textSprite(g.name, 0, 20, 0, 40, '#ffe9a0', grp, 0.11);
     scene.add(grp);
     return { g, grp, deck, lamp, along, len };
   });
