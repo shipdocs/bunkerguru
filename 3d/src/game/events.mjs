@@ -28,8 +28,10 @@ export function eventTick(ev, s, dt, world, fx) {
   // A storm job keeps a hard beam wind going until it is done (also after a reload).
   const storm = s.job?.twist === 'storm' && s.phase !== 'done';
   if (storm && !ev.wind) {
-    const a = Math.random() * Math.PI * 2;
-    ev.wind = { x: Math.cos(a) * 0.9, z: Math.sin(a) * 0.9, T: Infinity, job: true };
+    // Across the river (the fairway runs along x): a true beam wind while underway.
+    const side = Math.random() < 0.5 ? -1 : 1,
+      skew = (Math.random() - 0.5) * 0.4;
+    ev.wind = { x: Math.sin(skew) * 0.9, z: side * Math.cos(skew) * 0.9, T: Infinity, job: true };
   }
   if (ev.wind && ((ev.wind.T -= dt) <= 0 || (ev.wind.job && !storm))) {
     ev.wind = null;

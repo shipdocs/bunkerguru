@@ -447,7 +447,9 @@ export function takeJob(s, world, id, fx = noFx, rnd = Math.random) {
   const idle = world.rivals.filter((r) => r.mode === 'idle');
   // Rivals take one of the remaining jobs now and then.
   const cands = s.offers.filter((o) => !customers[o.berth].gate && !o.taken);
-  if (cands.length && idle.length && rnd() > 0.35) {
+  // A race job keeps one idle rival free for the race.
+  const spare = s.job.twist === 'race' && !berthOf(s).gate ? 1 : 0;
+  if (cands.length && idle.length > spare && rnd() > 0.35) {
     const o = cands[Math.floor(rnd() * cands.length)],
       r = idle[Math.floor(rnd() * idle.length)];
     o.taken = r.name;
@@ -458,7 +460,7 @@ export function takeJob(s, world, id, fx = noFx, rnd = Math.random) {
   const free = world.rivals.filter((r) => r.mode === 'idle');
   // A rival you rammed holds a grudge and races you more often.
   const grudge = free.reduce((g, r) => Math.max(g, r.grudge || 0), 0);
-  const forced = s.job.twist === 'race';
+  const forced = spare > 0;
   if (s.job.twist === 'storm') {
     // The wind itself is kept up by eventTick while the job runs.
     fx.card?.({

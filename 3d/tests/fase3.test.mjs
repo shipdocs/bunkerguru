@@ -73,6 +73,7 @@ test('storm twist: a hard wind blows while the job runs and stops after', () => 
   s.phase = 'sail';
   eventTick(ev, s, 0.1, world, noFx);
   assert(ev.wind && Math.hypot(ev.wind.x, ev.wind.z) > 0.8);
+  assert(Math.abs(ev.wind.z) > Math.abs(ev.wind.x) * 4, 'across the river');
   s.job = null;
   s.phase = 'free';
   eventTick(ev, s, 0.1, world, noFx);
@@ -96,3 +97,15 @@ test('tide: water is highest at high water and the label shows the height', () =
 });
 
 void step;
+
+test('race twist: with one idle rival, it races instead of taking another job', () => {
+  const s = fresh();
+  const world = createWorldState(s);
+  world.rivals.slice(1).forEach((r) => (r.mode = 'toShip'));
+  planTick(s, Math.random);
+  const o = s.offers.find((x) => !x.taken && !x.twist);
+  o.twist = 'race';
+  assert(takeJob(s, world, o.id, noFx, seq([0.99, 0.0])));
+  assert(world.rivals[0].racing, 'the only idle rival races');
+  assert(!s.offers.some((x) => x.taken), 'no other job was taken');
+});
