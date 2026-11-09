@@ -117,6 +117,7 @@ export const mooredWait = (s) =>
 // dt: real seconds since the last step (≤ 1/60 s from the clock).
 export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
   dt = clamp(dt, 0, 0.05);
+  const dmg0 = s.damage;
   const scale = timeScaleOf(s),
     sim = dt * scale,
     logic = sim * LOGIC;
@@ -185,6 +186,8 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
   }
   eventTick(ev, s, logic, world, fx);
   fleetTick(s, world, logic, fx);
+  // Any new damage during a job counts (a yard repair afterwards does not erase it).
+  if (s.job && s.damage > dmg0 + 1e-6) s.jobHit = true;
   logicStep(s, world, logic, fx);
   s.rivals = saveRivals(world.rivals);
   if (MAP.id !== 'training') {

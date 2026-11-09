@@ -121,6 +121,7 @@ export function restore(raw) {
       if (isNum(raw[k])) s[k] = raw[k];
     s.damage = clamp(s.damage, 0, 99);
     s.fatigue = clamp(s.fatigue, 0, 100);
+    s.jobHit = raw.jobHit === true;
     s.moored = !!raw.moored;
     s.mooredTo = raw.moored ? raw.mooredTo || null : null;
     if (['load', 'sail', 'bunker', 'done', 'free'].includes(raw.phase)) s.phase = raw.phase;

@@ -224,7 +224,7 @@ export function createWorld({
   });
   const lamps = new T.Group();
   lamps.name = 'quay lamps';
-  for (const z of [...terminals, ...customers, ...waits]) {
+  for (const z of [...terminals, ...customers.map((c) => c.zone), ...waits]) {
     const n = Math.max(2, Math.round((z.x1 - z.x0) / 70));
     for (let i = 0; i < n; i++) {
       const sp = new T.Sprite(lampMat);
@@ -258,9 +258,8 @@ export function createWorld({
     hemi.intensity = look.hemi;
     renderer.toneMappingExposure = look.exposure;
     waterMat.uniforms.night.value = look.night;
+    // Linear, like the rest of the shader: colorspace_fragment encodes the result.
     tmp.set(look.fog);
-    // The shader mixes in display space: hand it the sRGB numbers of the fog colour.
-    tmp.convertLinearToSRGB();
     waterMat.uniforms.fogCol.value.set(tmp.r, tmp.g, tmp.b);
     lampMat.opacity = mastMat.opacity = Math.max(0, (look.night - 0.25) / 0.75);
     lamps.visible = lampMat.opacity > 0.01;

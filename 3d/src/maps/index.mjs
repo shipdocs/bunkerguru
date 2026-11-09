@@ -152,7 +152,9 @@ export function tideState(clock, phase = 0) {
       Math.abs(1.2 * Math.cos(a))
         .toFixed(1)
         .replace('.', ',') +
-      ' m',
+      ' m ' +
+      // Level = cos(a): rising while sin(a) < 0 (the ▲/▼ before is the current).
+      (Math.sin(a) < 0 ? '↗' : '↘'),
   };
 }
 // Water level in metres around mean: +amp at high water (start of ebb), −amp at low.

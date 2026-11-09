@@ -16,7 +16,8 @@ import { buyBoat, dispatch, idleBoats, fleetOf } from '../../src/game/fleet.mjs'
 import { landmarkSpots } from '../../src/render/landmarks.mjs';
 // Reproducible run: a fixed seed instead of real randomness (a few seeds left the
 // Antwerpen rivals without a finished job in 30 minutes, a flaky test).
-let seed = Number(process.env.BUNKERGURU_SEED) || 20261109;
+const envSeed = Number(process.env.BUNKERGURU_SEED);
+let seed = process.env.BUNKERGURU_SEED && Number.isFinite(envSeed) ? envSeed : 20261109;
 Math.random = () => {
   seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
   return seed / 4294967296;
@@ -30,8 +31,9 @@ const out = {
   routeLegs: 0,
 };
 const bad = (m) => out.problems.push(m);
+// Negative margin: the landmark must stand at least 15 m inland.
 for (const p of landmarkSpots())
-  if (!landAt(p.x, p.z, 15)) bad('landmark in the water at ' + p.x + ',' + p.z);
+  if (!landAt(p.x, p.z, -15)) bad('landmark in the water at ' + p.x + ',' + p.z);
 if (!waterAt(MAP.start.x, MAP.start.z, 4)) bad('start on land');
 for (const t of [...terminals, ...waits]) {
   if (!waterAt(t.x, t.z, 4)) bad(t.name + ' centre on land');
