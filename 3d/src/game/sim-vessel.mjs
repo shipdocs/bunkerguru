@@ -28,6 +28,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
   for (let i = 0; i < count; i++) {
     if (s.moored) {
       s.u = s.v = s.r = 0;
+      if (s.engineOff) s.rpm = 0; // a stopped engine stays stopped while moored
       s.rudder += (s.rudderCmd - s.rudder) * Math.min(1, h * 1.5);
       s.braking = false;
       continue;
@@ -94,9 +95,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
       massK *
       DYN *
       (s.rpm < 0 ? 0.7 : 1);
-    const du0 = thrust - (0.08 * u * Math.abs(u) + 0.05 * u) * DYN;
-    // Speeding up (force along the motion, or from rest): feel.up; slowing: feel.down.
-    const du = du0 * (du0 * u >= 0 ? feel.up : feel.down);
+    const du = thrust - (0.08 * u * Math.abs(u) + 0.05 * u) * DYN;
     const dv = -1.2 * v * Math.abs(v) - 0.9 * v;
     let wu = 0,
       wv = 0;
@@ -114,7 +113,11 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     const bowF = 0.04 * bowK * Math.max(0, 1 - Math.abs(u) / 3.5);
     const yawK = yawFactor(p);
     const dr = (rudForce * 0.06 + bow * bowF) * yawK - s.r * 0.9 - s.r * Math.abs(s.r) * 2.0;
-    u += (du + wu - rudDrag * u * Math.abs(u) * 0.06) * h;
+    // Feel: the whole fore-and-aft force (engine, drag, wind, rudder) is scaled, so
+    // every point of balance stays where engine.js has it; only the pace changes.
+    // Speeding up (force along the motion, or from rest): feel.up; slowing: feel.down.
+    const fu = du + wu - rudDrag * u * Math.abs(u) * 0.06;
+    u += fu * (fu * u >= 0 ? feel.up : feel.down) * h;
     v += (dv + wv - rudForce * 0.3 + bow * bowF * 4.5) * h;
     s.r += dr * h;
     // Stroomschering: kop en hek in verschillende stroom geven een draaimoment.

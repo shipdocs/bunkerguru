@@ -179,3 +179,43 @@ test('engine off: the telegraph does nothing and the engine runs down', () => {
   for (let i = 0; i < 60 * 10; i++) simStep(s, 1 / 60, {}, undefined, undefined, TELE[s.teleIdx]);
   assert(Math.abs(s.rpm) < 0.01, 'engine stopped');
 });
+
+test('feel keeps the point of balance with wind and rudder too', async () => {
+  const { FEEL } = await import('../src/game/sim-vessel.mjs');
+  const top = (feel) => {
+    const s = {
+      ...fresh(),
+      x: 0,
+      z: 0,
+      h: 0,
+      cargo: 0,
+      moored: false,
+      timeScale: 3,
+      teleIdx: 7,
+      rudder: 0.4,
+      rudderCmd: 0.4,
+    };
+    for (let i = 0; i < 60 * 90; i++)
+      simStep(s, 1 / 60, {}, undefined, undefined, TELE[s.teleIdx], {
+        feel,
+        wind: { x: 0.6, z: 0.6 },
+      });
+    return s.u;
+  };
+  assert(Math.abs(top(FEEL) - top({ up: 1, down: 1 })) < 0.05);
+});
+test('engine switched off while moored stays stopped after casting off', () => {
+  const s = {
+    ...fresh(),
+    x: 0,
+    z: 0,
+    h: 0,
+    moored: true,
+    timeScale: 3,
+    rpm: 0.6,
+    engDir: 1,
+    engineOff: true,
+  };
+  simStep(s, 1 / 60, {}, undefined, undefined, TELE[8]);
+  assert.equal(s.rpm, 0);
+});
