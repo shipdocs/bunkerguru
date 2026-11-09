@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { bridgeLabelScale } from '../src/render/primitives.mjs';
 import { nextCamera, followYaw, cameraPose, bridgeEye, bridgeDir } from '../src/render/camera.mjs';
 test('follow camera stays astern and aims forward at all headings', () => {
   for (const h of [0, Math.PI / 2, Math.PI, -Math.PI / 2, 5.9]) {
@@ -47,4 +48,10 @@ test('wheelhouse eye: behind the bow, in front of the window, above the deck', (
   assert(bridgeDir(port.yaw, 0).x < -0.8);
   assert(bridgeDir(stbd.yaw, 0).x > 0.8);
   assert(bridgeDir(0, 0).z < -0.99);
+});
+
+test('wheelhouse labels stay modest: never wider than their own size, small up close', () => {
+  assert.equal(bridgeLabelScale(90, 100), 12); // a 90 m terminal board 100 m ahead
+  assert.equal(bridgeLabelScale(40, 2000), 40);
+  assert.equal(bridgeLabelScale(40, 5), 3);
 });

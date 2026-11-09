@@ -1,6 +1,7 @@
 import * as T from '../../vendor/three.js';
 import { clamp } from '../game/simulation.mjs';
 import { profileOf } from '../game/ship-profile.mjs';
+import { labelView } from './primitives.mjs';
 import {
   cameraPose,
   followYaw,
@@ -36,6 +37,7 @@ export function createCameraController({ $, camera, zoomLimits, state: s, toast,
   function setMode(mode) {
     const was = cameraMode;
     cameraMode = mode;
+    labelView.bridge = mode === 'bridge';
     if (mode === 'bridge') {
       Object.assign(bridge, { look: 0, yaw: 0, pitch: -0.04, eye: null });
     } else if (was === 'bridge') {
