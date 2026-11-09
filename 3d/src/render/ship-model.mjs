@@ -1,9 +1,20 @@
 import * as T from '../../vendor/three.js';
 import { hullOutline } from '../game/ship-profile.mjs';
 import { batchVessel } from './scene-batch.mjs';
+import { buildBunkerTanker } from './bunker-tanker.mjs';
 export function createShipFactory(scene, { mesh, box, cyl, beam, textSprite }) {
   // Low-poly hulls with decks, pipes, railings, accommodation and wheelhouse.
-  function ship(length, width, color, tanker = false, playerProfile = null) {
+  function ship(length, width, color, tanker = false, playerProfile = null, opts = {}) {
+    // Bunker boats (yours, the rivals', your fleet): the detailed Rotterdam tanker.
+    if (tanker && playerProfile) {
+      const t = buildBunkerTanker({ mesh, box, cyl, beam }, playerProfile, {
+        color,
+        name: opts.name,
+      });
+      batchVessel(t);
+      scene.add(t);
+      return t;
+    }
     const g = new T.Group();
     const sh = new T.Shape();
     sh.moveTo(-width * 0.4, length * 0.5);

@@ -159,10 +159,8 @@ export function createWorld({
   // Rivals and your own fleet: meshes per boat, made on first sight (a boat bought
   // later gets one too) and hidden when a boat leaves the list (new career).
   const vesselMesh = (r) => {
-    const m = ship(110, 11, r.color, true, vesselProfile);
+    const m = ship(110, 11, r.color, true, vesselProfile, { name: r.name.toUpperCase() });
     // Rivals carry their colour loud and clear: a hull band and a painted funnel.
-    box(11.6, 1.4, 100, r.color, 0, 2.2, 0, m);
-    box(4, 9, 4, r.color, 0, 13, 40, m);
     textSprite(r.name.toUpperCase(), 0, 19, 0, 26, r.own ? '#ffe7b0' : '#ffd9cf', m, 0.1);
     return m;
   };
