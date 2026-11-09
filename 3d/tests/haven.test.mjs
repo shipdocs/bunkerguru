@@ -66,3 +66,38 @@ test('a rival under way sounds the horn once when the player is close ahead', ()
   updateRivals([r], 1 / 60, { ...player, z: -900 }, [], fx);
   assert.equal(r.honked, false);
 });
+
+test('current in 3D is half the 2D map value, on the river and at the peak of the tide', async () => {
+  const { MAP, tideSpeed, currentAt, CURRENT_FEEL } = await import('../src/maps/index.mjs');
+  assert.equal(CURRENT_FEEL, 0.5);
+  const td = MAP.current.tide;
+  // Peak ebb: a quarter period after slack (period in 2D seconds, ×3 simulated).
+  const peak = tideSpeed((td.period * 3) / 4, 0);
+  assert(Math.abs(peak - td.ebbMax * 0.5) < 1e-9, 'Rotterdam: 1,5 m/s instead of 3');
+  assert(Math.abs(tideSpeed((td.period * 3 * 3) / 4, 0) + td.floodMax * 0.5) < 1e-9);
+  // Mid-river the water runs at that speed towards the sea (−x); nothing on land.
+  const c = currentAt(0, 0, peak);
+  assert(Math.abs(c.x + peak) < 1e-9 && c.z === 0);
+  // A new career starts near slack water.
+  const { fresh } = await import('../src/game/state.mjs');
+  assert(Math.abs(tideSpeed(0, fresh().tidePhase)) < 0.3);
+});
+
+test('drift lines from 3° between heading and course over ground; current arrow from 0,08 m/s', async () => {
+  const { driftInfo, driftLines, currentArrow } = await import('../src/game/drift.mjs');
+  // Heading north at 4 m/s, set 1 m/s to starboard (east): about 14° of drift.
+  const d = driftLines({ h: 0, u: 4, v: 1 });
+  assert(Math.abs(d.deg - 14.04) < 0.05);
+  assert(
+    Math.abs(Math.sin(d.cog) - 1 / Math.hypot(4, 1)) < 1e-9,
+    'course over ground east of north',
+  );
+  assert(d.length > 80 && d.alpha > 0.25 && d.alpha <= 0.75);
+  assert.equal(driftLines({ h: 1, u: 4, v: 0.1 }), null, 'under 3°: no lines');
+  assert.equal(driftInfo({ h: 0, u: 0.2, v: 0 }), null, 'nearly stopped');
+  assert.equal(driftInfo({ h: 0, u: -3, v: 0 }), null, 'astern');
+  assert.equal(currentArrow({ x: 0.05, z: 0 }), null);
+  const a = currentArrow({ x: -1.5, z: 0 });
+  assert.equal(a.text, '1,5 m/s');
+  assert(a.dx === -1 && a.dz === 0 && a.length === 16 + 1.5 * 18);
+});

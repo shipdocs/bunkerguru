@@ -56,6 +56,12 @@ Zie [architectuur](docs/ARCHITECTURE.md) en [scheepsregels](VESSEL_RULES.md).
 
 Niet getest: echte WebGL-prestaties op een telefoon. Nog niet overgezet: Engels, volumepaneel, ranglijst.
 
+## Stroom en drift
+
+De stroom is in 3D de helft van de waarde op de 2D-kaart (`CURRENT_FEEL = 0.5` in `src/maps/index.mjs`): op de piek 1,5 m/s in Rotterdam, 1,75 m/s op de Schelde en 2 m/s op de Waterweg, dicht bij de echte rivier. De factor geldt voor rivier, neren voor de havenmonden en zijkanalen; het vaarmodel zelf blijft gelijk aan `engine.js`. Een nieuwe carrière begint rond de kentering, zodat de eb pas opkomt als je onderweg bent.
+
+Zoals in 2D zie je drift op het water: wit doorgetrokken is waar de kop heen wijst, geel gestippeld de koers over de grond (vanaf 3° verschil). Voor de boeg staat een cyaan pijl met de stroomrichting en -sterkte op die plek (`src/game/drift.mjs`, getekend in `navigation-effects.mjs`).
+
 ## Havens
 
 De indeling is die van de 2D-kaart (rechtgetrokken rivier, bekkens als rechthoeken). Wat erop staat is cartoon, maar staat waar het in het echt staat. `src/render/landmarks.mjs` bevat per haven de herkenningspunten in de s/n-eenheden van `../maps/*.js`, zodat een plek naast de kaart te leggen is:

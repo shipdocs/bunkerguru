@@ -1,7 +1,8 @@
 import * as T from '../../vendor/three.js';
 import { target } from '../game/simulation.mjs';
 import { routePoints, customers, terminalOf } from '../game/harbor.mjs';
-import { land } from '../maps/index.mjs';
+import { land, currentAt } from '../maps/index.mjs';
+import { driftLines, currentArrow } from '../game/drift.mjs';
 // Target zone on the water, route, mooring lines, bunker hose and wake foam.
 export function createNavigationEffects(scene, mesh, vesselProfile) {
   function zone(color) {
@@ -198,6 +199,105 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
   }
   let foamIdx = 0,
     foamTick = 0;
+  // Drift lines and current arrow, flat on the water (as in the 2D game): white =
+  // where the bow points, dashed yellow = where she really goes, cyan = the stream.
+  const flat = (geo, color, map) => {
+    const m = new T.Mesh(
+      geo,
+      new T.MeshBasicMaterial({ color, map, transparent: true, depthWrite: false, fog: false }),
+    );
+    m.visible = false;
+    m.renderOrder = 2;
+    scene.add(m);
+    return m;
+  };
+  const ribbonGeo = new T.PlaneGeometry(1, 1);
+  ribbonGeo.rotateX(-Math.PI / 2);
+  ribbonGeo.translate(0.5, 0, 0);
+  const dashTex = (() => {
+    const cv = document.createElement('canvas');
+    cv.width = 32;
+    cv.height = 4;
+    const c = cv.getContext('2d');
+    if (c) {
+      c.fillStyle = '#fff';
+      c.fillRect(0, 0, 18, 4);
+    }
+    const t = new T.CanvasTexture(cv);
+    t.wrapS = T.RepeatWrapping;
+    return t;
+  })();
+  const headLine = flat(ribbonGeo, '#ffffff'),
+    cogLine = flat(ribbonGeo, '#ffd54a', dashTex);
+  const arrowShape = new T.Shape();
+  for (const [i, [x, y]] of [
+    [-0.5, 0.12],
+    [0.18, 0.12],
+    [0.18, 0.34],
+    [0.5, 0],
+    [0.18, -0.34],
+    [0.18, -0.12],
+    [-0.5, -0.12],
+  ].entries())
+    arrowShape[i ? 'lineTo' : 'moveTo'](x, y);
+  const arrowGeo = new T.ShapeGeometry(arrowShape);
+  arrowGeo.rotateX(-Math.PI / 2);
+  const arrow = flat(arrowGeo, '#78ebff');
+  arrow.material.opacity = 0.85;
+  const arrowCv = document.createElement('canvas');
+  arrowCv.width = 256;
+  arrowCv.height = 64;
+  const arrowTex = new T.CanvasTexture(arrowCv),
+    arrowLabel = new T.Sprite(
+      new T.SpriteMaterial({ map: arrowTex, transparent: true, depthTest: false, fog: false }),
+    );
+  arrowLabel.visible = false;
+  scene.add(arrowLabel);
+  let arrowText = '';
+  const along = (m, x, z, dx, dz, len, width) => {
+    m.position.set(x, 0.95, z);
+    m.rotation.y = Math.atan2(-dz, dx);
+    m.scale.set(len, 1, width);
+  };
+  function updateDrift(s) {
+    const under = !s.moored && s.phase !== 'sunk';
+    const dl = under && driftLines(s),
+      half = vesselProfile.length / 2,
+      sn = Math.sin(s.h),
+      cs = Math.cos(s.h);
+    headLine.visible = cogLine.visible = !!dl;
+    if (dl) {
+      along(headLine, s.x + sn * half, s.z - cs * half, sn, -cs, dl.length, 1.4);
+      along(cogLine, s.x, s.z, Math.sin(dl.cog), -Math.cos(dl.cog), dl.length + half, 1.7);
+      dashTex.repeat.x = (dl.length + half) / 9;
+      headLine.material.opacity = cogLine.material.opacity = dl.alpha;
+    }
+    const ca = under && currentArrow(currentAt(s.x, s.z, s.tideSpeed || 0));
+    arrow.visible = arrowLabel.visible = !!ca;
+    if (ca) {
+      const ax = s.x + sn * (half + 34),
+        az = s.z - cs * (half + 34);
+      along(arrow, ax, az, ca.dx, ca.dz, ca.length, ca.length);
+      if (ca.text !== arrowText) {
+        arrowText = ca.text;
+        const c = arrowCv.getContext('2d');
+        if (c) {
+          c.clearRect(0, 0, 256, 64);
+          c.font = 'bold 40px sans-serif';
+          c.textAlign = 'center';
+          c.lineJoin = 'round';
+          c.lineWidth = 8;
+          c.strokeStyle = 'rgba(0,20,40,0.8)';
+          c.strokeText(arrowText, 128, 46);
+          c.fillStyle = '#9ff2ff';
+          c.fillText(arrowText, 128, 46);
+        }
+        arrowTex.needsUpdate = true;
+      }
+      arrowLabel.position.set(ax, 7, az);
+      arrowLabel.scale.set(30, 7.5, 1);
+    }
+  }
   function updateWake(s, dt, quality, paused) {
     pulse += dt;
     if (beacon.visible) {
@@ -209,6 +309,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       beamMat.opacity = 0.18 + 0.12 * Math.sin(pulse * 2.5) ** 2;
     }
     updateSmoke(s, dt, paused);
+    updateDrift(s);
     foamTick += dt;
     const power = Math.abs(s.rpm || 0);
     if ((Math.abs(s.u) > 0.25 || power > 0.12) && foamTick > 0.08 && !paused && !s.moored) {
