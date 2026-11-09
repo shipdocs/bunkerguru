@@ -15,6 +15,35 @@ import {
   createTrail,
 } from '../game/wake.mjs';
 // Target zone on the water, route, mooring lines, bunker hose and wake foam.
+// A flat strip of the given width along a polyline on the water; u runs with the
+// distance (one dash per 22 m), so the dashes keep their size on any route.
+export const ROUTE_WIDTH = 6;
+export function routeRibbon(points, width = ROUTE_WIDTH, y = 0.95) {
+  const pos = [],
+    uv = [],
+    index = [];
+  let run = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[Math.max(0, i - 1)],
+      b = points[Math.min(points.length - 1, i + 1)],
+      p = points[i];
+    let dx = b.x - a.x,
+      dz = b.z - a.z;
+    const len = Math.hypot(dx, dz) || 1;
+    dx /= len;
+    dz /= len;
+    if (i) run += Math.hypot(p.x - points[i - 1].x, p.z - points[i - 1].z);
+    pos.push(p.x - dz * width * 0.5, y, p.z + dx * width * 0.5);
+    pos.push(p.x + dz * width * 0.5, y, p.z - dx * width * 0.5);
+    uv.push(run / 22, 0, run / 22, 1);
+    if (i) index.push(i * 2 - 2, i * 2 - 1, i * 2, i * 2 - 1, i * 2 + 1, i * 2);
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+  g.setIndex(index);
+  return g;
+}
 export function createNavigationEffects(scene, mesh, vesselProfile) {
   function zone(color) {
     const geo = new T.PlaneGeometry(1, 1);
@@ -170,16 +199,35 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       if (t && t.kind === 'ship') deliverZone.place(t.zone);
     },
   };
-  const line = new T.Line(
+  // Route advice: a dashed cyan ribbon on the water, wide enough to read on a phone
+  // (a 1-pixel line vanished there). Rebuilt when the route changes.
+  const routeTex = (() => {
+    const cv = document.createElement('canvas');
+    cv.width = 32;
+    cv.height = 4;
+    const c = cv.getContext('2d');
+    if (c) {
+      c.fillStyle = '#fff';
+      c.fillRect(0, 0, 20, 4);
+    }
+    const t = new T.CanvasTexture(cv);
+    t.wrapS = T.RepeatWrapping;
+    return t;
+  })();
+  const line = new T.Mesh(
     new T.BufferGeometry(),
-    new T.LineDashedMaterial({
-      color: '#b8e8ca',
-      dashSize: 6,
-      gapSize: 6,
+    new T.MeshBasicMaterial({
+      color: '#63f2ff',
+      map: routeTex,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.9,
+      depthWrite: false,
+      fog: false,
+      side: T.DoubleSide,
     }),
   );
+  line.renderOrder = 1;
+  line.frustumCulled = false;
   scene.add(line);
   const mooring = new T.LineSegments(
     new T.BufferGeometry(),
@@ -801,10 +849,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
     line.visible = !!t && !s.moored;
     if (line.visible) {
       line.geometry.dispose();
-      line.geometry = new T.BufferGeometry().setFromPoints(
-        routePoints(s, t).map((p) => new T.Vector3(p.x, 0.9, p.z)),
-      );
-      line.computeLineDistances();
+      line.geometry = routeRibbon(routePoints(s, t), ROUTE_WIDTH);
     }
   }
   return { zones, updateWake, updateRoute };
