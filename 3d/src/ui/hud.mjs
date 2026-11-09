@@ -82,7 +82,10 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
       w = mooredWait(s);
     let title, text;
     if (s.phase === 'sunk')
-      [title, text] = ['Gezonken', 'De verzekering betaalt de helft. Een nieuwe boot volgt…'];
+      [title, text] = [
+        'Gezonken',
+        'Eigen risico: een kwart van je goud. De sleepboot brengt je naar de werf…',
+      ];
     else if (s.phase === 'done' && s.lastJob)
       [title, text] = [
         'Klus klaar!',

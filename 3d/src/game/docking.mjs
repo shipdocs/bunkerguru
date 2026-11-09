@@ -1,6 +1,6 @@
 // Docking as the skill moment: every make-fast alongside a seagoing ship or a terminal
 // is rated with 1–3 anchors on speed, angle and the gap left to the quay or hull.
-import { customers, land } from '../maps/index.mjs';
+import { customers, terminals, land } from '../maps/index.mjs';
 const SHIP_HALF_BEAM = 13,
   OWN_HALF_BEAM = 5.5;
 const hdgErr = (a, b) => {
@@ -24,8 +24,12 @@ export function dockGap(s, to) {
 }
 export function dockRating(s, to) {
   const speed = Math.hypot(s.u, s.v) * 3.6;
-  const ref = to.kind === 'ship' ? customers.find((c) => c.id === to.id).h : s.h;
-  const angle = to.kind === 'ship' ? hdgErr(s.h, ref) : 0;
+  // Parallel to the ship, or to the quay of the terminal strip.
+  const ref =
+    to.kind === 'ship'
+      ? customers.find((c) => c.id === to.id).h
+      : (terminals.find((t) => t.id === to.id)?.h ?? s.h);
+  const angle = hdgErr(s.h, ref);
   const gap = dockGap(s, to);
   const anchors =
     speed < 1.5 && angle < 5 && gap < 4 ? 3 : speed < 3 && angle < 12 && gap < 9 ? 2 : 1;

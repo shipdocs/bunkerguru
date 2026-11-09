@@ -22,6 +22,13 @@ test('docking rating: soft, parallel and close earns three anchors and a tip', (
   assert(good.tip > 0);
   Object.assign(s, { u: 1, h: b.h + 0.3 });
   assert(dockRating(s, { kind: 'ship', id: b.id }).anchors < 3);
+  // At a terminal the angle to the quay counts too, and there is no tip.
+  const tm = terminalOf(s);
+  const off = tm.wall * ((tm.alongZ ? tm.x1 - tm.x0 : tm.z1 - tm.z0) / 2 - 7);
+  const ts = { ...s, x: tm.alongZ ? tm.x + off : tm.x, z: tm.alongZ ? tm.z : tm.z + off, u: 0.2 };
+  assert.equal(dockRating({ ...ts, h: tm.h }, { kind: 'terminal', id: tm.id }).anchors, 3);
+  assert(dockRating({ ...ts, h: tm.h + 0.5 }, { kind: 'terminal', id: tm.id }).anchors < 3);
+  assert.equal(dockRating({ ...ts, h: tm.h }, { kind: 'terminal', id: tm.id }).tip, 0);
   // act() records the rating once and the tip is paid with the job.
   Object.assign(s, { u: 0.2, h: b.h });
   act(s);
@@ -62,7 +69,7 @@ test('sinking is a story: towed to the yard, quarter of the gold, reputation hit
   s.gold = 1000;
   s.moored = false;
   s.damage = 100;
-  for (let i = 0; i < 60 * 6; i++) step(s, world, 1 / 60, {}, fx); // 5 logic s at 3×
+  for (let i = 0; i < 60 * 6; i++) step(s, world, 1 / 60, {}, fx); // 6 real s at 3× = 6 logic s; the tow comes after 5
   assert.equal(s.phase, 'load');
   assert(s.gold <= 750);
   assert(s.gold > 700, 'only a quarter lost (some already spent on repairs)');

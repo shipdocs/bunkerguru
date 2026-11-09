@@ -268,7 +268,9 @@ export function createGame({ createRenderer } = {}) {
       '</span><small>' +
       e.speed.toFixed(1).replace('.', ',') +
       ' km/u' +
-      (e.kind === 'ship' ? ' · ' + Math.round(e.angle) + '°' : '') +
+      ' · ' +
+      Math.round(e.angle) +
+      '°' +
       ' · ' +
       Math.round(e.gap) +
       ' m vrij' +

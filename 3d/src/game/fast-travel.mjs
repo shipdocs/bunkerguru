@@ -2,12 +2,13 @@
 // route advice to an approach point short of the destination (or of a closed bridge or
 // lock); time, tide, traffic and rivals move on as if you had sailed it. Manoeuvring,
 // berthing and every interesting decision stay with the player.
-import { waterAt, currentAt } from '../maps/index.mjs';
+import { waterAt, currentAt, tideSpeed } from '../maps/index.mjs';
 import { routePoints, LOGIC, CLOCK_RATE, MAP } from './harbor.mjs';
 import { updateTraffic } from './traffic.mjs';
 import { updateGates } from './gates.mjs';
 import { updateRivals } from './rivals.mjs';
 import { target } from './simulation.mjs';
+import { berthOf } from './harbor.mjs';
 export const FAST_MIN_DISTANCE = 450, // closer than this: just sail
   APPROACH = 280, // stop this far (along the route) before the destination
   CRUISE = 5.0; // m/s over the cut-out stretch
@@ -83,20 +84,25 @@ export function fastTravel(s, world, fx = {}) {
   const simSeconds = p.dist / CRUISE;
   // The world keeps turning: traffic, bridges, locks and the rivals.
   const boats = () => [s, ...world.rivals.filter((r) => r.mode !== 'sunk')];
-  for (let t = 0; t < simSeconds; t += 0.25) {
-    const k = Math.min(1, t / simSeconds);
+  let stolen = null;
+  for (let t = 0; t < simSeconds; ) {
+    const dt = Math.min(0.25, simSeconds - t);
     // A ghost of the player moves along so traffic and rivals react sensibly.
-    s.x += ((p.x - s.x) * 0.25) / Math.max(0.25, simSeconds - t);
-    s.z += ((p.z - s.z) * 0.25) / Math.max(0.25, simSeconds - t);
-    void k;
-    updateTraffic(world.traffic, 0.25, boats());
-    updateGates(world.gates, 0.25, boats());
-    updateRivals(world.rivals, 0.25, s, world.traffic, {}, world.gates);
+    s.x += ((p.x - s.x) * dt) / (simSeconds - t);
+    s.z += ((p.z - s.z) * dt) / (simSeconds - t);
+    updateTraffic(world.traffic, dt, boats());
+    updateGates(world.gates, dt, boats());
+    stolen = updateRivals(world.rivals, dt, s, world.traffic, {}, world.gates) || stolen;
+    t += dt;
   }
   const logic = simSeconds * LOGIC;
   s.clock = (s.clock || 0) + simSeconds;
+  s.tideSpeed = tideSpeed(s.clock, s.tidePhase); // the tide turned on the way, perhaps
   s.elapsed = (s.elapsed || 0) + logic;
-  s.fatigue = Math.min(100, (s.fatigue || 0) + (logic * 100) / 1500);
+  // Breakdowns run their course while you sail (engine.js counts them in logic seconds).
+  if (s.blackout > 0) s.blackout = Math.max(0, s.blackout - logic);
+  if (s.jamT > 0) s.jamT = Math.max(0, s.jamT - logic);
+  if (MAP.id !== 'training') s.fatigue = Math.min(100, (s.fatigue || 0) + (logic * 100) / 1500);
   if (s.phase === 'sail' && s.damage >= 40 && s.cargo > 0 && MAP.id !== 'training')
     s.cargo = Math.max(0, s.cargo - ((logic * (s.damage - 30)) / 70) * 1.2);
   // Dead slow ahead, 1.2 m/s through the water; over the ground the current adds.
@@ -121,6 +127,23 @@ export function fastTravel(s, world, fx = {}) {
     hitCD: 0,
   });
   const mins = Math.round((logic / 60) * CLOCK_RATE);
+  if (stolen && s.job && s.phase !== 'done') {
+    // A racing rival got alongside first while you were on the way.
+    const name = berthOf(s).name;
+    s.job = null;
+    s.phase = 'free';
+    fx.sound?.('alarm', 2);
+    fx.board?.();
+    return (
+      '⏩ ' +
+      mins +
+      ' min later… ' +
+      stolen.rival.name +
+      ' lag al langszij ' +
+      name +
+      ' – klus kwijt!'
+    );
+  }
   fx.sound?.('horn');
   return (
     '⏩ ' +

@@ -256,7 +256,7 @@
     transform: translate(-50%, -20px) scale(1.2);
   }
   100% {
-    opacity: 0.2;
+    opacity: 0;
     left: calc(100% - 90px);
     top: 40px;
     transform: translate(-50%, 0) scale(0.6);
