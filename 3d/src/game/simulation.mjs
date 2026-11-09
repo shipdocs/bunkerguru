@@ -8,7 +8,7 @@ import { createTraffic, updateTraffic } from './traffic.mjs';
 import { createGates, updateGates } from './gates.mjs';
 import { createRivals, updateRivals, rivalStartJob, saveRivals } from './rivals.mjs';
 import { createFleet, saveFleet, fleetTick } from './fleet.mjs';
-import { createEvents, eventTick } from './events.mjs';
+import { createEvents, eventTick, windOf } from './events.mjs';
 import { dockRating } from './docking.mjs';
 import { addNews } from './career.mjs';
 import {
@@ -143,7 +143,7 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
   const ev = world.events;
   const env = {
     currentAt: (x, z) => currentAt(x, z, s.tideSpeed),
-    wind: ev.wind,
+    wind: windOf(ev),
     upgrades: { motor: up(s, 'motor'), bow: up(s, 'boeg') },
   };
   const sunk = s.phase === 'sunk';

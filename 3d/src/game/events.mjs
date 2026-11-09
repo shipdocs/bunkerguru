@@ -16,12 +16,56 @@ export function createEvents() {
     stall: null,
     vts: null,
     vtsCd: 60,
+    wx: {
+      kind: 'helder',
+      wind: { x: 0, z: 0 },
+      bft: 2,
+      dir: 'ZW',
+      next: 200 + Math.random() * 200,
+    },
   };
+}
+// Weather of the 2D game (engine.js weatherTick): every 8–15 minutes a new picture.
+// Clear, overcast, rain or squalls, with a standing wind you feel from 4 Bft.
+export const WINDS = ['N', 'NO', 'O', 'ZO', 'Z', 'ZW', 'W', 'NW'];
+export function weatherTick(ev, dt, fx, rnd = Math.random) {
+  const wx = ev.wx;
+  if (MAP.id === 'training' || (wx.next -= dt) > 0) return;
+  wx.next = 480 + rnd() * 420;
+  const r = rnd();
+  wx.kind = r < 0.5 ? 'helder' : r < 0.75 ? 'bewolkt' : r < 0.9 ? 'regen' : 'buien';
+  const di = Math.floor(rnd() * 8);
+  wx.bft =
+    wx.kind === 'buien'
+      ? 6 + Math.floor(rnd() * 2)
+      : wx.kind === 'regen'
+        ? 4 + Math.floor(rnd() * 2)
+        : 1 + Math.floor(rnd() * 4);
+  // Wind FROM compass point di (north = −z, east = +x) blows the other way.
+  const a = (di * Math.PI) / 4,
+    f = Math.max(0, wx.bft - 3) * 0.17;
+  wx.wind = { x: -Math.sin(a) * f, z: Math.cos(a) * f };
+  wx.dir = WINDS[di];
+  fx.radio?.([
+    {
+      who: sector(),
+      spk: 0,
+      text: `Weerbericht: wind ${wx.dir} ${wx.bft}, ${wx.kind}${wx.bft >= 6 ? ', harde vlagen op de rivier' : ''}.`,
+    },
+  ]);
+  fx.say?.(`🌤 Weer: ${wx.kind}, wind ${wx.dir} ${wx.bft}`, 4);
+}
+// Standing wind plus any gust or storm from an incident, as one vector for the hull.
+export function windOf(ev) {
+  const w = ev.wx?.wind;
+  if (!ev.wind) return w && (w.x || w.z) ? w : null;
+  return { x: ev.wind.x + (w?.x || 0), z: ev.wind.z + (w?.z || 0) };
 }
 const sector = () => MAP.radio?.sectors?.[0] || 'Verkeerspost';
 
 export function eventTick(ev, s, dt, world, fx) {
   if (MAP.id === 'training') return;
+  weatherTick(ev, dt, fx);
   if (s.phase === 'sunk' || s.moored) ev.next -= dt * 0.3;
   else ev.next -= dt;
   if (ev.fog > 0) ev.fog -= dt;

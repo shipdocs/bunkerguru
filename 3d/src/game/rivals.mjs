@@ -181,6 +181,28 @@ function arrive(r, player) {
   return contested ? { kind: 'stole', rival: r } : null;
 }
 const gatesRef = { list: [] };
+// Personality from the 2D game: a rival under way that finds you close ahead gives
+// one blast on the horn and, half the time, a remark on the VHF. Once per meeting.
+const HAILS = [
+  'Bunkerguru, aan de kant, je ligt in de weg!',
+  'Bunkerguru, ik kom over stuurboord, ruimte graag!',
+  'Bunkerguru, even opletten daar, ik heb haast!',
+  'Bunkerguru, slaap je? Ik wil erlangs!',
+];
+function hail(r, player, fx) {
+  if (r.own || player.phase === 'sunk') return;
+  const dx = player.x - r.x,
+    dz = player.z - r.z,
+    d = Math.hypot(dx, dz);
+  if (d > 420) r.honked = false;
+  if (r.honked || d > 190 || !(r.cur > 1)) return;
+  // Only when the player is ahead of the bow (heading h: forward = sin h, −cos h).
+  if (dx * Math.sin(r.h) - dz * Math.cos(r.h) < d * 0.6) return;
+  r.honked = true;
+  fx.sound?.('horn');
+  if (Math.random() < 0.5)
+    fx.radio?.([{ who: r.name, spk: 3, text: HAILS[Math.floor(Math.random() * HAILS.length)] }]);
+}
 export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
   gatesRef.list = gates;
   playerRef.p = player;
@@ -211,6 +233,7 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       fx.sound?.('sink');
       continue;
     }
+    hail(r, player, fx);
     if (r.mode === 'idle') {
       r.cur = 0;
       if (r.own) continue; // your own boats wait for orders (fleet.mjs)
@@ -398,6 +421,10 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       ) {
         // Stop dead (gliding speeds are low): no metre more towards the player.
         r.cur = 0;
+        if (!r.blockT && !r.own && Math.random() < 0.5)
+          fx.radio?.([
+            { who: r.name, spk: 3, text: 'Bunkerguru, schiet eens op, ik wacht op die plek!' },
+          ]);
         r.blockT = (r.blockT || 0) + dt;
         if (r.blockT > 8 * SIM && r.mode === 'toTerminal') {
           r.blockT = 0;

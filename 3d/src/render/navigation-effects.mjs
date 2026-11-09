@@ -104,11 +104,18 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
     smoke.push({ sp, life: 0, vx: 0, vz: 0 });
   }
   let smokeIdx = 0,
-    smokeTick = 0;
+    smokeTick = 0,
+    lastRpm = 0;
   function updateSmoke(s, dt, paused) {
     smokeTick += dt;
-    const heavy = Math.max(0, (s.damage - 35) / 65);
-    if (heavy > 0 && !paused && smokeTick > 0.35 - heavy * 0.2) {
+    // Exhaust: a light haze whenever the engine works, a puff on every change of
+    // load, thick and dark once she is damaged.
+    const heavy = Math.max(0, (s.damage - 35) / 65),
+      rpm = Math.abs(s.rpm || 0),
+      load = Math.min(1, Math.abs(rpm - lastRpm) * 6);
+    lastRpm += (rpm - lastRpm) * Math.min(1, dt * 0.8);
+    const every = heavy > 0 ? 0.35 - heavy * 0.2 : 0.6 - rpm * 0.3 - load * 0.25;
+    if ((heavy > 0 || rpm > 0.05) && !paused && smokeTick > every) {
       smokeTick = 0;
       const p = smoke[smokeIdx++ % smoke.length];
       const back = vesselProfile.length * 0.33;
@@ -116,7 +123,10 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       p.life = 1;
       p.vx = (Math.random() - 0.5) * 1.5;
       p.vz = (Math.random() - 0.5) * 1.5;
-      p.sp.material.color.set(heavy > 0.6 ? '#2f3133' : '#6b6e70');
+      p.sp.material.color.set(
+        heavy > 0.6 ? '#2f3133' : heavy > 0 ? '#6b6e70' : load > 0.4 ? '#5d6062' : '#a9adb0',
+      );
+      p.k = heavy > 0 ? 1 : 0.35 + load * 0.5 + rpm * 0.15;
       p.sp.visible = true;
     }
     for (const p of smoke) {
@@ -125,9 +135,9 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       p.sp.position.x += p.vx * dt;
       p.sp.position.z += p.vz * dt;
       p.sp.position.y += dt * 6;
-      const sz = 6 + (1 - p.life) * 22;
+      const sz = (6 + (1 - p.life) * 22) * (0.45 + 0.55 * (p.k ?? 1));
       p.sp.scale.set(sz, sz, 1);
-      p.sp.material.opacity = Math.max(0, p.life) * 0.55;
+      p.sp.material.opacity = Math.max(0, p.life) * 0.55 * (p.k ?? 1);
       p.sp.visible = p.life > 0;
     }
   }

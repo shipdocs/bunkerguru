@@ -284,6 +284,59 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
     parent.add(sp);
   };
   for (const m of [...trafficMeshes, ...rivalMeshes, ...customerMeshes]) mastLight(m);
+  // Rain: short streaks in a box that travels with the camera, slanted by the wind.
+  const RAIN = quality.light ? 500 : 1400,
+    rainPos = new Float32Array(RAIN * 6),
+    rainGeo = new T.BufferGeometry();
+  for (let i = 0; i < RAIN; i++) {
+    rainPos[i * 6] = (Math.random() - 0.5) * 320;
+    rainPos[i * 6 + 1] = Math.random() * 140;
+    rainPos[i * 6 + 2] = (Math.random() - 0.5) * 320;
+  }
+  rainGeo.setAttribute('position', new T.BufferAttribute(rainPos, 3));
+  const rain = new T.LineSegments(
+    rainGeo,
+    new T.LineBasicMaterial({ color: '#dfeaf2', transparent: true, opacity: 0.5, fog: false }),
+  );
+  rain.name = 'rain';
+  rain.frustumCulled = false;
+  rain.visible = false;
+  scene.add(rain);
+  let gloom = 0, // 0 clear … 1 squall: greys the sky and dims the sun
+    wet = 0,
+    lastTime = 0;
+  const GLOOM = { helder: 0, bewolkt: 0.45, regen: 0.7, buien: 0.9 },
+    grey = new T.Color('#8f9aa3');
+  function updateRain(wx, dt) {
+    const target = wx.kind === 'buien' ? 1 : wx.kind === 'regen' ? 0.55 : 0;
+    wet += (target - wet) * Math.min(1, dt * 0.4);
+    rain.visible = wet > 0.02;
+    if (!rain.visible) return;
+    rain.material.opacity = 0.2 + wet * 0.4;
+    rain.geometry.setDrawRange(0, Math.ceil(RAIN * Math.min(1, wet * 1.2)) * 2);
+    rain.position.set(camera.position.x, 0, camera.position.z);
+    const vx = wx.wind.x * 22,
+      vz = wx.wind.z * 22,
+      fall = 70;
+    for (let i = 0; i < RAIN; i++) {
+      const k = i * 6;
+      let x = rainPos[k] + vx * dt,
+        y = rainPos[k + 1] - fall * dt,
+        z = rainPos[k + 2] + vz * dt;
+      if (y < 0) {
+        y += 140;
+        x = (Math.random() - 0.5) * 320;
+        z = (Math.random() - 0.5) * 320;
+      }
+      rainPos[k] = x;
+      rainPos[k + 1] = y;
+      rainPos[k + 2] = z;
+      rainPos[k + 3] = x - vx * 0.06;
+      rainPos[k + 4] = y + fall * 0.06;
+      rainPos[k + 5] = z - vz * 0.06;
+    }
+    rain.geometry.getAttribute('position').needsUpdate = true;
+  }
   let level = 0;
   const skyCol = new T.Color(),
     tmp = new T.Color();
@@ -291,18 +344,20 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
   // the tide (±1,2 m against the quay walls). Returns the water level for the ships.
   function updateAmbient(st) {
     const look = skyLook(dayClock(st));
-    scene.background = skyCol.set(look.sky);
-    scene.fog.color.set(look.fog);
-    skyMat.uniforms.top.value.set(look.sky);
-    skyMat.uniforms.low.value.set(look.fog);
-    skyMat.uniforms.glow.value = 1 - look.night;
+    // Weather greys the day: the same sky, pulled towards slate, the sun turned down.
+    const g = gloom * (1 - look.night * 0.6);
+    scene.background = skyCol.set(look.sky).lerp(grey, g * 0.85);
+    scene.fog.color.set(look.fog).lerp(grey, g * 0.7);
+    skyMat.uniforms.top.value.copy(skyCol);
+    skyMat.uniforms.low.value.copy(scene.fog.color);
+    skyMat.uniforms.glow.value = (1 - look.night) * (1 - gloom);
     sun.color.set(look.sunColor);
-    sun.intensity = look.sun;
-    hemi.intensity = look.hemi;
+    sun.intensity = look.sun * (1 - gloom * 0.6);
+    hemi.intensity = look.hemi * (1 - gloom * 0.15);
     renderer.toneMappingExposure = look.exposure;
     waterMat.uniforms.night.value = look.night;
     // Linear, like the rest of the shader: colorspace_fragment encodes the result.
-    tmp.set(look.fog);
+    tmp.copy(scene.fog.color);
     waterMat.uniforms.fogCol.value.set(tmp.r, tmp.g, tmp.b);
     lampMat.opacity = mastMat.opacity = Math.max(0, (look.night - 0.25) / 0.75);
     lamps.visible = lampMat.opacity > 0.01;
@@ -312,7 +367,13 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
     return level;
   }
   function updateDynamic(world, time) {
-    landmarks.update(time);
+    const dt = Math.min(0.1, Math.max(0, time - lastTime)),
+      wx = world.events.wx;
+    lastTime = time;
+    gloom += ((GLOOM[wx.kind] || 0) - gloom) * Math.min(1, dt * 0.25);
+    updateRain(wx, dt);
+    // Smoke and steam lean with the wind, a light breeze when it is calm.
+    landmarks.update(time, { x: 0.3 + wx.wind.x * 1.6, z: 0.1 + wx.wind.z * 1.6 });
     for (const [i, b] of world.traffic.entries()) {
       trafficMeshes[i].position.set(b.x, level, b.z);
       trafficMeshes[i].rotation.y = renderYaw(b.h);
@@ -367,7 +428,7 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
       }
     });
     // Fog incident: thick fog, otherwise light haze.
-    const fog = world.events.fog > 0 ? 0.0045 : 0.00026;
+    const fog = world.events.fog > 0 ? 0.0045 : 0.00026 + wet * 0.0007;
     scene.fog.density += (fog - scene.fog.density) * 0.02;
   }
   void waterAt;

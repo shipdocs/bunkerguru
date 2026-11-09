@@ -57,7 +57,14 @@ export function createHud({ $, keys, vesselProfile, camera, chart, zones }) {
       '× · ' +
       (s.handling === 'arcade' ? 'arcade' : 'schipper');
     const tide = tideState(s.clock, s.tidePhase);
-    $('clockInfo').textContent = '🕐 ' + clockStr(dayClock(s)) + ' · ' + tide.label;
+    const wx = world?.events?.wx,
+      sky = { helder: '☀', bewolkt: '☁', regen: '🌧', buien: '⛈' };
+    $('clockInfo').textContent =
+      '🕐 ' +
+      clockStr(dayClock(s)) +
+      ' · ' +
+      tide.label +
+      (wx ? ' · ' + sky[wx.kind] + ' ' + wx.dir + ' ' + wx.bft + ' Bft' : '');
     $('job').textContent = String(s.jobs + 1).padStart(2, '0');
     $('speed').textContent = nl(sp);
     if (document.body?.classList?.contains?.('bridgeView')) {
