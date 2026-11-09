@@ -161,10 +161,8 @@ export function createWorld({
   // Rivals and your own fleet: meshes per boat, made on first sight (a boat bought
   // later gets one too) and hidden when a boat leaves the list (new career).
   const vesselMesh = (r) => {
-    const m = ship(110, 11, r.color, true, vesselProfile);
-    // Rivals carry their colour loud and clear: a hull band and a painted funnel.
-    box(11.6, 1.4, 100, r.color, 0, 2.2, 0, m);
-    box(4, 9, 4, r.color, 0, 13, 40, m);
+    const m = ship(110, 11, r.color, true, vesselProfile, { name: r.name.toUpperCase() });
+    // Rivals carry their company colour in the hull stripe and the name on the bow.
     textSprite(r.name.toUpperCase(), 0, 19, 0, 26, r.own ? '#ffe7b0' : '#ffd9cf', m, 0.1);
     return m;
   };
@@ -287,6 +285,22 @@ export function createWorld({
       m.position.set(r.x, level + Math.sin(time * 1.1 + i) * 0.07 - sinking * 8, r.z);
       m.rotation.set(sinking * 0.3, renderYaw(r.h), 0);
       m.visible = sinking < 1;
+    }
+    // A boat that left the list (new career) takes its mesh and name textures with it.
+    // Colour materials are shared through primitives' cache; only textured ones are per boat.
+    if (meshOf.size > world.rivals.length) {
+      const live = new Set(world.rivals);
+      for (const [r, m] of meshOf) {
+        if (live.has(r)) continue;
+        m.removeFromParent();
+        m.traverse((o) => {
+          o.geometry?.dispose();
+          for (const mat of [o.material].flat()) if (mat?.map) (mat.map.dispose(), mat.dispose());
+        });
+        meshOf.delete(r);
+        const i = rivalMeshes.indexOf(m);
+        if (i >= 0) rivalMeshes.splice(i, 1);
+      }
     }
     for (const gm of gateMeshes) {
       const open = gm.g.state === 'open' ? 1 : 0;
