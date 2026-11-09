@@ -447,13 +447,26 @@ export function createGame({ createRenderer } = {}) {
     }
   });
   window.addEventListener('pagehide', save);
+  // Frame the ship in the open water above the bridge console: shift the projection
+  // centre up by half the height the console covers, so the hull is never behind it.
+  function frameAboveConsole() {
+    const f = document.querySelector?.('footer');
+    const top = f?.getBoundingClientRect?.().top;
+    const covered = Number.isFinite(top) ? Math.max(0, innerHeight - top) : 0;
+    const shift = Math.round(Math.min(innerHeight * 0.25, covered * 0.5));
+    if (shift > 0) camera.setViewOffset(innerWidth, innerHeight, 0, shift, innerWidth, innerHeight);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+  }
+  if (typeof ResizeObserver === 'function' && document.querySelector?.('footer'))
+    new ResizeObserver(() => frameAboveConsole()).observe(document.querySelector('footer'));
   function resize() {
     quality = graphicsProfile(graphicsMode, screenInfo());
     renderer.setPixelRatio(quality.pixelRatio);
     renderer.shadowMap.enabled = quality.shadows;
     renderer.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
+    frameAboveConsole();
     scenery.update(s.clock, camera, quality, true);
     $('graphics').textContent = GRAPHICS_LABELS[graphicsMode];
   }

@@ -540,3 +540,75 @@ footer .anchor {
 .offer .sendBoat:hover {
   background: rgba(230, 126, 34, 0.35);
 }
+
+/* Compact bridge console (desktop): a low strip, so the ship stays in view above it.
+   The camera frames the ship in the open space above the console (create-game.mjs). */
+@media (min-width: 801px) {
+  footer {
+    bottom: 30px;
+    gap: 14px;
+    padding: 7px 14px;
+    width: 620px;
+  }
+  footer .readout {
+    min-width: 108px;
+  }
+  footer .readout strong {
+    font-size: 22px;
+    margin: 1px 0;
+  }
+  footer .readout > span {
+    font-size: 9px;
+  }
+  footer .steer {
+    width: 150px;
+  }
+  footer .steer small,
+  footer .engine small {
+    margin-bottom: 2px;
+  }
+  footer .wheelMount {
+    width: 66px;
+    height: 66px;
+  }
+  footer .steer #helmMid {
+    height: 32px;
+  }
+  footer #helmReadout {
+    margin: 1px 0;
+  }
+  footer .bow {
+    margin-top: 2px;
+  }
+  footer .bow button {
+    height: 20px;
+    width: 70px;
+  }
+  footer .steer button,
+  footer .engine button {
+    height: 26px;
+  }
+  footer .engine {
+    width: 140px;
+  }
+  footer .notches {
+    margin-top: 4px !important;
+  }
+  footer .engine .stopControl {
+    height: 28px;
+    min-height: 28px;
+    margin-top: 4px;
+  }
+  footer .anchor {
+    width: 84px;
+    padding: 5px 4px;
+    font-size: 17px;
+  }
+  footer .anchor span {
+    margin: 2px 0;
+  }
+  /* Underway the console steps back a little; hover brings it to full strength. */
+  body.underway footer:not(:hover) {
+    opacity: 0.86;
+  }
+}
