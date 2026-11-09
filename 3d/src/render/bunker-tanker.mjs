@@ -48,11 +48,11 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
   const half = (z, tip) => {
     if (z < zb0) {
       const t = (zb0 - z) / (zb0 - tip.bow);
-      return t >= 1 ? 0 : (B / 2) * Math.sqrt(1 - t * t);
+      return t >= 1 ? 0 : (B / 2) * Math.sqrt(1 - t); // the quadratic Bézier of hullOutline
     }
     if (z > zs0) {
       const t = (z - zs0) / (tip.stern - zs0);
-      return t >= 1 ? 0 : (B / 2) * Math.sqrt(1 - t * t);
+      return t >= 1 ? 0 : (B / 2) * Math.sqrt(1 - t); // the quadratic Bézier of hullOutline
     }
     return B / 2;
   };
@@ -159,7 +159,7 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
   box(1.6, 1.0, 1.4, C.dark, 0, yF + 1.4, -0.43 * L, g); // anchor windlass
   for (const k of [-1, 1]) {
     cyl(0.45, 0.9, C.dark, k * 1.3, yF + 1.4, -0.43 * L, g).rotation.z = Math.PI / 2; // gypsies
-    box(0.25, 1.1, 1.4, C.black, k * (half(-0.455 * L, tipD) + 0.05), 1.8, -0.455 * L, g); // anchor in its pocket
+    box(0.25, 1.1, 1.4, C.black, k * (side(-0.45 * L).at(1.8) + 0.08), 1.8, -0.45 * L, g); // anchor in its pocket, on the shell
     cyl(0.25, 0.6, C.dark, k * 2.2, yF + 1.2, -0.41 * L, g); // bollards
   }
   cyl(0.18, 9, C.trim, 0, yF + 5.5, -0.415 * L, g); // foremast
@@ -255,8 +255,8 @@ export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) 
   box(3.2, 0.15, 0.35, C.dark, 0, fl + 5.3, (wf + wa) / 2 + 1, g);
   // Two exhaust stacks behind the house.
   for (const k of [-1, 1]) {
-    cyl(0.32, 3.6, C.house, k * 1.3, 6.8, zH1 - 1.2, g);
-    cyl(0.34, 0.5, C.black, k * 1.3, 8.8, zH1 - 1.2, g);
+    cyl(0.32, 3.6, C.house, k * 1.3, 5.95 + 1.8, zH1 - 1.2, g); // standing on the roof
+    cyl(0.34, 0.5, C.black, k * 1.3, 5.95 + 3.8, zH1 - 1.2, g);
   }
   // The car on the aft deck, with its little crane: every Dutch skipper's.
   const zC = 0.47 * L;
