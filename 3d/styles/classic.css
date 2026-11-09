@@ -542,8 +542,9 @@ footer .anchor {
 }
 
 /* Compact bridge console (desktop): a low strip, so the ship stays in view above it.
-   The camera frames the ship in the open space above the console (create-game.mjs). */
-@media (min-width: 801px) {
+   The camera frames the ship in the open space above the console (create-game.mjs).
+   Mouse screens only: touch screens keep their big wheel and buttons. */
+@media (min-width: 801px) and (pointer: fine) {
   footer {
     bottom: 30px;
     gap: 14px;
