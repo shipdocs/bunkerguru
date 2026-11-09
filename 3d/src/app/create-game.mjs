@@ -27,6 +27,9 @@ import { skyLook } from '../render/daylight.mjs';
 import { bindHelm } from '../input/helm.mjs';
 import { bindPort, mapButtons, switchMap } from '../ui/port.mjs';
 import { bindMobilePanels } from '../ui/mobile-panels.mjs';
+import { hintFor, isTouch } from '../ui/touch-text.mjs';
+import { bindPinch } from '../input/pinch.mjs';
+import { haptic } from '../input/haptics.mjs';
 import { createChart } from '../ui/chart.mjs';
 import { createHud } from '../ui/hud.mjs';
 import { loadCareer, saveCareer, loadGraphicsMode, saveGraphicsMode } from './storage.mjs';
@@ -91,9 +94,12 @@ export function createGame({ createRenderer } = {}) {
     fade = 0;
   const keys = {};
   const clock = createSimulationClock();
+  // Phones get hints that name the button on the screen instead of a key.
+  const touch = isTouch(),
+    hint = hintFor(touch);
   function toast(t, seconds = 4) {
     if (!t) return;
-    $('toast').textContent = t;
+    $('toast').textContent = hint(t);
     toastTime = Math.max(2, seconds);
     $('toast').style.opacity = 1;
   }
@@ -256,6 +262,7 @@ export function createGame({ createRenderer } = {}) {
     sound: (n) => sound.fx(n),
   });
   const cameraControl = createCameraController({ $, camera, zoomLimits, state: s, toast, boat });
+  bindPinch($('world'), { onStart: () => cameraControl.release() });
   const equipment = bindVesselEquipment({
     $,
     getState: () => s,
@@ -284,6 +291,7 @@ export function createGame({ createRenderer } = {}) {
     paused = false;
     $('pause').textContent = 'Ⅱ';
     if ($('intro').open) $('intro').close();
+    rotateTip();
     if (!s.job && s.phase !== 'done') {
       if (MAP.id === 'training') {
         quickJob(s);
@@ -293,6 +301,31 @@ export function createGame({ createRenderer } = {}) {
         );
       } else setTimeout(() => openPort('jobs'), 400);
     }
+  }
+  // Said once per browser, a while after the first start: sailing is roomier sideways.
+  function rotateTip() {
+    try {
+      if (!touch || innerHeight <= innerWidth || localStorage.getItem('bunkerguru3d-tip-rotate'))
+        return;
+      localStorage.setItem('bunkerguru3d-tip-rotate', '1');
+    } catch {
+      return;
+    }
+    setTimeout(
+      () => started && !paused && toast('📱 Tip: houd je telefoon dwars voor meer zicht.', 6),
+      20000,
+    );
+  }
+  // Fullscreen where the browser offers it (not on an iPhone); landscape if it will lock.
+  const root = document.documentElement;
+  if (touch && document.fullscreenEnabled && root?.requestFullscreen) {
+    $('fsBtn').hidden = false;
+    $('fsBtn').onclick = () => {
+      if (document.fullscreenElement) return document.exitFullscreen?.();
+      Promise.resolve(root.requestFullscreen({ navigationUI: 'hide' }))
+        .then(() => globalThis.screen?.orientation?.lock?.('landscape'))
+        .catch(() => {});
+    };
   }
   $('start').onclick = begin;
   $('intro').addEventListener('cancel', () => begin());
@@ -309,7 +342,10 @@ export function createGame({ createRenderer } = {}) {
   };
   $('handling').textContent = 'Vaargedrag: ' + s.handling;
   mapButtons($('mapList'), MAP.id, (id) => (id === MAP.id ? begin() : switchMap(id, save)), s);
-  bindMobilePanels($);
+  const mobilePanels = bindMobilePanels($, {
+    // The tap that closes the big chart must not open it again.
+    openChart: () => performance.now() - chartClosedAt > 400 && setChartBig(true),
+  });
   const renderPort = bindPort({
     $,
     getState: () => s,
@@ -460,6 +496,7 @@ export function createGame({ createRenderer } = {}) {
     el.className = '';
     void el.offsetWidth;
     el.className = 'show a' + e.anchors;
+    haptic(e.anchors === 3 ? [20, 40, 20, 40, 60] : [20, 40, 30]);
     if (e.anchors === 3) {
       sound.fx('coin');
       sound.horn();
@@ -572,17 +609,22 @@ export function createGame({ createRenderer } = {}) {
   const chart = createChart($('map'));
   // The big chart is a strategy pause: open it and the harbour waits; close it (tap
   // outside, the chart again, K or Esc) and the game runs on, unless it was paused.
-  let chartPaused = false;
+  let chartPaused = false,
+    chartClosedAt = -1000;
   function setChartBig(on) {
     const panel = $('chartPanel');
     if (on === !!panel.classList.contains?.('expanded')) return;
+    if (on) mobilePanels.close();
+    else chartClosedAt = performance.now();
     panel.classList.toggle('expanded', on);
     document.body?.classList?.toggle?.('chartOpen', on);
-    const hint = panel.querySelector?.('.eyebrow span');
-    if (hint)
-      hint.textContent = on
-        ? '⏸ GEPAUZEERD · TIK OP EEN KLUS · KLIK ERNAAST OM VERDER TE VAREN'
-        : 'TIK OM TE VERGROTEN · N ↑';
+    const label = panel.querySelector?.('.eyebrow span');
+    if (label)
+      label.textContent = hint(
+        on
+          ? '⏸ GEPAUZEERD · TIK OP EEN KLUS · KLIK ERNAAST OM VERDER TE VAREN'
+          : 'TIK OM TE VERGROTEN · N ↑',
+      );
     if (on && started && !paused) {
       release();
       paused = chartPaused = true;
@@ -605,6 +647,11 @@ export function createGame({ createRenderer } = {}) {
     },
     true,
   );
+  // On a phone the big chart fills the screen: a tap beside the drawing folds it too.
+  $('chartPanel').onclick = (e) => {
+    if (e.target !== $('map') && $('chartPanel').classList.contains?.('expanded'))
+      setChartBig(false);
+  };
   // On the big chart a job marker opens the planning; elsewhere a tap folds the chart.
   $('map').onclick = (e) => {
     const big = !!$('chartPanel').classList.contains?.('expanded');
@@ -697,7 +744,7 @@ export function createGame({ createRenderer } = {}) {
       document.body?.style?.setProperty?.('--fade', String(fade));
     }
     scenery.update(s.clock, camera, quality, paused || !started);
-    effects.updateWake(s, dt, quality, paused);
+    effects.updateWake(s, dt, quality, paused, (keys.bowR ? 1 : 0) - (keys.bowL ? 1 : 0));
     hudElapsed += dt;
     if (hudElapsed >= 0.2) {
       hudElapsed %= 0.2;

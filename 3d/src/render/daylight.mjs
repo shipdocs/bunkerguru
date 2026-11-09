@@ -22,10 +22,10 @@ const mixHex = (a, b, t) => {
 // Colours and intensities for the scene. Night stays readable: deep blue, not black.
 export function skyLook(daySeconds) {
   const { night, dusk } = daylight(daySeconds);
-  const day = { sky: '#63b4e8', fog: '#cfe6ea', sun: '#fff0d0' };
+  const day = { sky: '#3d97e3', fog: '#c2e0f0', sun: '#ffe9bf' };
   // Sunrise and sunset: the zenith stays blue, the horizon glows.
-  const eve = { sky: '#7fa8d8', fog: '#f6cfa6', sun: '#ffb46a' };
-  const dark = { sky: '#0e1c33', fog: '#1a2a40', sun: '#9fb6ff' };
+  const eve = { sky: '#6f93d6', fog: '#f8c79a', sun: '#ffa85a' };
+  const dark = { sky: '#0b1830', fog: '#182841', sun: '#9fb6ff' };
   const lit = (k) => mixHex(mixHex(day[k], eve[k], dusk * (1 - night)), dark[k], night);
   return {
     night,
@@ -33,8 +33,8 @@ export function skyLook(daySeconds) {
     sky: lit('sky'),
     fog: lit('fog'),
     sunColor: lit('sun'),
-    sun: mix(2.5, 0.35, night),
-    hemi: mix(1.45, 0.75, night),
-    exposure: mix(1.0, 1.05, night),
+    sun: mix(3.3, 0.35, night),
+    hemi: mix(1.15, 0.75, night),
+    exposure: mix(1.04, 1.05, night),
   };
 }

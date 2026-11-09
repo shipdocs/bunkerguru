@@ -45,6 +45,8 @@ Posities en afmetingen zijn meters; `u`/`v` zijn m/s, `h` is koers in radialen e
 5. `theme.css`: havenkleuren en definitieve visuele afwerking.
 6. `helm.css`, `chart.css`, `graphics.css`, `engine.css`: gerichte componentregels.
 7. `classic.css`: planning, winkel, kaartkeuze en marifoon uit het 2D-spel.
+8. `equipment.css`: scheepsuitrusting en volumeregelaars.
+9. `touch.css`: de telefoonlaag, bewust als laatste. Portrait: één console (roer links, telegraaf rechts). Landscape: twee duimclusters met vrij water ertussen. Verder de opdrachtstrook van één blok, kaart en havenmenu achter knoppen, dialogen met een vaste hoofdknop, safe-area-marges en geen scrollen/zoomen van de pagina. Alles staat binnen de telefoon-mediaquery's; desktop verandert niet.
 
 De bestaande cascade is behouden. Houd nieuwe regels bij de betreffende component; voeg niet opnieuw losse reparatieregels onderaan het HTML-bestand toe. Controleer portrait en landscape bij wijzigingen. De publicatie heeft één samengevoegd `styles/main.css`, terwijl de bron bewerkbaar blijft per onderwerp.
 

@@ -55,7 +55,8 @@
       ><button id="zoomIn" aria-label="Inzoomen">＋</button
       ><button id="zoomOut" aria-label="Uitzoomen">−</button
       ><button id="pause" aria-label="Pauzeren">Ⅱ</button
-      ><button id="help" aria-label="Bediening tonen">?</button>
+      ><button id="help" aria-label="Bediening tonen">?</button
+      ><button id="fsBtn" class="touchOnly" aria-label="Volledig scherm" hidden>⛶</button>
     </nav>
     <div class="harborBar glass" id="harborPanel">
       <span id="career"></span>
@@ -112,8 +113,11 @@
       </details>
     </div>
     <nav class="mobileTools mobileOnly" aria-label="Havenpanelen">
-      <button id="mapToggle" aria-expanded="false" aria-controls="chartPanel">Kaart</button
-      ><button id="menuToggle" aria-expanded="false" aria-controls="harborPanel">Havenmenu</button>
+      <button id="mapToggle" aria-expanded="false" aria-controls="chartPanel">
+        🗺 <span>Kaart</span></button
+      ><button id="menuToggle" aria-expanded="false" aria-controls="harborPanel">
+        ☰ <span>Havenmenu</span>
+      </button>
     </nav>
     <div id="label" class="destination"></div>
     <div id="toast" role="status" aria-live="polite"></div>
@@ -152,6 +156,9 @@
       <div class="steer">
         <small id="bowStatus" aria-live="polite">BOEG · UIT</small>
         <div class="wheelRow">
+          <button data-hold="left" class="touchOnly rudderHold" aria-label="Roer naar bakboord">
+            ◀
+          </button>
           <div class="wheelMount">
             <span class="wheelIndex" aria-hidden="true">▼</span>
             <div
@@ -180,6 +187,9 @@
             </div>
           </div>
           <button id="helmMid" aria-label="Roer midscheeps">0°</button>
+          <button data-hold="right" class="touchOnly rudderHold" aria-label="Roer naar stuurboord">
+            ▶
+          </button>
         </div>
         <small id="helmReadout">ROER 0° · INGESTELD 0°</small>
         <div class="bow">
@@ -219,7 +229,21 @@
         concurrenten Bunker Bert en Truus Tank. Kies een haven:
       </p>
       <div id="mapList" class="mapList"></div>
-      <ol>
+      <ol class="touchHelp">
+        <li><b>Trossen los</b>: tik op ⚓ rechtsonder.</li>
+        <li>
+          <b>Gas</b>: ＋ en − zetten de telegraaf één stand verder. AFSTOPPEN remt tot je stilligt.
+        </li>
+        <li>
+          <b>Sturen</b>: draai aan het wiel of houd ◀ ▶ vast. Het roer blijft staan; 0° zet het
+          recht.
+        </li>
+        <li>
+          <b>Aanleggen</b>: langzaam de groene zone in, dan ⚓ Vastmaken. BOEG duwt de kop opzij.
+        </li>
+        <li><b>Kijken</b>: sleep om rond te kijken, knijp om te zoomen. 🗺 toont de kaart.</li>
+      </ol>
+      <ol class="keysHelp">
         <li>
           <b>Telegraaf</b> ↑/↓: één stand per tik. De motor volgt traag; omkeren gaat via de
           keerkoppeling.
@@ -241,7 +265,7 @@
           <b>Werf</b> (W): reparatie. <b>Wachtplaats</b> (P): rusten.
         </li>
       </ol>
-      <button class="primary" id="start">Aan boord →</button
+      <button class="primary" id="start" autofocus>Aan boord →</button
       ><button class="subtle" id="handling">Vaargedrag: schipper</button
       ><button class="subtle" id="tempo">Vaartempo 3× · zoals 2D</button
       ><button class="subtle" id="graphics">Beeld: automatisch</button

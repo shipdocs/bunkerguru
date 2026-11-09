@@ -12,6 +12,8 @@ Kies een haven (Amsterdam, Rotterdam, Europoort, Antwerpen of de Oefenhaven). Op
 - J varen naar: het open water wordt overgeslagen tot vlak voor je bestemming (tijd, getij, verkeer en concurrenten lopen door).
 - N planning · B winkel (aan een terminal) · C brug/sluis oproepen · K grote kaart · T snelvaart 6× · H hoorn · V marifoon · G geluid · P muziek · F camera · Esc pauze.
 
+Op een telefoon: stuurwiel of ◀ ▶ vasthouden (roer blijft staan, 0° = midscheeps), ＋/− telegraaf, AFSTOPPEN, ⚓ vastmaken/los, BOEG-knoppen; slepen = rondkijken, knijpen = zoomen; 🗺 kaart en ☰ havenmenu bovenin. Dwars houden geeft het meeste zicht. Toetsaanwijzingen worden op een aanraakscherm vervangen door de naam van de knop (`src/ui/touch-text.mjs`).
+
 Op de kaart: T = terminal, P = wachtplaats (rusten tegen vermoeidheid), W = werf (reparatie, 3 🪙 per punt). Boven 40 schade lek je lading. Klussen zijn kort, lang, spoed of getij (vóór hoogwater). Op tijd en schadevrij geeft bonus en reputatie bij de rederij. Bunker Bert en Truus Tank varen ook klussen, pakken er soms een van de planning af en racen af en toe mee naar jouw schip: wie het eerst langszij ligt, krijgt de klus.
 
 Elke aanleg krijgt 1–3 ⚓ (vaart, hoek, ruimte tot kade of schip); STRAK! langs een zeeschip levert een fooi op. Zinken kost een kwart van je goud en wat reputatie; de sleepboot brengt je naar de werf.
@@ -83,7 +85,7 @@ De indeling is die van de 2D-kaart (rechtgetrokken rivier, bekkens als rechthoek
 - **Amsterdam Westpoort**: Hoogovens, windpark, kolenoverslag, Zaandam en de Zaanse molens, Hemwegcentrale, graansilo, NDSM-kraan, REM-eiland, Pontsteiger, A'DAM Toren.
 - **Antwerpen Schelde**: kerncentrale Doel, radartoren Zandvliet, BASF, Fort Liefkenshoek, Fort Lillo met molen De Eenhoorn, Havenhuis, Het Steen, kathedraal, Boerentoren, MAS, Linkeroever met Sint-Annastrand.
 
-Kades hebben een muur met deksloof, bolders en fenders; polderoevers een steenbestorting. Containerkranen staan waar de kaart containers heeft. De grond is per wijk geschilderd (`ground.mjs`). Een nieuw herkenningspunt: regel in `LANDMARKS` (soort, naam, s, n, vrije straal r) en zo nodig een bouwblok in `createLandmarks`.
+Kades hebben een muur met deksloof, bolders en fenders; polderoevers een steenbestorting. Containerkranen staan waar de kaart containers heeft. De grond is per wijk geschilderd (`ground.mjs`). `scenery.mjs` kleedt de kaart aan zonder de indeling te raken: de buurt bepaalt of een bouwblok oude stad (baksteen, zadeldak), flat of glazen kantoor wordt; langs stadskades staat een rij grachtenpanden achter bomen, langs havenkades loodsen, stapels en vrachtwagens, langs olieterreinen leidingbruggen. Ramen tekent de shader (een passend raster per gevel, 's nachts deels verlicht), een zachte schaduwrand op de grond zet elk gebouw neer. Het water kent de afstand tot de oever (`water.mjs`): ondiep is lichter, onder de kademuur donker, met schuim tegen de wal. Buiten de kaartrand loopt de polder door tot een heiige horizon. In zuinig beeld vervalt de aankleding die alleen sier is. Een nieuw herkenningspunt: regel in `LANDMARKS` (soort, naam, s, n, vrije straal r) en zo nodig een bouwblok in `createLandmarks`.
 
 Weer zoals in 2D: elke 8–15 minuten een nieuw weerbeeld (helder, bewolkt, regen, buien) met weerbericht op de marifoon; wind voel je vanaf 4 Bft en staat achter de klok. Bij regen en buien regent het ook echt. Concurrenten geven een stoot op de hoorn en soms een opmerking over de marifoon als je voor hun boeg ligt.
 

@@ -4,48 +4,222 @@ import { GeometryBatch } from './scene-batch.mjs';
 import { LANDMARKS, landmarkClear } from './landmarks.mjs';
 
 const C = {
-  grass: '#91aa70',
-  grassDark: '#789565',
-  concrete: '#d4cbb2',
-  asphalt: '#6c7c7a',
-  stripe: '#f5df9b',
-  steel: '#476b71',
-  dark: '#344c53',
-  cream: '#f2e6c9',
-  roof: '#bf7555',
-  blue: '#649aab',
-  gold: '#e6ae54',
-  leaf: '#60996d',
-  leafLight: '#82ad70',
-  trunk: '#8a7151',
-  glass: '#427785',
-  red: '#ca7860',
+  grass: '#7fb85a',
+  grassDark: '#5f9a4c',
+  concrete: '#cfc6ad',
+  asphalt: '#59666b',
+  stripe: '#f6e3a0',
+  steel: '#4a6e78',
+  dark: '#2f444c',
+  cream: '#f4e8cc',
+  roof: '#c7653f',
+  slate: '#55606b',
+  blue: '#4f8fb0',
+  gold: '#e9aa3e',
+  leaf: '#4f9a5c',
+  leafLight: '#7fb85c',
+  leafDark: '#3f7f52',
+  trunk: '#7d6447',
+  glass: '#3c7184',
+  red: '#cf6a4c',
 };
-const palette = [C.blue, C.red, C.gold, '#7d9a83', '#e1d5b3'];
-const boxGeo = new T.BoxGeometry(1, 1, 1),
+const palette = ['#c8452f', '#2f6fb0', '#e0a030', '#3d8f6a', '#d9d4c5', '#8a4630', '#4f8fb0'];
+// Dutch street colours: brick, plaster and painted fronts; tile and slate roofs.
+const BRICK = ['#b5553b', '#a8492f', '#c46e4a', '#8f4a36', '#d49a6a', '#c9b08a', '#7d5a48'],
+  PLASTER = ['#f1e6cf', '#e6d3ad', '#f6efe0', '#d9c7a8', '#c9d6cf', '#e9c9a8', '#dfe3e0'],
+  GLASSY = ['#6f9fb4', '#4f7f98', '#8fb4bf', '#5f8f8a', '#3f5f78', '#9fb9c9'],
+  SHED = ['#5f8fa8', '#b9bdb6', '#c8563c', '#8fa58a', '#e2d9c0', '#6f7f88'],
+  ROOFS = ['#c7653f', '#b9583a', '#d2774a', '#55606b', '#6b5a52', '#8a4a3a'];
+const fullBox = new T.BoxGeometry(1, 1, 1);
+// A copy of a geometry without the faces nobody sees (the underside of a building).
+function dropFaces(source, hidden) {
+  const g = source.toNonIndexed(),
+    out = {},
+    n = g.getAttribute('normal');
+  for (const key of ['position', 'normal', 'uv']) out[key] = [];
+  for (let i = 0; i < n.count; i += 3) {
+    if (hidden(n.getX(i), n.getY(i), n.getZ(i))) continue;
+    for (const key of ['position', 'normal', 'uv']) {
+      const a = g.getAttribute(key);
+      for (let k = i; k < i + 3; k++)
+        for (let c = 0; c < a.itemSize; c++) out[key].push(a.array[k * a.itemSize + c]);
+    }
+  }
+  const r = new T.BufferGeometry();
+  r.setAttribute('position', new T.Float32BufferAttribute(out.position, 3));
+  r.setAttribute('normal', new T.Float32BufferAttribute(out.normal, 3));
+  r.setAttribute('uv', new T.Float32BufferAttribute(out.uv, 2));
+  r.computeBoundingBox();
+  return r;
+}
+function flatGeometry(points) {
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(points, 3));
+  g.computeVertexNormals();
+  g.computeBoundingBox();
+  return g;
+}
+const boxGeo = dropFaces(fullBox, (x, y) => y < -0.5),
+  wallGeo = dropFaces(fullBox, (x, y) => Math.abs(y) > 0.5),
+  flatGeo = dropFaces(fullBox, (x, y) => y < 0.5).translate(0, -0.5, 0),
   roundGeo = new T.CylinderGeometry(1, 1, 1, 12),
-  coneGeo = new T.ConeGeometry(1, 1, 12),
+  tankGeo = new T.CylinderGeometry(1, 1, 1, 12, 1, true),
+  tubeGeo = new T.CylinderGeometry(1, 1, 1, 6, 1, true),
+  trunkGeo = new T.CylinderGeometry(0.7, 1, 1, 5, 1, true),
+  coneGeo = new T.ConeGeometry(1, 1, 12, 1, true),
+  spireGeo = new T.ConeGeometry(1, 1, 4, 1, true),
   leafGeo = new T.IcosahedronGeometry(1, 0);
-// A unit pitched roof, ridge along Z. Solid geometry, no textures or downloads.
-const roofShape = new T.Shape();
-roofShape.moveTo(-0.5, 0);
-roofShape.lineTo(0.5, 0);
-roofShape.lineTo(0, 1);
-roofShape.closePath();
-const roofGeo = new T.ExtrudeGeometry(roofShape, { depth: 1, bevelEnabled: false, steps: 1 });
-roofGeo.translate(0, 0, -0.5);
+// Unit pitched roof, ridge along Z: the two slopes, and the two gable triangles that
+// take the colour of the wall below.
+const roofGeo = flatGeometry(
+    [
+      [0.5, 0, -0.5, 0, 1, -0.5, 0, 1, 0.5],
+      [0.5, 0, -0.5, 0, 1, 0.5, 0.5, 0, 0.5],
+      [-0.5, 0, -0.5, 0, 1, 0.5, 0, 1, -0.5],
+      [-0.5, 0, -0.5, -0.5, 0, 0.5, 0, 1, 0.5],
+    ].flat(),
+  ),
+  gableGeo = flatGeometry(
+    [
+      [-0.5, 0, 0.5, 0.5, 0, 0.5, 0, 1, 0.5],
+      [0.5, 0, -0.5, -0.5, 0, -0.5, 0, 1, -0.5],
+    ].flat(),
+  );
+for (const g of [
+  fullBox,
+  flatGeo,
+  roundGeo,
+  tankGeo,
+  tubeGeo,
+  trunkGeo,
+  coneGeo,
+  spireGeo,
+  leafGeo,
+])
+  g.computeBoundingBox();
+// Batch with two extras baked per vertex: a brightness ramp up the wall (dark at the
+// foot: cheap ambient occlusion) and, for facades, window coordinates for the shader:
+// x in bays, y in storeys, z = style + a random fraction per building.
+class SceneBatch extends GeometryBatch {
+  add(geometry, matrix, color, shade = 1, win = null) {
+    const start = this.positions.length / 3;
+    super.add(geometry, matrix, color);
+    const end = this.positions.length / 3;
+    if (this.win) while (this.win.length < start * 3) this.win.push(0);
+    if (shade === 1 && !win) return;
+    const p = geometry.getAttribute('position'),
+      n = geometry.getAttribute('normal'),
+      uv = geometry.getAttribute('uv'),
+      index = geometry.index,
+      y0 = geometry.boundingBox.min.y,
+      dy = geometry.boundingBox.max.y - y0 || 1;
+    if (win && !this.win) this.win = new Array(start * 3).fill(0);
+    for (let i = start; i < end; i++) {
+      const k = index ? index.getX(i - start) : i - start,
+        f = shade + (1 - shade) * ((p.getY(k) - y0) / dy);
+      for (let c = 0; c < 3; c++) this.colors[i * 3 + c] *= f;
+      if (!win) continue;
+      if (Math.abs(n.getY(k)) > 0.5) this.win.push(0, 0, 0);
+      else {
+        const wide = Math.abs(n.getX(k)) > 0.5 ? win.d : win.w;
+        this.win.push(
+          uv.getX(k) * Math.max(1, Math.round(wide / win.bay)),
+          uv.getY(k) * Math.max(1, Math.round(win.h / win.floor)),
+          win.s,
+        );
+      }
+    }
+  }
+  geometry() {
+    const g = super.geometry();
+    if (this.win) {
+      while (this.win.length < this.positions.length) this.win.push(0);
+      g.setAttribute('win', new T.Float32BufferAttribute(this.win, 3));
+    }
+    return g;
+  }
+}
+// One material for the whole harbour. Facades get their windows in the shader: a
+// fitted grid per wall, dark glass by day, a share of them lit when night falls.
+function harbourMaterial(night) {
+  const m = new T.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.winNight = night;
+    sh.vertexShader =
+      'attribute vec3 win;\nvarying vec3 vWin;\n' +
+      sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvWin = win;');
+    sh.fragmentShader =
+      'varying vec3 vWin;\nuniform float winNight;\n' +
+      sh.fragmentShader
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+float winLit = 0.;
+if (vWin.z > .5) {
+  float style = floor(vWin.z + .001), seed = floor(fract(vWin.z) * 64. + .5);
+  vec2 cell = floor(vWin.xy), f = fract(vWin.xy);
+  float r1 = fract(sin(dot(cell + seed, vec2(12.9898, 78.233))) * 43758.5453);
+  float r2 = fract(sin(dot(cell + seed, vec2(39.346, 11.135))) * 24634.6345);
+  vec2 lo = vec2(.2, .3), hi = vec2(.8, .78);
+  if (style > 1.5) { lo = vec2(.05, .12); hi = vec2(.95, .9); }
+  if (style > 2.5) { lo = vec2(.27, .24); hi = vec2(.73, .82); }
+  if (style > 3.5) { lo = vec2(.12, .58); hi = vec2(.88, .8); }
+  float street = step(cell.y, .5) * step(style, 3.5);
+  lo = mix(lo, vec2(.1, .12), street); hi = mix(hi, vec2(.9, .74), street);
+  float e = .04;
+  vec2 a = smoothstep(lo - e, lo + e, f) * smoothstep(hi + e, hi - e, f);
+  vec2 b = smoothstep(lo - .11, lo - .05, f) * smoothstep(hi + .11, hi + .05, f);
+  float far = smoothstep(700., 2200., length(vViewPosition));
+  float m = mix(a.x * a.y, (hi.x - lo.x) * (hi.y - lo.y), far);
+  float frame = (b.x * b.y - a.x * a.y) * step(2.5, style) * step(style, 3.5) * (1. - far);
+  diffuseColor.rgb *= 1. - .25 * smoothstep(.2, .08, vWin.y);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.86, .8, .66), frame * .85);
+  vec3 glass = mix(vec3(.07, .15, .22), vec3(.3, .5, .62), r1 * .5 + f.y * .5);
+  glass = mix(glass, vec3(.62, .6, .5), step(.86, r2) * .7);
+  diffuseColor.rgb = mix(diffuseColor.rgb, glass, m);
+  winLit = m * step(mix(style > 1.5 && style < 2.5 ? .72 : .56, .3, street), r1) * (.5 + .5 * r2);
+}`,
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
+totalEmissiveRadiance += vec3(1., .66, .3) * winLit * winNight;`,
+        );
+  };
+  return m;
+}
+const hash2 = (x, z) => {
+  let h = Math.imul(Math.floor(x) * 73856093, 1) ^ Math.imul(Math.floor(z) * 19349663, 1);
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+// Smooth value noise: districts and tree belts come in patches, not as confetti.
+const noise = (x, z) => {
+  const ix = Math.floor(x),
+    iz = Math.floor(z),
+    fx = x - ix,
+    fz = z - iz,
+    sx = fx * fx * (3 - 2 * fx),
+    sz = fz * fz * (3 - 2 * fz),
+    a = hash2(ix, iz),
+    b = hash2(ix + 1, iz),
+    c = hash2(ix, iz + 1),
+    d = hash2(ix + 1, iz + 1);
+  return a + (b - a) * sx + (c - a) * sz + (a - b - c + d) * sx * sz;
+};
 // Ground colour per district of the 2D map; world.mjs paints the land with it.
 export const LAND_COLORS = {
-  north: '#86b862',
-  park: '#7cb45c',
-  island: '#8cbb66',
-  base: '#86b862',
-  town: '#a9c486',
-  town2: '#a9c486',
-  city: '#d3cdbf',
-  port: '#c3c2b6',
-  tanks: '#c9c5ad',
-  containers: '#b9bcb8',
+  north: '#7fb957',
+  park: '#6fae55',
+  island: '#84b95c',
+  base: '#7fb957',
+  town: '#9cc07a',
+  town2: '#9cc07a',
+  city: '#cdc2ab',
+  port: '#b9b6aa',
+  tanks: '#c4bda2',
+  containers: '#abafac',
 };
 export const landColor = (l) => l.col || LAND_COLORS[l.kind] || '#c9bf9e';
 const HARD = ['city', 'port', 'tanks', 'containers'];
@@ -98,7 +272,8 @@ export function createHarborScenery(scene, quality = { light: false }) {
   const root = new T.Group();
   root.name = MAP.name + ' scenery';
   scene.add(root);
-  const material = new T.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 });
+  const night = { value: 0 },
+    material = harbourMaterial(night);
   const tiles = new Map(),
     dummy = new T.Object3D(),
     stats = { parcels: 0, parts: 0, triangles: 0, draws: 0 },
@@ -109,36 +284,49 @@ export function createHarborScenery(scene, quality = { light: false }) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  // Buildings sit in 320 m tiles that are culled by distance. The quay walls are
+  const pick = (list) => list[Math.floor(rnd() * list.length)];
+  // Window style plus a random number per building, in steps the shader can read back
+  // exactly (an interpolated fraction would make the panes sparkle).
+  const facade = (style) => style + (1 + Math.floor(rnd() * 60)) / 64;
+  // Buildings sit in 480 m tiles (small detail in 320 m tiles) that are culled by distance. The quay walls are
   // one mesh for the whole harbour: thin and long, cheap to draw, never popping in.
-  const quays = new GeometryBatch();
-  let shore = false;
+  // The land beyond the map edge is one more.
+  const quays = new SceneBatch(),
+    beyond = new SceneBatch();
+  let single = null;
   const tileFor = (x, z, detail) => {
-    if (shore) return quays;
-    const tx = Math.floor(x / 320),
-      tz = Math.floor(z / 320),
+    if (single) return single;
+    const size = detail ? 320 : 480,
+      tx = Math.floor(x / size),
+      tz = Math.floor(z / size),
       key = tx + ':' + tz + ':' + detail;
     if (!tiles.has(key))
       tiles.set(key, {
-        batch: new GeometryBatch(),
-        x: (tx + 0.5) * 320,
-        z: (tz + 0.5) * 320,
+        batch: new SceneBatch(),
+        x: (tx + 0.5) * size,
+        z: (tz + 0.5) * size,
+        reach: size * 0.72,
         detail,
       });
     return tiles.get(key).batch;
   };
-  function shape(g, c, x, y, z, sx, sy, sz, rot = 0, detail = false) {
+  function shape(g, c, x, y, z, sx, sy, sz, rot = 0, detail = false, shade = 1, win = null) {
     dummy.position.set(x, y, z);
     dummy.rotation.set(0, rot, 0);
     dummy.scale.set(sx, sy, sz);
     dummy.updateMatrix();
-    tileFor(x, z, detail).add(g, dummy.matrix, c);
+    if (win) win = { ...win, w: sx, d: sz, h: sy };
+    tileFor(x, z, detail).add(g, dummy.matrix, c, shade, win);
     stats.parts++;
   }
-  const box = (w, h, d, c, x, y, z, rot = 0, detail = false) =>
-    shape(boxGeo, c, x, y, z, w, h, d, rot, detail);
-  const cylinder = (r, h, c, x, y, z, detail = false) =>
-    shape(roundGeo, c, x, y, z, r, h, r, 0, detail);
+  // Boxes that stand on the ground have no underside; raised ones (bridge decks,
+  // crane girders) keep it, because you sail underneath.
+  const box = (w, h, d, c, x, y, z, rot = 0, detail = false, shade = 1, win = null) =>
+    shape(y - h / 2 > 6 ? fullBox : boxGeo, c, x, y, z, w, h, d, rot, detail, shade, win);
+  const flat = (w, d, c, x, y, z, rot = 0, detail = false) =>
+    shape(flatGeo, c, x, y, z, w, 1, d, rot, detail);
+  const cylinder = (r, h, c, x, y, z, detail = false, shade = 1) =>
+    shape(roundGeo, c, x, y, z, r, h, r, 0, detail, shade);
   function beam(a, b, r, c, detail = false) {
     const start = new T.Vector3(...a),
       end = new T.Vector3(...b),
@@ -147,98 +335,218 @@ export function createHarborScenery(scene, quality = { light: false }) {
     dummy.scale.set(r, delta.length(), r);
     dummy.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), delta.normalize());
     dummy.updateMatrix();
-    tileFor(dummy.position.x, dummy.position.z, detail).add(roundGeo, dummy.matrix, c);
+    tileFor(dummy.position.x, dummy.position.z, detail).add(tubeGeo, dummy.matrix, c);
     stats.parts++;
   }
-  function tree(x, z, size = 1) {
-    cylinder(0.65 * size, 5 * size, C.trunk, x, 4 + 2.5 * size, z);
+  // Soft dark rim on the ground round everything that stands on it: one transparent
+  // mesh for the whole harbour. It is what makes a building sit instead of float.
+  const shadeP = [],
+    shadeC = [],
+    SHADE_Y = 4.62;
+  // A fan from the middle (hidden under the building) fading out to the rim.
+  function shadeFan(x, z, pts, a) {
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const [ax, az] = pts[i],
+        [bx, bz] = pts[(i + 1) % n];
+      shadeP.push(x, SHADE_Y, z, x + ax, SHADE_Y, z + az, x + bx, SHADE_Y, z + bz);
+      shadeC.push(0, 0, 0, a, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+  }
+  function skirt(x, z, w, d, rot = 0, spread = 5, a = 0.34) {
+    if (quality.light) return;
+    const c = Math.cos(rot),
+      s = Math.sin(rot),
+      hw = w / 2 + spread,
+      hd = d / 2 + spread,
+      p = (px, pz) => [px * c + pz * s, -px * s + pz * c];
+    shadeFan(
+      x,
+      z,
+      [p(-hw, -hd), p(-hw, hd), p(hw, hd), p(hw, -hd)],
+      Math.min(1, (a * (Math.min(w, d) / 2 + spread)) / spread),
+    );
+  }
+  function skirtRound(x, z, r, spread = 5, a = 0.34) {
+    if (quality.light) return;
+    const pts = [];
+    for (let i = 0; i < 6; i++)
+      pts.push([Math.cos(-i * 1.0472) * (r + spread), Math.sin(-i * 1.0472) * (r + spread)]);
+    shadeFan(x, z, pts, Math.min(1, (a * (r + spread)) / spread));
+  }
+  // What already stands where: new street furniture keeps clear of it.
+  const taken = new Map(),
+    cellKey = (x, z) => Math.floor(x / 24) + ':' + Math.floor(z / 24);
+  function claim(x, z, r) {
+    const k = cellKey(x, z);
+    if (!taken.has(k)) taken.set(k, []);
+    taken.get(k).push([x, z, r]);
+  }
+  function free(x, z, r) {
+    for (let dx = -24; dx <= 24; dx += 24)
+      for (let dz = -24; dz <= 24; dz += 24)
+        for (const o of taken.get(cellKey(x + dx, z + dz)) || [])
+          if (Math.hypot(o[0] - x, o[1] - z) < o[2] + r) return false;
+    return true;
+  }
+  const roadNear = (x, z, m) =>
+    roads.some((r) =>
+      r.pts.some((a, i) => {
+        const b = r.pts[i + 1];
+        if (!b) return false;
+        const vx = b.x - a.x,
+          vz = b.z - a.z,
+          t = Math.max(
+            0,
+            Math.min(1, ((x - a.x) * vx + (z - a.z) * vz) / (vx * vx + vz * vz || 1)),
+          );
+        return Math.hypot(a.x + vx * t - x, a.z + vz * t - z) < Math.max(8, r.width) / 2 + m;
+      }),
+    );
+  const bridgeNear = (x, z, m) =>
+    bridges.some((b) => Math.abs(x - b.x) < 14 + m && z > b.z0 - 190 && z < b.z1 + 190);
+  const open = (x, z, r) =>
+    free(x, z, r) && !landmarkClear(x, z, r) && !roadNear(x, z, r) && !bridgeNear(x, z, r);
+  function tree(x, z, size = 1, kind = 0) {
+    const leaf = kind === 2 ? C.leafDark : rnd() > 0.5 ? C.leaf : C.leafLight;
+    shape(trunkGeo, C.trunk, x, 4 + 2.2 * size, z, 0.6 * size, 4.4 * size, 0.6 * size);
+    if (kind === 2) {
+      // poplar: tall and narrow, the tree of every Dutch dyke
+      shape(
+        leafGeo,
+        leaf,
+        x,
+        4 + 9.5 * size,
+        z,
+        2.6 * size,
+        8.5 * size,
+        2.6 * size,
+        rnd() * 3,
+        false,
+        0.72,
+      );
+      return;
+    }
     shape(
       leafGeo,
-      rnd() > 0.5 ? C.leaf : C.leafLight,
+      leaf,
       x,
-      4 + 7.2 * size,
+      4 + 7 * size,
       z,
       4.7 * size,
-      6 * size,
+      5.4 * size,
       4.5 * size,
+      rnd() * 3,
+      false,
+      0.68,
     );
     shape(
       leafGeo,
       C.leafLight,
       x + 2 * size,
-      4 + 8 * size,
+      4 + 8.4 * size,
       z - 1,
       3 * size,
-      3.4 * size,
+      3.2 * size,
       3 * size,
-      0,
+      rnd() * 3,
       true,
+      0.8,
     );
   }
-  function house(x, z, color, wide = 12) {
-    box(wide, 9, 15, color, x, 8.5, z);
-    shape(roofGeo, C.roof, x, 13, z, wide + 1.6, 5, 17);
-    box(wide + 1, 0.5, 16, C.cream, x, 12.7, z, 0, true);
-    box(1.4, 4, 1.8, C.cream, x + wide * 0.28, 16, z + 3, 0, true);
-    for (const side of [-1, 1])
-      for (const dx of [-wide * 0.27, wide * 0.27]) {
-        box(2.6, 3, 0.25, C.cream, x + dx, 10, z + side * 7.6, 0, true);
-        box(1.9, 2.4, 0.3, C.glass, x + dx, 10, z + side * 7.75, 0, true);
-      }
-    box(2.2, 4, 0.3, C.cream, x, 6, z + 7.6, 0, true);
+  // A house: walls with windows, a tiled roof and gables in the wall colour. `wide`
+  // runs along local X, the ridge along local Z; rot turns it to face a street or quay.
+  function house(x, z, wide, deep, h, wall, roofCol, rot = 0, style = 3, roofH = 0, own = true) {
+    const s = facade(style),
+      rh = roofH || wide * 0.42;
+    box(wide, h, deep, wall, x, 4 + h / 2, z, rot, false, 0.74, { bay: 2.7, floor: 3.1, s });
+    shape(roofGeo, roofCol, x, 4 + h, z, wide + 0.5, rh, deep + 0.7, rot, false);
+    shape(gableGeo, wall, x, 4 + h, z, wide, rh, deep, rot, false);
+    skirt(x, z, wide, deep, rot, 3.5, 0.3);
+    if (own) claim(x, z, Math.max(wide, deep) * 0.62);
   }
-  function warehouse(x, z, color) {
-    box(65, 0.25, 66, C.concrete, x, 4.15, z);
-    box(55, 16, 37, color, x, 12, z);
-    shape(roofGeo, C.steel, x, 20, z, 57, 7, 40);
-    for (const side of [-1, 1]) {
-      for (const dx of [-17, 0, 17]) {
-        box(12, 9, 0.3, C.dark, x + dx, 8.5, z + side * 18.6, 0, true);
-        box(11, 0.8, 0.5, C.gold, x + dx, 13.5, z + side * 18.8, 0, true);
-      }
-      box(53, 2, 0.3, C.glass, x, 17.5, z + side * 18.6, 0, true);
+  // Low shed with a shallow roof: transit sheds, workshops, farm barns.
+  function shed(x, z, wide, deep, h, col, rot = 0) {
+    box(wide, h, deep, col, x, 4 + h / 2, z, rot, false, 0.72, {
+      bay: 6,
+      floor: h,
+      s: facade(4),
+    });
+    shape(roofGeo, C.slate, x, 4 + h, z, wide + 0.8, wide * 0.16, deep + 0.8, rot, false);
+    shape(gableGeo, col, x, 4 + h, z, wide, wide * 0.16, deep, rot, false);
+    skirt(x, z, wide, deep, rot, 5, 0.32);
+    claim(x, z, Math.max(wide, deep) * 0.6);
+  }
+  // City block from the 2D map. The neighbourhood decides what it becomes: old town
+  // in brick with gables, plastered flats, or glass offices that grow into towers.
+  function cityBlock(x, z, w, d, col, port) {
+    const district = noise(x / 380 + 11.3, z / 380 + 4.7) + (hash2(x / 20, z / 20) - 0.5) * 0.16;
+    if (port) return shed(x, z, Math.max(w, 15), Math.max(d, 14), 7 + rnd() * 5, pick(SHED));
+    if (district < 0.4) {
+      const h = 9.5 + Math.floor(rnd() * 3) * 3.1 + rnd();
+      // a terrace: eaves to the street, the ridge running along the row
+      return house(
+        x,
+        z,
+        Math.max(11, d),
+        Math.min(19.2, w + 5),
+        h,
+        pick(BRICK),
+        pick(ROOFS),
+        Math.PI / 2,
+        3,
+        5,
+      );
     }
-    for (const dx of [-18, 0, 18]) box(9, 0.3, 5, C.glass, x + dx, 24.3, z + 9, -0.0, true);
-    for (const dx of [-28, 28]) cylinder(0.55, 2, C.gold, x + dx, 5.2, z + 23, true);
-    box(14, 6, 8, C.cream, x + 18, 7, z + 26);
-    box(12, 2, 0.2, C.glass, x + 18, 8, z + 30.1, 0, true);
+    if (district < 0.66) {
+      const h = 12.5 + Math.floor(rnd() * 6) * 3.1,
+        wall = rnd() > 0.35 ? pick(PLASTER) : col || pick(PLASTER);
+      box(w, h, d, wall, x, 4 + h / 2, z, 0, false, 0.74, {
+        bay: 3,
+        floor: 3.1,
+        s: facade(1),
+      });
+      box(w - 1.4, 0.7, d - 1.4, '#6f7a80', x, 4 + h + 0.35, z);
+      if (rnd() > 0.55)
+        box(w * 0.45, 3, d * 0.5, wall, x - w * 0.12, 4 + h + 1.5, z, 0, true, 0.85);
+      skirt(x, z, w, d, 0, 5);
+      return claim(x, z, Math.max(w, d) * 0.6);
+    }
+    // business district: the further into it, the taller
+    const tall = Math.max(0, district - 0.66) * 3,
+      h = 20 + rnd() * 22 + (rnd() > 0.8 ? tall * (40 + rnd() * 60) : 0),
+      wall = pick(GLASSY),
+      ww = Math.min(19, w * 1.15),
+      dd = Math.min(19, d * 1.15);
+    box(ww, h, dd, wall, x, 4 + h / 2, z, 0, false, 0.66, {
+      bay: 2.4,
+      floor: 3.4,
+      s: facade(2),
+    });
+    if (h > 44) {
+      const top = 6 + rnd() * 12;
+      box(ww * 0.72, top, dd * 0.72, wall, x, 4 + h + top / 2, z, 0, false, 0.9, {
+        bay: 2.4,
+        floor: 3.4,
+        s: facade(2),
+      });
+      box(ww * 0.3, 3, dd * 0.3, C.steel, x, 4 + h + top + 1.5, z, 0, true);
+    } else {
+      box(ww - 1.2, 0.8, dd - 1.2, '#57646c', x, 4 + h + 0.4, z);
+      box(ww * 0.4, 2.6, dd * 0.4, C.steel, x, 4 + h + 1.3, z, 0, true);
+    }
+    skirt(x, z, ww, dd, 0, 7, 0.4);
+    claim(x, z, Math.max(ww, dd) * 0.6);
   }
-  function tankFarm(x, z) {
-    box(72, 0.4, 74, C.concrete, x, 4.2, z);
-    for (const dx of [-35, 35]) box(1.4, 1.7, 74, C.cream, x + dx, 5, z, 0, true);
-    for (const dz of [-36, 36]) box(72, 1.7, 1.4, C.cream, x, 5, z + dz, 0, true);
-    for (const dx of [-17, 17])
-      for (const dz of [-18, 18]) {
-        const h = 16 + (dx > 0 ? 6 : 0);
-        cylinder(12, h, '#dedbc3', x + dx, 4 + h / 2, z + dz);
-        cylinder(12.5, 1, C.cream, x + dx, 4 + h, z + dz);
-        cylinder(12.06, 1.4, C.blue, x + dx, 4 + h * 0.65, z + dz, true);
-        shape(coneGeo, C.cream, x + dx, 5 + h, z + dz, 12, 2, 12);
-        box(0.8, h, 0.8, C.steel, x + dx + 12.2, 4 + h / 2, z + dz, 0, true);
-      }
-    beam([x - 33, 6, z + 31], [x + 33, 6, z + 31], 0.6, C.gold, true);
-    beam([x, 6, z - 32], [x, 6, z + 31], 0.5, C.gold, true);
-  }
-  function containerYard(x, z) {
-    box(80, 0.2, 79, C.concrete, x, 4.12, z);
-    for (let row = 0; row < 4; row++)
-      for (let col = 0; col < 5; col++) {
-        const cx = x - 29 + col * 14,
-          cz = z - 28 + row * 17,
-          levels = 1 + Math.floor(rnd() * 3),
-          color = palette[Math.floor(rnd() * palette.length)];
-        for (let k = 0; k < levels; k++) {
-          const y = 5.55 + k * 3.05;
-          box(12.2, 3, 6, color, cx, y, cz);
-          box(12.3, 0.15, 6.1, C.cream, cx, y + 1.4, cz, 0, true);
-          for (const dx of [-4, -2, 0, 2, 4])
-            box(0.12, 2.7, 0.12, C.steel, cx + dx, y, cz - 3.03, 0, true);
-        }
-      }
-  }
+  const truckParts = (x, z, rot, col) => {
+    const c = Math.cos(rot),
+      s = Math.sin(rot);
+    box(2.8, 3.4, 9, col, x + s * 1.6, 6.1, z + c * 1.6, rot, true, 0.8);
+    box(2.7, 2.9, 2.6, C.cream, x - s * 4.5, 5.8, z - c * 4.5, rot, true, 0.8);
+  };
   const green = (k) => ['north', 'park', 'island', 'base', 'town', 'town2'].includes(k);
   // Decoration from the 2D map, thinned so phones stay smooth. Same seed → same harbour.
-  const keep = { house: 0.34, tree: 0.35, container: 0.45, block: 0.7, tank: 0.55 };
+  const keep = { house: 0.62, tree: 0.5, container: 0.5, block: 0.86, tank: 0.56 };
   const density = quality.light ? 0.5 : 1;
   const cranes = [],
     stsColors = ['#2f6fb0', '#c8452f', '#2f6fb0', '#e9e4d8'];
@@ -248,50 +556,75 @@ export function createHarborScenery(scene, quality = { light: false }) {
   for (const d of decor) if (d.type === 'container') stackCells.add(cell(d.x, d.z));
   const nearStacks = (x, z) =>
     [-90, 0, 90].some((dx) => [-90, 0, 90].some((dz) => stackCells.has(cell(x + dx, z + dz))));
-  const tankShell = ['#f1eee4', '#f1eee4', '#e6e2d2', '#cfd8d6', '#9db39a'];
+  const tankShell = ['#f4f1e6', '#f4f1e6', '#e9e4d2', '#cfdcd9', '#9fbf9c', '#e8d9a8'];
   for (const d of decor) {
     const k = keep[d.type];
-    if (k !== undefined && rnd() > k * density) continue;
+    // Houses stay or go by the stretch of street, so rows remain rows.
+    const chance = d.type === 'house' ? hash2(d.x / 76, d.z / 19 + 0.5) : rnd();
+    if (k !== undefined && chance > k * density) continue;
     const x = d.x,
       z = d.z;
     // Real landmarks stand on cleared ground and replace the 2D placeholder towers.
     if (d.type !== 'crane' && landmarkClear(x, z, 10)) continue;
     if ((d.type === 'tower' || d.type === 'stadium') && LANDMARKS[MAP.id]) continue;
+    if ((d.type === 'block' || d.type === 'house') && bridgeNear(x, z, 8)) continue;
     if (d.type === 'tank') {
       const r = Math.max(6, Math.min(14, d.r || 9)),
         h = 9 + r * 0.6;
-      cylinder(r, h, tankShell[Math.floor(rnd() * tankShell.length)], x, 4 + h / 2, z);
-      shape(coneGeo, '#fbf9f1', x, 4.5 + h, z, r, 1.6, r);
-      cylinder(r * 1.005, 1.2, rnd() > 0.5 ? C.blue : C.red, x, 4 + h * 0.65, z, true);
+      shape(tankGeo, pick(tankShell), x, 4 + h / 2, z, r, h, r, 0, false, 0.7);
+      shape(coneGeo, '#fbf9f1', x, 4.8 + h, z, r, 1.6, r);
+      if (r > 10)
+        shape(
+          tankGeo,
+          rnd() > 0.5 ? C.blue : C.red,
+          x,
+          4 + h * 0.72,
+          z,
+          r * 1.01,
+          1.3,
+          r * 1.01,
+          0,
+          true,
+        );
+      skirtRound(x, z, r, 5, 0.36);
+      claim(x, z, r + 1);
     } else if (d.type === 'container') {
-      const levels = 1 + Math.floor(rnd() * 3),
-        color = d.col || palette[Math.floor(rnd() * palette.length)];
-      for (let i = 0; i < levels; i++) box(12.2, 2.9, 5.8, color, x, 5.55 + i * 3, z);
-      if (!HARD.includes(kindAt(x, z))) box(20, 0.14, 13, C.concrete, x, 4.09, z);
+      const levels = 1 + Math.floor(rnd() * 3);
+      for (let i = 0; i < levels; i++)
+        box(
+          12.2,
+          2.9,
+          5.8,
+          i ? pick(palette) : d.col || pick(palette),
+          x,
+          5.55 + i * 3,
+          z,
+          0,
+          false,
+          0.82,
+        );
+      if (!HARD.includes(kindAt(x, z))) flat(20, 13, C.concrete, x, 4.2, z);
+      skirt(x, z, 12.2, 5.8, 0, 2.5, 0.3);
+      claim(x, z, 7);
     } else if (d.type === 'house') {
-      const wide = 8 + rnd() * 3;
-      box(
-        wide,
-        7,
-        10,
-        ['#e1c393', '#c98c6a', '#b9bba4', '#f2e6c9', '#75a292'][Math.floor(rnd() * 5)],
+      const wide = 9 + rnd() * 3.5;
+      house(
         x,
-        7.5,
         z,
+        wide,
+        9.5 + rnd() * 2,
+        5.6 + rnd() * 1.6,
+        rnd() > 0.45 ? pick(BRICK) : pick(PLASTER),
+        pick(ROOFS),
       );
-      shape(roofGeo, C.roof, x, 11, z, wide + 1.2, 4, 11);
     } else if (d.type === 'block') {
-      const w = Math.max(10, Math.min(30, d.w || 16)),
-        dd = Math.max(10, Math.min(30, d.d || 16)),
-        h = 8 + rnd() * 26;
-      box(w, h, dd, d.col || C.cream, x, 4 + h / 2, z);
-      box(w * 0.92, 0.6, dd * 0.92, C.dark, x, 4 + h + 0.3, z, 0, true);
-      // Window bands per storey pair, and a shop front at street level.
-      for (let y = 7.5; y < h - 2; y += 6.5)
-        box(w + 0.3, 1.7, dd + 0.3, '#7fa3b4', x, 4 + y, z, 0, true);
-      if (h > 20 && rnd() > 0.5) box(w * 0.4, 3, dd * 0.4, C.steel, x, 4 + h + 2, z, 0, true);
-    } else if (d.type === 'tree') tree(x, z, 0.75 + rnd() * 0.45);
-    else if (d.type === 'tower') {
+      const w = Math.max(11, Math.min(30, d.w || 16)),
+        dd = Math.max(11, Math.min(30, d.d || 16));
+      cityBlock(x, z, w, dd, d.col, ['port', 'tanks', 'containers'].includes(kindAt(x, z)));
+    } else if (d.type === 'tree') {
+      tree(x, z, 0.75 + rnd() * 0.45);
+      claim(x, z, 2.5);
+    } else if (d.type === 'tower') {
       const h = (d.h || 100) * 0.9;
       cylinder(5, h, d.col || '#d9d7bd', x, 4 + h / 2, z);
       for (let y = h - 28; y < h; y += 14) cylinder(5.05, 7, C.red, x, 4 + y, z);
@@ -337,6 +670,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
       beam([x - fx * 4, 74, z - fz * 4], [x + fx * 62, 53, z + fz * 62], 0.35, C.dark, true);
       beam([x - fx * 4, 74, z - fz * 4], [x - fx * 30, 53, z - fz * 30], 0.35, C.dark, true);
       cranes.push({ x: x + fx * 34, z: z + fz * 34, phase: rnd() * 6, y: 38 });
+      claim(x - fx * 10, z - fz * 10, 20);
     } else if (d.type === 'crane') {
       // Portal crane on the quay edge, boom over the water (yaw points at the water).
       const yaw = d.yaw ?? 0,
@@ -360,11 +694,13 @@ export function createHarborScenery(scene, quality = { light: false }) {
       beam([x, 33, z], [x, 43, z], 0.8, C.gold);
       box(5, 5, 5, C.cream, x + fx * 3, 35, z + fz * 3);
       cranes.push({ x: tip[0], z: tip[2], phase: rnd() * 6 });
+      claim(x, z, 12);
     }
     stats.parcels++;
   }
   // Ground cover: polder parcels with ditches on open land, lawns in towns and parks.
-  const fields = ['#8fbf68', '#7fb25c', '#9ac672', '#86b862'];
+  // Farms, hedgerows and poplars keep the polder from being a bare green sheet.
+  const fields = ['#8cc463', '#76b052', '#a3cc6c', '#7fb957', '#b9cf73', '#6fa64f'];
   for (const l of land) {
     if (l.kind === 'pillar') continue;
     const x0 = Math.max(-MAP.halfWidth, l.x0),
@@ -377,17 +713,47 @@ export function createHarborScenery(scene, quality = { light: false }) {
         if (!landContains(x, z, 90, 90)) continue;
         footprints.push({ x, z, width: 90, depth: 90, kind: l.kind });
         if (l.kind === 'north' || l.kind === 'base') {
-          box(152, 0.12, 74, fields[Math.floor(rnd() * 4)], x, 4.08, z - 20);
-          box(152, 0.12, 74, fields[Math.floor(rnd() * 4)], x, 4.08, z + 60);
-          box(152, 0.14, 2.2, '#6fa9bd', x, 4.09, z + 20, 0, true);
-        } else if (green(l.kind) && rnd() > 0.45)
-          box(64, 0.12, 64, rnd() > 0.5 ? C.grass : C.grassDark, x, 4.08, z);
+          const wide = landContains(x, z + 20, 156, 158);
+          if (wide) {
+            flat(152, 74, pick(fields), x, 4.2, z - 20);
+            flat(152, 74, pick(fields), x, 4.2, z + 60);
+            flat(152, 2.4, '#5d9fc0', x, 4.24, z + 20, 0, true);
+          } else flat(84, 84, pick(fields), x, 4.2, z);
+          if (quality.light) continue;
+          if (rnd() > 0.45)
+            for (let i = 0; i < 6; i++) {
+              const tx = x - 66 + i * 26 + rnd() * 6,
+                tz = z + (wide ? 16 : 40);
+              if (landContains(tx, tz, 8, 8) && open(tx, tz, 3)) tree(tx, tz, 0.8 + rnd() * 0.3, 2);
+            }
+          if (rnd() > 0.62 && open(x - 30, z - 24, 22) && landContains(x - 30, z - 24, 44, 40)) {
+            // farmyard: house, barn, a few trees
+            house(x - 38, z - 24, 10, 13, 5.5, pick(BRICK), pick(ROOFS));
+            shed(x - 20, z - 28, 13, 22, 5, rnd() > 0.5 ? '#3f5a4a' : '#8a4a3a');
+            tree(x - 46, z - 38, 1.1);
+            tree(x - 30, z - 8, 0.9);
+          }
+        } else if (green(l.kind)) {
+          if (rnd() > 0.45) flat(64, 64, rnd() > 0.5 ? C.grass : C.grassDark, x, 4.2, z);
+          if (quality.light) continue;
+          // a clump of trees: parks and village greens
+          const n = l.kind === 'park' || l.kind === 'island' ? 5 : 2;
+          for (let i = 0; i < n; i++) {
+            const tx = x + (rnd() - 0.5) * 120,
+              tz = z + (rnd() - 0.5) * 120;
+            if (landContains(tx, tz, 10, 10) && open(tx, tz, 4)) {
+              tree(tx, tz, 0.9 + rnd() * 0.6);
+              claim(tx, tz, 3);
+            }
+          }
+        }
       }
   }
   // Water's edge. Port and city: a dark quay wall with a pale coping, bollards and
   // fenders. Polder, park and village: stone at the waterline under a grass bank.
   // Drawn 0.3 m proud of the land, so the collision edge stays where it is.
-  shore = true;
+  const edges = [];
+  single = quays;
   for (const sg of shoreSegments) {
     const alongX = sg.nz !== 0,
       len = alongX ? sg.width : sg.depth,
@@ -395,11 +761,12 @@ export function createHarborScenery(scene, quality = { light: false }) {
       w = (t) => (alongX ? len + 0.2 : t),
       d = (t) => (alongX ? t : len + 0.2),
       at = (o) => [sg.x + sg.nx * o, sg.z + sg.nz * o];
+    edges.push({ sg, alongX, len, kind });
     if (HARD.includes(kind)) {
       let [x, z] = at(0.05);
-      box(w(0.6), 7.4, d(0.6), '#56616a', x, 0.3, z);
+      box(w(0.6), 7.4, d(0.6), '#4f5a63', x, 0.3, z, 0, false, 0.55);
       [x, z] = at(-0.9);
-      box(w(2.6), 0.5, d(2.6), '#ece6d4', x, 4.2, z);
+      box(w(2.6), 0.5, d(2.6), '#efe8d3', x, 4.2, z);
       if (quality.light) continue;
       [x, z] = at(-1.6);
       box(0.8, 1, 0.8, C.dark, x, 4.9, z);
@@ -407,35 +774,328 @@ export function createHarborScenery(scene, quality = { light: false }) {
       box(alongX ? 0.7 : 0.3, 3.4, alongX ? 0.3 : 0.7, '#22292e', x, 1.6, z);
     } else {
       let [x, z] = at(0.1);
-      box(w(0.8), 4.6, d(0.8), '#8b8e84', x, -0.9, z);
+      box(w(0.8), 4.6, d(0.8), '#8d8f84', x, -0.9, z, 0, false, 0.6);
       [x, z] = at(-1.6);
-      box(w(3.2), 0.16, d(3.2), C.grassDark, x, 4.1, z);
+      box(w(3.2), 0.3, d(3.2), C.grassDark, x, 4.1, z);
+    }
+    if (quality.light) continue;
+    // A band of shade on the land behind the edge gives the quay its depth.
+    const [ax, az] = at(-2.2),
+      [bx, bz] = at(-9),
+      hx = alongX ? len / 2 + 0.1 : 0,
+      hz = alongX ? 0 : len / 2 + 0.1,
+      a = HARD.includes(kind) ? 0.26 : 0.16,
+      quad = [ax - hx, az - hz, ax + hx, az + hz, bx + hx, bz + hz, bx - hx, bz - hz];
+    // wind the quad so it faces up whichever way the shore runs
+    const up =
+        (quad[2] - quad[0]) * (quad[7] - quad[1]) - (quad[3] - quad[1]) * (quad[6] - quad[0]) < 0,
+      order = up ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2];
+    for (const i of order) {
+      shadeP.push(quad[i * 2], SHADE_Y, quad[i * 2 + 1]);
+      shadeC.push(0, 0, 0, i < 2 ? a : 0);
     }
   }
-  shore = false;
-  // Roads of the 2D map, on land only.
+  single = null;
+  // Roads of the 2D map, on land only, with a centre line and trees along them.
+  let roadStep = 0;
   for (const r of roads)
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i],
         b = r.pts[i + 1],
         len = Math.hypot(b.x - a.x, b.z - a.z),
         n = Math.ceil(len / 40),
-        alongX = Math.abs(b.x - a.x) > Math.abs(b.z - a.z);
+        alongX = Math.abs(b.x - a.x) > Math.abs(b.z - a.z),
+        wide = Math.max(8, r.width);
       for (let k = 0; k < n; k++) {
         const x = a.x + ((b.x - a.x) * (k + 0.5)) / n,
           z = a.z + ((b.z - a.z) * (k + 0.5)) / n;
-        if (landContains(x, z, alongX ? 40 : 12, alongX ? 12 : 40))
-          box(
-            alongX ? len / n + 0.5 : Math.max(8, r.width),
-            0.18,
-            alongX ? Math.max(8, r.width) : len / n + 0.5,
-            C.asphalt,
-            x,
-            4.22,
-            z,
-          );
+        if (!landContains(x, z, alongX ? 40 : 12, alongX ? 12 : 40)) continue;
+        flat(alongX ? len / n + 0.5 : wide, alongX ? wide : len / n + 0.5, C.asphalt, x, 4.5, z);
+        if (quality.light) continue;
+        flat(alongX ? 14 : 0.5, alongX ? 0.5 : 14, C.stripe, x, 4.56, z, 0, true);
+        const side = roadStep++ % 2 ? 1 : -1,
+          tx = x + (alongX ? 0 : side * (wide / 2 + 5)),
+          tz = z + (alongX ? side * (wide / 2 + 5) : 0);
+        if (
+          landContains(tx, tz, 8, 8) &&
+          free(tx, tz, 3) &&
+          !landmarkClear(tx, tz, 3) &&
+          !bridgeNear(tx, tz, 0)
+        ) {
+          tree(tx, tz, 0.9 + rnd() * 0.3);
+          claim(tx, tz, 3);
+        }
       }
     }
+  // Life along the quays. City: a row of canal houses behind a tree-lined quay.
+  // Port: transit sheds, stacks, parked lorries, light masts. Oil: pipe racks.
+  if (!quality.light)
+    for (const { sg, alongX, len, kind } of edges) {
+      const tx = alongX ? 1 : 0,
+        tz = alongX ? 0 : 1,
+        rot = alongX ? 0 : Math.PI / 2,
+        P = (along, back) => [sg.x + tx * along - sg.nx * back, sg.z + tz * along - sg.nz * back],
+        fits = (x, z, wAlong, wBack, r) =>
+          landContains(x, z, alongX ? wAlong : wBack, alongX ? wBack : wAlong) && open(x, z, r);
+      if (kind === 'city') {
+        if (hash2(sg.x / 150 + 3, sg.z / 150 + 9) < 0.82) {
+          const count = Math.max(2, Math.round(len / 7.4)),
+            step = len / count;
+          for (let i = 0; i < count; i++) {
+            const deep = 11 + rnd() * 3,
+              [x, z] = P(-len / 2 + (i + 0.5) * step, 12.5 + deep / 2),
+              h = 9.5 + Math.floor(rnd() * 3) * 3.1 + rnd() * 1.5;
+            if (!fits(x, z, step, deep + 4, 3.2)) continue;
+            house(
+              x,
+              z,
+              step - 0.25,
+              deep,
+              h,
+              rnd() > 0.3 ? pick(BRICK) : pick(PLASTER),
+              pick(ROOFS),
+              rot,
+              3,
+              4.2,
+              false,
+            );
+            claim(x, z, 3.6);
+          }
+        }
+        for (const along of [-len / 4, len / 4]) {
+          const [x, z] = P(along + rnd() * 3, 6.5);
+          if (rnd() > 0.3 && fits(x, z, 5, 5, 2.4)) {
+            tree(x, z, 0.8 + rnd() * 0.25);
+            claim(x, z, 2.4);
+          }
+        }
+      } else if (kind === 'port' || kind === 'containers') {
+        const what = rnd();
+        if (what < 0.2) {
+          const [x, z] = P(0, 30);
+          if (fits(x, z, len, 20, 15))
+            shed(x, z, 16, len - 3, 8 + rnd() * 3, pick(SHED), rot + Math.PI / 2);
+        } else if (what < 0.4) {
+          for (let i = 0; i < 2; i++) {
+            const [x, z] = P(-7 + i * 14, 24 + rnd() * 4);
+            if (!fits(x, z, 13, 7, 7)) continue;
+            const levels = 1 + Math.floor(rnd() * 3);
+            for (let k = 0; k < levels; k++)
+              box(12.2, 2.9, 5.8, pick(palette), x, 5.55 + k * 3, z, rot, false, 0.82);
+            skirt(x, z, 12.2, 5.8, rot, 2.5, 0.3);
+            claim(x, z, 7);
+          }
+        } else if (what < 0.52) {
+          const [x, z] = P(rnd() * 8 - 4, 18);
+          if (fits(x, z, 14, 5, 6)) {
+            truckParts(x, z, rot + Math.PI / 2, pick(palette));
+            claim(x, z, 6);
+          }
+        } else if (what < 0.64) {
+          const [x, z] = P(0, 13);
+          if (fits(x, z, 2, 2, 1.5)) {
+            box(0.5, 22, 0.5, C.steel, x, 15, z, 0, true);
+            box(3, 0.6, 1.2, C.cream, x, 26.2, z, rot, true);
+          }
+        }
+      } else if (kind === 'tanks') {
+        const [x, z] = P(0, 11);
+        if (hash2(sg.x / 240 + 5, sg.z / 240) < 0.7 && fits(x, z, len, 5, 3)) {
+          for (const [off, y, col] of [
+            [-0.9, 7.6, '#d8d2bd'],
+            [0.9, 7.6, C.gold],
+            [0, 8.6, '#9fb3b8'],
+          ]) {
+            const [px, pz] = P(0, 11 + off);
+            box(alongX ? len + 0.3 : 0.7, 0.7, alongX ? 0.7 : len + 0.3, col, px, y, pz, 0, true);
+          }
+          box(alongX ? 0.5 : 3.4, 3.4, alongX ? 3.4 : 0.5, C.steel, x, 5.7, z, 0, true);
+        }
+      }
+    }
+  // What is still bare after all that gets something to look at: a small park in
+  // town, a shed, a stack or a row of lorries on the port apron.
+  if (!quality.light)
+    for (const f of footprints) {
+      const { x, z } = f;
+      if (f.kind === 'city' && open(x, z, 36)) {
+        flat(58, 58, rnd() > 0.5 ? C.grass : '#8fc468', x, 4.2, z);
+        flat(58, 3, '#dccfae', x, 4.26, z, 0.785, true);
+        for (let i = 0; i < 7; i++) {
+          const a = i * 0.9 + rnd(),
+            tx = x + Math.cos(a) * (14 + rnd() * 12),
+            tz = z + Math.sin(a) * (14 + rnd() * 12);
+          tree(tx, tz, 0.9 + rnd() * 0.5);
+        }
+        claim(x, z, 30);
+      } else if ((f.kind === 'town' || f.kind === 'town2') && rnd() < 0.5 && open(x, z, 30)) {
+        // a few houses round a green: the village fills in
+        flat(46, 40, '#8fc468', x, 4.2, z);
+        for (const [dx, dz] of [
+          [-14, -11],
+          [14, -11],
+          [0, 12],
+        ])
+          house(
+            x + dx,
+            z + dz,
+            9 + rnd() * 3,
+            10 + rnd() * 2,
+            5.6 + rnd() * 1.6,
+            rnd() > 0.45 ? pick(BRICK) : pick(PLASTER),
+            pick(ROOFS),
+            rnd() > 0.5 ? 0 : Math.PI / 2,
+          );
+        tree(x + 18, z + 10, 0.9 + rnd() * 0.4);
+        claim(x, z, 26);
+      } else if (f.kind === 'tanks' && rnd() < 0.55 && open(x, z, 30)) {
+        // a small tank pit of its own
+        for (const [dx, dz, r] of [
+          [-11, -8, 8],
+          [10, -9, 6.5],
+          [1, 11, 7.5],
+        ]) {
+          const h = 8 + r * 0.6;
+          shape(tankGeo, pick(tankShell), x + dx, 4 + h / 2, z + dz, r, h, r, 0, false, 0.7);
+          shape(coneGeo, '#fbf9f1', x + dx, 4.7 + h, z + dz, r, 1.4, r);
+          skirtRound(x + dx, z + dz, r, 5, 0.36);
+        }
+        claim(x, z, 26);
+      } else if ((f.kind === 'port' || f.kind === 'containers') && open(x, z, 34)) {
+        const what = rnd();
+        if (what < 0.4)
+          shed(x, z, 26, 46, 9 + rnd() * 4, pick(SHED), rnd() > 0.5 ? 0 : Math.PI / 2);
+        else if (what < 0.75) {
+          for (let i = 0; i < 3; i++)
+            for (let j = 0; j < 2; j++) {
+              const cx = x - 14 + i * 14,
+                cz = z - 5 + j * 10,
+                levels = 1 + Math.floor(rnd() * 3);
+              for (let k = 0; k < levels; k++)
+                box(12.2, 2.9, 5.8, pick(palette), cx, 5.55 + k * 3, cz, 0, false, 0.82);
+            }
+          skirt(x, z, 42, 18, 0, 3, 0.3);
+        } else for (let i = 0; i < 4; i++) truckParts(x - 9 + i * 6, z, 0, pick(palette));
+        claim(x, z, 30);
+      }
+    }
+  // Beyond the chart: the polder runs on to the horizon, with hedgerows, farms and
+  // the odd village, so the harbour does not end in open sea on every side.
+  {
+    single = beyond;
+    const FAR = 2600,
+      HW = MAP.halfWidth,
+      pieces = [];
+    for (const l of land) {
+      if (l.kind === 'pillar') continue;
+      const N = l.z1 >= MAP.zMax - 1,
+        S = l.z0 <= MAP.zMin + 1,
+        W = l.x0 <= -HW + 1,
+        E = l.x1 >= HW - 1,
+        xa = W ? -HW - FAR : l.x0,
+        xb = E ? HW + FAR : l.x1,
+        hard = HARD.includes(l.kind);
+      if (N) pieces.push([xa, xb, Math.max(MAP.zMax, l.z1), MAP.zMax + FAR, hard]);
+      if (S) pieces.push([xa, xb, MAP.zMin - FAR, Math.min(MAP.zMin, l.z0), hard]);
+      if (W)
+        pieces.push([
+          -HW - FAR,
+          Math.min(-HW, l.x0),
+          Math.max(MAP.zMin, l.z0),
+          Math.min(MAP.zMax, l.z1),
+          hard,
+        ]);
+      if (E)
+        pieces.push([
+          Math.max(HW, l.x1),
+          HW + FAR,
+          Math.max(MAP.zMin, l.z0),
+          Math.min(MAP.zMax, l.z1),
+          hard,
+        ]);
+    }
+    const GX = 420,
+      GZ = 300;
+    for (const [x0, x1, z0, z1, hard] of pieces) {
+      if (x1 - x0 < 2 || z1 - z0 < 2) continue;
+      shape(wallGeo, '#6f9a58', (x0 + x1) / 2, 0.5, (z0 + z1) / 2, x1 - x0, 7, z1 - z0);
+      for (let gx = Math.floor(x0 / GX); gx * GX < x1; gx++)
+        for (let gz = Math.floor(z0 / GZ); gz * GZ < z1; gz++) {
+          const ax = Math.max(x0, gx * GX),
+            bx = Math.min(x1, (gx + 1) * GX),
+            az = Math.max(z0, gz * GZ),
+            bz = Math.min(z1, (gz + 1) * GZ),
+            h = hash2(gx, gz),
+            cx = (ax + bx) / 2,
+            cz = (az + bz) / 2,
+            out = Math.max(Math.abs(cx) - HW, cz - MAP.zMax, MAP.zMin - cz);
+          flat(bx - ax, bz - az, fields[Math.floor(h * fields.length)], cx, 4, cz);
+          if (quality.light || bx - ax < 200 || bz - az < 160 || out > 1500) continue;
+          const h2 = hash2(gx + 71, gz + 13);
+          if (h2 < 0.55) {
+            // hedgerow or a line of poplars along the parcel
+            const along = h2 < 0.28,
+              lenH = 140 + h * 180;
+            shape(
+              leafGeo,
+              C.leafDark,
+              cx,
+              9,
+              az + 20,
+              along ? lenH / 2 : 9,
+              9,
+              along ? 9 : 60,
+              0,
+              false,
+              0.6,
+            );
+            shape(
+              leafGeo,
+              C.leaf,
+              cx + 40,
+              10,
+              az + 26,
+              along ? lenH / 3 : 8,
+              10,
+              along ? 8 : 40,
+              0,
+              false,
+              0.6,
+            );
+          }
+          if (hard ? h2 > 0.5 : h2 > 0.88) {
+            // a village, or the town running on behind the port
+            const n = hard ? 9 : 6;
+            for (let i = 0; i < n; i++) {
+              const hx = cx + (hash2(gx * 7 + i, gz) - 0.5) * 300,
+                hz = cz + (hash2(gx, gz * 7 + i) - 0.5) * 200,
+                hh = hard ? 10 + hash2(gx + i, gz - i) * 26 : 6;
+              if (hard)
+                box(16, hh, 14, pick(PLASTER), hx, 4 + hh / 2, hz, 0, false, 0.7, {
+                  bay: 3,
+                  floor: 3.1,
+                  s: 1.5,
+                });
+              else {
+                box(10, hh, 12, pick(BRICK), hx, 4 + hh / 2, hz, 0, false, 0.75);
+                shape(roofGeo, C.roof, hx, 4 + hh, hz, 10.6, 4.4, 12.6);
+                shape(gableGeo, '#b5553b', hx, 4 + hh, hz, 10, 4.4, 12);
+              }
+            }
+            if (!hard) {
+              box(7, 24, 7, '#b9a184', cx, 16, cz, 0, false, 0.75);
+              shape(spireGeo, C.slate, cx, 37, cz, 5.4, 18, 5.4, 0.785);
+            }
+          } else if (h2 > 0.7) {
+            box(11, 5.5, 14, pick(BRICK), cx - 60, 6.75, cz + 30, 0, false, 0.75);
+            shape(roofGeo, C.roof, cx - 60, 9.5, cz + 30, 11.6, 4.6, 14.6);
+            box(14, 5, 24, '#3f5a4a', cx - 40, 6.5, cz + 36, 0, false, 0.75);
+            shape(roofGeo, C.slate, cx - 40, 9, cz + 36, 14.8, 2.6, 24.8);
+          }
+        }
+    }
+    single = null;
+  }
   // Fixed bridges: high deck across the water; the pillars collide. Each named
   // bridge gets the silhouette you know it by.
   for (const br of bridges) {
@@ -560,12 +1220,40 @@ export function createHarborScenery(scene, quality = { light: false }) {
     stats.triangles += geometry.getAttribute('position').count / 3;
     stats.draws++;
   }
-  if (quays.positions.length) {
-    const m = new T.Mesh(quays.geometry(), material);
-    m.name = 'quay-walls';
+  for (const [batch, name] of [
+    [quays, 'quay-walls'],
+    [beyond, 'hinterland'],
+  ]) {
+    if (!batch.positions.length) continue;
+    const m = new T.Mesh(batch.geometry(), material);
+    m.name = name;
     m.receiveShadow = true;
     root.add(m);
-    stats.triangles += quays.positions.length / 9;
+    stats.triangles += batch.positions.length / 9;
+    stats.draws++;
+  }
+  if (shadeP.length) {
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(shadeP, 3));
+    g.setAttribute('color', new T.Float32BufferAttribute(shadeC, 4));
+    g.computeBoundingSphere();
+    const m = new T.Mesh(
+      g,
+      new T.MeshBasicMaterial({
+        color: '#16242e',
+        vertexColors: true,
+        transparent: true,
+        depthWrite: false,
+        side: T.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -8,
+      }),
+    );
+    m.name = 'ground-shade';
+    m.renderOrder = 1;
+    root.add(m);
+    stats.triangles += shadeP.length / 9;
     stats.draws++;
   }
   // Each animated truck is also a single draw, with shared geometry.
@@ -581,12 +1269,12 @@ export function createHarborScenery(scene, quality = { light: false }) {
     return b.geometry();
   }
   const truckGeometry = actorGeometry([
-    [boxGeo, C.dark, 0, 1.05, 0, 2.8, 1.2, 13],
-    [boxGeo, C.cream, 0, 2.4, -4.8, 2.9, 2.8, 3.6],
-    [boxGeo, C.glass, 0, 3, -6.65, 2.5, 1.2, 0.1],
-    [boxGeo, C.red, 0, 2.8, 1.8, 3, 3.3, 9],
-    [boxGeo, C.dark, 0, 0.7, -4.4, 3.2, 1.4, 1.3],
-    [boxGeo, C.dark, 0, 0.7, 4.6, 3.2, 1.4, 1.3],
+    [fullBox, C.dark, 0, 1.05, 0, 2.8, 1.2, 13],
+    [fullBox, C.cream, 0, 2.4, -4.8, 2.9, 2.8, 3.6],
+    [fullBox, C.glass, 0, 3, -6.65, 2.5, 1.2, 0.1],
+    [fullBox, C.red, 0, 2.8, 1.8, 3, 3.3, 9],
+    [fullBox, C.dark, 0, 0.7, -4.4, 3.2, 1.4, 1.3],
+    [fullBox, C.dark, 0, 0.7, 4.6, 3.2, 1.4, 1.3],
   ]);
   const trucks = routes.map((route) => {
     const m = new T.Mesh(truckGeometry, material);
@@ -597,7 +1285,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
   });
   const hookGeometry = actorGeometry([
     [roundGeo, C.dark, 0, 8, 0, 0.07, 16, 0.07],
-    [boxGeo, C.gold, 0, 0, 0, 5, 1, 2],
+    [fullBox, C.gold, 0, 0, 0, 5, 1, 2],
   ]);
   const hooks = cranes.map((c) => {
     const m = new T.Mesh(hookGeometry, material);
@@ -648,7 +1336,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
       for (const tile of tiles.values()) {
         const limit = tile.detail ? quality.detailDistance : quality.viewDistance;
         tile.mesh.visible =
-          Math.hypot(tile.x - camera.position.x, tile.z - camera.position.z) < limit + 230;
+          Math.hypot(tile.x - camera.position.x, tile.z - camera.position.z) < limit + tile.reach;
       }
       for (const t of trucks)
         t.m.visible =
@@ -698,5 +1386,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
     birds.instanceMatrix.needsUpdate = true;
     for (const c of clouds) c.m.position.x = c.x + Math.sin(clock * 0.003) * 70;
   }
-  return { root, stats, footprints, routes, tiles, update };
+  // Lit windows follow the dusk: 0 by day, 1 in the dead of night.
+  const setNight = (v) => (night.value = v);
+  return { root, stats, footprints, routes, tiles, update, setNight };
 }

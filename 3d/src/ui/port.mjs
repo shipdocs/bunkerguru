@@ -28,6 +28,7 @@ import {
 } from '../game/career.mjs';
 import { loadHall, loadRanking } from '../app/storage.mjs';
 import { getLang } from '../i18n/index.mjs';
+import { hintFor, isTouch } from './touch-text.mjs';
 import { idleBoats, fleetOf, nextBoat, buyBoat, dispatch, CREW_SHARE } from '../game/fleet.mjs';
 
 // Harbours open up with your rank; a locked one says what it takes.
@@ -75,6 +76,7 @@ export function bindPort({
   retire,
 }) {
   let tab = 'jobs';
+  const hint = hintFor(isTouch());
   function renderPort(which = tab) {
     tab = which;
     const s = getState();
@@ -97,14 +99,15 @@ export function bindPort({
     $('tabService').classList.toggle('selected', tab === 'service');
     // Schedule.
     const now = logicTime(s);
-    $('planInfo').textContent =
+    $('planInfo').textContent = hint(
       MAP.id === 'training'
         ? 'Oefenhaven: één vaste oefenklus. Kies daarna een echte haven.'
         : s.job
           ? 'Je hebt een klus lopen (' +
             customers[s.job.berth].name +
             '). Een nieuwe kiezen vervangt die.'
-          : 'Kies met 1–6 of tik. Klussen vervallen op hun tijd; de concurrenten pakken er af en toe een.';
+          : 'Kies met 1–6 of tik. Klussen vervallen op hun tijd; de concurrenten pakken er af en toe een.',
+    );
     $('offers').replaceChildren();
     let idx = 0;
     for (const o of s.offers) {
@@ -191,7 +194,9 @@ export function bindPort({
       card.innerHTML =
         '<div class="offerK">1</div><div class="offerBody"><h3>Oefenklus → ' +
         customers[0].name +
-        '</h3><p>Laden aan de oefenterminal, dan langszij en vastmaken (M).</p></div>';
+        '</h3><p>' +
+        hint('Laden aan de oefenterminal, dan langszij en vastmaken (M).') +
+        '</p></div>';
       card.dataset.key = '1';
       card.onclick = () => {
         takeJob(0);
