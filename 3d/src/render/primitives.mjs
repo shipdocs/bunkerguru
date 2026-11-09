@@ -28,13 +28,19 @@ export function createPrimitives(scene) {
     m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), B.sub(A).normalize());
     return m;
   }
-  function textSprite(text, x, y, z, scale = 25, color = '#e9edda', p = scene) {
+  // Text with a dark outline so it reads on water, land and sky. grow > 0 keeps a
+  // minimum on-screen size: the sprite never gets smaller than grow × camera distance.
+  function textSprite(text, x, y, z, scale = 25, color = '#e9edda', p = scene, grow = 0) {
     const cv = document.createElement('canvas');
     cv.width = 512;
     cv.height = 96;
     let c = cv.getContext('2d');
     c.font = 'bold 38px sans-serif';
     c.textAlign = 'center';
+    c.lineJoin = 'round';
+    c.lineWidth = 9;
+    c.strokeStyle = 'rgba(12, 34, 42, 0.85)';
+    c.strokeText(text, 256, 59);
     c.fillStyle = color;
     c.fillText(text, 256, 59);
     const sprite = new T.Sprite(
@@ -42,6 +48,18 @@ export function createPrimitives(scene) {
     );
     sprite.position.set(x, y, z);
     sprite.scale.set(scale, (scale * 96) / 512, 1);
+    if (grow > 0) {
+      const world = new T.Vector3();
+      sprite.onBeforeRender = (renderer, sc, camera) => {
+        sprite.getWorldPosition(world);
+        const d = world.distanceTo(camera.position);
+        // Readable nearby and at mid range; far labels fade out instead of
+        // cluttering the horizon behind the instruments.
+        const s = Math.min(Math.max(scale, d * grow), scale * 3);
+        sprite.scale.set(s, (s * 96) / 512, 1);
+        sprite.material.opacity = Math.max(0, Math.min(1, (1700 - d) / 400));
+      };
+    }
     p.add(sprite);
     return sprite;
   }

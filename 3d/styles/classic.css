@@ -118,3 +118,55 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Header readable on a bright harbour: dark pill behind place, tempo, clock and tide. */
+.location {
+  background: #0f2a33d9;
+  border: 1px solid #ffffff1a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #f2f5ea;
+  text-shadow: none;
+}
+.location span {
+  opacity: 0.9;
+}
+#clockInfo {
+  margin-left: 0;
+}
+
+/* Underway on a desktop: the panels step back so the water stays visible.
+   Hover a panel to see everything again; all actions remain on the keys. */
+@media (min-width: 801px) {
+  .mission,
+  .harborBar,
+  .chart {
+    transition:
+      opacity 0.25s,
+      padding 0.25s;
+  }
+  body.underway .mission {
+    padding: 14px 18px;
+    width: 270px;
+    opacity: 0.88;
+  }
+  body.underway .mission h1 {
+    font-size: 19px;
+  }
+  /* Hidden only while not hovered, so hover restores each element's own display. */
+  body.underway .mission:not(:hover) .stages,
+  body.underway .mission:not(:hover) .missionFoot,
+  body.underway .mission:not(:hover) #next {
+    display: none;
+  }
+  body.underway .harborBar {
+    opacity: 0.8;
+  }
+  body.underway .harborBar:not(:hover) > div {
+    display: none;
+  }
+  body.underway .mission:hover,
+  body.underway .harborBar:hover {
+    opacity: 1;
+  }
+}

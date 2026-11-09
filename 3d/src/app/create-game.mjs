@@ -288,6 +288,8 @@ export function createGame({ createRenderer } = {}) {
   $('map').onclick = () => $('chartPanel').classList.toggle('expanded');
   const updateHud = createHud({ $, keys, vesselProfile, camera, chart, zones: effects.zones });
   function ui() {
+    // Panels step back while underway (desktop CSS), full again when moored or slow.
+    document.body?.classList?.toggle?.('underway', !s.moored && Math.hypot(s.u, s.v) > 0.5);
     updateHud(s, paused, sim);
   }
   let hudElapsed = 0,
