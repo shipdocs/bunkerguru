@@ -19,6 +19,7 @@ import {
 } from '../maps/index.mjs';
 import { skyLook } from './daylight.mjs';
 import { createLandmarks } from './landmarks.mjs';
+import { tr } from '../i18n/index.mjs';
 import { dayClock } from '../game/harbor.mjs';
 import { profileOf } from '../game/ship-profile.mjs';
 import { renderYaw } from '../game/vessel.mjs';
@@ -180,7 +181,7 @@ c+=vec3(1.,.82,.55)*(pow(s,24.)*.35+pow(s,600.)*1.4)*glow;gl_FragColor=vec4(c,1.
       }
       void side;
     }
-  textSprite(MAP.name.toUpperCase() + ' · KAARTGRENS', -MAP.halfWidth + 30, 14, 0, 90);
+  textSprite(MAP.name.toUpperCase() + tr(' · KAARTGRENS'), -MAP.halfWidth + 30, 14, 0, 90);
   const vesselProfile = profileOf(s),
     zoomLimits = cameraRange(vesselProfile);
   const boat = createBunkerTanker(vesselProfile);

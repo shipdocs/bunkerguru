@@ -27,3 +27,21 @@
     flex: 1 1 45%;
   }
 }
+
+/* Sound panel: one slider per channel. */
+.soundPanel label {
+  display: grid;
+  grid-template-columns: 9.5em 1fr 2.2em;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font-size: 0.78rem;
+}
+.soundPanel input[type='range'] {
+  width: 100%;
+  accent-color: #e6ae54;
+}
+.soundPanel output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

@@ -3,6 +3,9 @@ import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/grap
 import { MAP, quickJob, planTick, LOGIC, up } from '../game/harbor.mjs';
 import { HarborAudio } from '../audio/harbor-audio.mjs';
 import { createRadio } from '../audio/radio.mjs';
+import { tr, getLang, setLang } from '../i18n/index.mjs';
+// VHF lines are spoken, not only shown: translate them before they reach the voice.
+const spoken = (lines) => lines?.map?.((l) => ({ ...l, text: tr(l.text) })) ?? lines;
 import { radioChatter } from '../game/chatter.mjs';
 import { renderYaw } from '../game/vessel.mjs';
 import { fresh, step, createWorldState, takeJob } from '../game/simulation.mjs';
@@ -65,6 +68,19 @@ export function createGame({ createRenderer } = {}) {
   const { renderer, scene, camera, sun, waterMat, scenery, boat, vesselProfile, zoomLimits } =
     world;
   const effects = createNavigationEffects(scene, world.primitives.mesh, vesselProfile);
+  // "JOUW SCHIP" over the boat for the first seconds, as in the 2D game.
+  const ownLabel = world.primitives.textSprite(
+    tr('JOUW SCHIP'),
+    0,
+    26,
+    0,
+    40,
+    '#7df4ff',
+    boat,
+    0.1,
+  );
+  ownLabel.visible = false;
+  let ownLabelT = 0;
   let paused = false,
     started = false,
     time = 0,
@@ -93,10 +109,17 @@ export function createGame({ createRenderer } = {}) {
     say: toast,
     card: (c) => card(c),
     sound: (name, ...args) => {
-      if (name === 'hit') shake = Math.min(1, 0.3 + (args[0] || 0) / 12);
+      if (name === 'hit') {
+        shake = Math.min(1, 0.3 + (args[0] || 0) / 12);
+        // Red flash round the screen edge, as in the 2D game (hitFlash).
+        const fl = $('hitFlash');
+        fl.className = '';
+        void fl.offsetWidth;
+        fl.className = 'on';
+      }
       sound.fx(name, ...args);
     },
-    radio: (lines) => radio.say(lines, 'nl'),
+    radio: (lines) => radio.say(spoken(lines), getLang()),
     board: () => {
       // Every third job the Havenkrant comes first, then the schedule.
       if (paperDue(s) && MAP.id !== 'training') return setTimeout(showPaper, 900);
@@ -127,7 +150,7 @@ export function createGame({ createRenderer } = {}) {
           ' = ' +
           r.total +
           ' 🪙' +
-          (r.score ? ' · ' + r.score + ' punten' : '') +
+          (r.score !== undefined ? ' · ' + r.score + ' punten' : '') +
           (r.dayGoal ? ' · 🏆 Dagdoel: +300!' : '') +
           (r.hazmat ? ' · ☣️ schade aan gevaarlijke lading: reputatie −10' : ''),
         6,
@@ -215,10 +238,7 @@ export function createGame({ createRenderer } = {}) {
     },
     radio: () => toggleRadio(),
     sound: () => $('audio').click(),
-    music: () => {
-      sound.start();
-      toast(sound.sound?.toggleMusic() ? '🎵 Muziek aan' : '🎵 Muziek uit');
-    },
+    music: () => $('musicSwitch').click(),
   };
   function toggleRadio() {
     sim.radioOn = radio.toggle();
@@ -259,6 +279,8 @@ export function createGame({ createRenderer } = {}) {
   function begin() {
     sound.start();
     started = true;
+    ownLabel.visible = true;
+    ownLabelT = 8;
     paused = false;
     $('pause').textContent = 'Ⅱ';
     if ($('intro').open) $('intro').close();
@@ -458,6 +480,21 @@ export function createGame({ createRenderer } = {}) {
     $('audio').textContent = sound.muted ? 'Geluid uit' : 'Geluid aan';
   };
   $('audio').textContent = sound.muted ? 'Geluid uit' : 'Geluid aan';
+  // Sound panel: a slider per channel, saved per browser by the audio itself.
+  for (const k of ['master', 'sfx', 'music', 'radio']) {
+    const slider = $('v_' + k);
+    slider.value = $('t_' + k).textContent = sound.vol[k];
+    slider.oninput = () => {
+      sound.setVol(k, +slider.value);
+      $('t_' + k).textContent = sound.vol[k];
+    };
+  }
+  $('musicSwitch').onclick = () => {
+    const on = sound.toggleMusic();
+    $('musicSwitch').textContent = on ? 'Muziek aan' : 'Muziek uit';
+    $('musicSwitch').setAttribute('aria-pressed', String(on));
+    toast(on ? '🎵 Muziek aan' : '🎵 Muziek uit');
+  };
   function release() {
     clock.reset();
     helm.release();
@@ -513,6 +550,17 @@ export function createGame({ createRenderer } = {}) {
     scenery.update(s.clock, camera, quality, true);
     $('graphics').textContent = GRAPHICS_LABELS[graphicsMode];
   }
+  // Language: the other one on the button; switching reloads so every text is rebuilt.
+  $('langBtn').textContent = getLang() === 'en' ? 'Nederlands' : 'English';
+  $('langBtn').onclick = () => {
+    save();
+    const next = setLang(getLang() === 'en' ? 'nl' : 'en');
+    // A ?lang= in the address wins over the saved choice: carry the new one along.
+    const url = new URL(location.href);
+    if (url.searchParams.has('lang')) url.searchParams.set('lang', next);
+    location.href = url.toString();
+    if (!url.searchParams.has('lang')) location.reload();
+  };
   $('graphics').onclick = () => {
     graphicsMode =
       GRAPHICS_MODES[(GRAPHICS_MODES.indexOf(graphicsMode) + 1) % GRAPHICS_MODES.length];
@@ -603,13 +651,14 @@ export function createGame({ createRenderer } = {}) {
         planElapsed = 0;
         planTick(s);
       }
-      if (sim.radioOn) radio.tick(s.clock * LOGIC, () => radioChatter(s, sim), 'nl');
+      if (sim.radioOn) radio.tick(s.clock * LOGIC, () => spoken(radioChatter(s, sim)), getLang());
     }
     sun.position.set(s.x - 220, 220, s.z + 160);
     sun.target.position.set(s.x, 0, s.z);
     sun.target.updateMatrixWorld();
     helm.update();
     time += dt;
+    if (ownLabelT > 0 && !paused && (ownLabelT -= dt) <= 0) ownLabel.visible = false;
     waterMat.uniforms.time.value = time;
     const level = world.updateAmbient(s);
     const sinking = s.phase === 'sunk' ? Math.min(1, (s.sinkT || 0) / 4) : 0;
