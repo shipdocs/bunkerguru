@@ -1,7 +1,7 @@
 import * as T from '../../vendor/three.js';
 import { hullOutline } from '../game/ship-profile.mjs';
 import { batchVessel } from './scene-batch.mjs';
-import { buildBunkerTanker } from './bunker-tanker.mjs';
+import { buildBunkerTanker } from './rival-tanker.mjs';
 export function createShipFactory(scene, { mesh, box, cyl, beam, textSprite }) {
   // Low-poly hulls with decks, pipes, railings, accommodation and wheelhouse.
   function ship(length, width, color, tanker = false, playerProfile = null, opts = {}) {

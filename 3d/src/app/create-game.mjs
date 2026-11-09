@@ -18,6 +18,7 @@ import { fastTravel, planFastTravel } from '../game/fast-travel.mjs';
 import { createWorld } from '../render/world.mjs';
 import { createNavigationEffects } from '../render/navigation-effects.mjs';
 import { createCameraController } from '../render/camera-controller.mjs';
+import { bindVesselEquipment } from '../ui/vessel-equipment.mjs';
 import { bindHelm } from '../input/helm.mjs';
 import { bindPort, mapButtons, switchMap } from '../ui/port.mjs';
 import { bindMobilePanels } from '../ui/mobile-panels.mjs';
@@ -177,6 +178,8 @@ export function createGame({ createRenderer } = {}) {
     toast(msg, 6);
   }
   const actions = {
+    radar: () => $('radarSwitch').click(),
+    navigation: () => $('navSwitch').click(),
     fast: doFastTravel,
     board: () => (started && !paused ? openPort('jobs') : null),
     shop: () => (started && !paused ? openPort('shop') : null),
@@ -229,6 +232,13 @@ export function createGame({ createRenderer } = {}) {
     sound: (n) => sound.fx(n),
   });
   const cameraControl = createCameraController({ $, camera, zoomLimits, state: s, toast, boat });
+  const equipment = bindVesselEquipment({
+    $,
+    getState: () => s,
+    isPlaying: () => started && !paused,
+    save,
+    toast,
+  });
   $('pause').onclick = () => {
     release();
     // Esc/pause on the big chart folds it (and resumes, as the chart had paused).
@@ -559,6 +569,7 @@ export function createGame({ createRenderer } = {}) {
   };
   const updateHud = createHud({ $, keys, vesselProfile, camera, chart, zones: effects.zones });
   function ui() {
+    equipment.render();
     const plan = s.job && !s.moored && started ? planFastTravel(s, sim) : null;
     $('fastBtn').hidden = !plan?.ok;
     // Panels step back while underway (desktop CSS), full again when moored or slow.
@@ -606,6 +617,11 @@ export function createGame({ createRenderer } = {}) {
       Math.sin(time) * 0.004 + list,
     );
     world.updateDynamic(sim, time);
+    if (!s.moored) {
+      s.equipment.boomSide = 0;
+      s.equipment.boomRaised = false;
+    }
+    boat.userData.tanker.update(playing ? dt : 0, s.equipment);
     sound.update(s, playing, keys);
     cameraControl.update(s, dt);
     if (shake > 0) {

@@ -8,6 +8,8 @@
 // O = main engine off / start (it takes a few seconds to start again).
 const held = { ArrowLeft: 'left', ArrowRight: 'right', KeyQ: 'bowL', KeyE: 'bowR' };
 const actions = {
+  KeyR: 'radar',
+  KeyL: 'navigation',
   ArrowUp: 'ahead',
   ArrowDown: 'astern',
   Space: 'midships',

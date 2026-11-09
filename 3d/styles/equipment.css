@@ -1,0 +1,29 @@
+.equipmentPanel {
+  margin-top: 8px;
+  border-top: 1px solid #ffffff25;
+  padding-top: 8px;
+}
+.equipmentPanel summary {
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 0;
+}
+.equipmentPanel > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-top: 6px;
+}
+.equipmentPanel button {
+  min-height: 38px;
+}
+.equipmentPanel button[aria-pressed='true'] {
+  border-color: #8bd7b6;
+  background: #224c49;
+}
+@media (max-width: 800px), (pointer: coarse) {
+  .equipmentPanel button {
+    min-height: 44px;
+    flex: 1 1 45%;
+  }
+}

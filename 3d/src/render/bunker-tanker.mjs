@@ -1,362 +1,312 @@
 import * as T from '../../vendor/three.js';
-// A typical Rotterdam bunker tanker (inland tanker type C), modelled in code.
-// Frame: bow towards −z, port towards −x, waterline at y = 0, metres. The hull is
-// lofted from stations along the length (sheer, spoon bow with overhang, rounded
-// stern), the rest is boxes and tubes; batchVessel() merges it into one draw.
-// The raised wheelhouse holds the wheelhouse camera (camera.mjs bridgeEye):
-// front glass at 0.208 L, floor 6.2 m, eye 7.9 m, wings out to beam/2 + 1.2 m.
-export const TANKER = { wheelhouseFront: 0.208, wheelhouseAft: 0.29, floor: 6.2 };
+import { hullOutline } from '../game/ship-profile.mjs';
+import { createPrimitives } from './primitives.mjs';
+import { batchVessel } from './scene-batch.mjs';
 
-const glassMat = new T.MeshStandardMaterial({
-  color: '#8fc2d4',
-  transparent: true,
-  opacity: 0.26,
-  roughness: 0.1,
-  metalness: 0.2,
-  emissive: '#0a1a20', // non-black emissive keeps it out of the batch: it stays see-through
-  emissiveIntensity: 0.4,
-  side: T.DoubleSide,
-  depthWrite: false,
-});
-
-export function buildBunkerTanker({ mesh, box, cyl, beam }, profile, opts = {}) {
-  const g = new T.Group();
-  const L = profile.length,
-    B = profile.beam,
-    // As on the Rotterdam bunker boats (Burando's Zeeland, Leonore): a black hull,
-    // grey deck, silver pipes with blue valves, white bow bulwark and house; the
-    // company colour runs as a broad stripe under the sheer and in the bow name.
-    company = opts.color || '#ba6539',
-    hull = '#24292c',
-    name = opts.name || 'BUNKERGURU';
+// Leonore-inspired tanker. Metres, waterline y=0, bow -z, port -x.
+// Batch each rigid assembly BEFORE parenting/posing it: moving parts stay movable.
+export function createBunkerTanker(profile, { editable = false } = {}) {
+  const { length: L, beam: B } = profile;
+  const root = new T.Group();
+  root.name = 'Bunkerguru-tanker';
+  root.userData.dimensions = { length: L, beam: B };
+  const fixed = new T.Group();
+  fixed.name = 'Hull-and-deck';
+  root.add(fixed);
+  const { mesh, box, beam } = createPrimitives(fixed);
   const C = {
-    boot: '#7d2a20',
-    deck: '#858d8f',
-    walk: '#a3aaab',
-    pipe: '#c3c9ca',
-    pipe2: '#949ea0',
-    flange: '#2f5fae',
-    house: '#f1f1ec',
-    trim: '#dcdcd4',
-    window: '#22323b',
-    dark: '#1f2a2e',
-    rail: '#f2f2ee',
-    crane: '#2a3034',
-    black: '#141a1c',
+    hull: '#202b30',
+    blue: '#247dc5',
+    white: '#eef2ed',
+    deck: '#969f9e',
+    steel: '#657679',
+    glass: '#183b4b',
+    pipe: '#b2b7ad',
+    rubber: '#172125',
   };
-  const zBul = -0.37 * L; // forward of this the hull carries a high white bulwark
-  // ---- Hull lines ----
-  const zb0 = -L * (0.5 - 16 / 220), // end of the parallel body, bow side
-    zs0 = L * (0.5 - 4 / 220); // stern side
-  const tipD = { bow: -0.477 * L, stern: 0.4977 * L }, // deck outline (as the collision hull)
-    tipW = { bow: -0.452 * L, stern: 0.486 * L }; // waterline: spoon bow overhang, short stern
-  const half = (z, tip) => {
-    if (z < zb0) {
-      const t = (zb0 - z) / (zb0 - tip.bow);
-      return t >= 1 ? 0 : (B / 2) * Math.sqrt(1 - t); // the quadratic Bézier of hullOutline
-    }
-    if (z > zs0) {
-      const t = (z - zs0) / (tip.stern - zs0);
-      return t >= 1 ? 0 : (B / 2) * Math.sqrt(1 - t); // the quadratic Bézier of hullOutline
-    }
-    return B / 2;
+  const tube = (r, h, c, x, y, z, p = fixed) =>
+    mesh(new T.CylinderGeometry(r, r, h, 10), c, x, y, z, p);
+  const rod = (a, b, r = 0.06, c = C.white, p = fixed) => beam(a, b, r, c, p);
+  const finish = (group) => {
+    if (!editable) batchVessel(group);
+    return group;
   };
-  // Deck height: 3 m freeboard, sheer rising to the bow and a little to the stern.
-  const deckY = (z) =>
-    3 +
-    1.3 * Math.max(0, (-z - 0.3 * L) / (0.18 * L)) ** 2 +
-    0.4 * Math.max(0, (z - 0.4 * L) / (0.1 * L)) ** 2;
-  const N = 64,
-    stations = Array.from(
-      { length: N + 1 },
-      (_, i) => tipD.stern + ((tipD.bow - tipD.stern) * i) / N,
+  const shape = new T.Shape();
+  for (const [method, ...args] of hullOutline(profile)) shape[method](...args);
+  shape.closePath();
+  const outline = shape.getPoints(18);
+  // A chine below water, rounded bow and full, softly rounded transom above it.
+  const vertices = [],
+    indices = [];
+  const levels = [
+    [-2.8, 0.7, 0.93],
+    [-1.3, 0.91, 0.98],
+    [0.15, 1, 1],
+    [2.65, 1, 1],
+  ];
+  for (const [y, sx, sz] of levels) for (const p of outline) vertices.push(p.x * sx, y, p.y * sz);
+  const n = outline.length;
+  for (let k = 0; k < levels.length - 1; k++)
+    for (let i = 0; i < n - 1; i++) {
+      const a = k * n + i,
+        b = a + n;
+      indices.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  const hullGeometry = new T.BufferGeometry();
+  hullGeometry.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
+  hullGeometry.setIndex(indices);
+  hullGeometry.computeVertexNormals();
+  const hull = mesh(hullGeometry, C.hull);
+  hull.name = 'Hull';
+  const deck = mesh(new T.ShapeGeometry(shape), C.deck, 0, 2.66, 0);
+  deck.rotation.x = Math.PI / 2;
+  deck.material.side = T.DoubleSide;
+  const bottom = mesh(new T.ShapeGeometry(shape), C.hull, 0, -2.8, 0);
+  bottom.scale.set(0.7, 0.93, 1);
+  bottom.rotation.x = Math.PI / 2;
+  // Painted white end bulwarks with a blue cap, following the actual outline.
+  for (let i = 0; i < n - 1; i++) {
+    const a = outline[i],
+      b = outline[i + 1];
+    if ((a.y + b.y) / 2 < -L * 0.34 || (a.y + b.y) / 2 > L * 0.37) {
+      const wall = box(a.distanceTo(b), 0.95, 0.16, C.white, (a.x + b.x) / 2, 2.9, (a.y + b.y) / 2);
+      wall.rotation.y = -Math.atan2(b.y - a.y, b.x - a.x);
+      rod([a.x, 3.4, a.y], [b.x, 3.4, b.y], 0.08, C.blue);
+    }
+  }
+  const rail = (x, z0, z1, y = 2.7) => {
+    for (const h of [0.55, 1.05]) rod([x, y + h, z0], [x, y + h, z1], 0.035);
+    const count = Math.ceil((z1 - z0) / 2.8);
+    for (let i = 0; i <= count; i++) {
+      const z = z0 + ((z1 - z0) * i) / count;
+      rod([x, y, z], [x, y + 1.08, z], 0.045);
+    }
+  };
+  for (const side of [-1, 1]) rail(side * B * 0.465, -L * 0.34, L * 0.24);
+
+  // Accommodation, aft sun deck and broad wheelhouse. Eye position stays clear.
+  box(B * 0.83, 3.1, L * 0.225, C.white, 0, 4.25, L * 0.355);
+  box(B * 0.86, 0.18, L * 0.23, C.blue, 0, 5.85, L * 0.355);
+  box(B * 0.77, 2.3, L * 0.085, C.white, 0, 7.1, L * 0.285);
+  box(B * 0.81, 0.2, L * 0.095, C.white, 0, 8.35, L * 0.285);
+  box(B * 0.8, 0.07, L * 0.094, C.blue, 0, 8.48, L * 0.285);
+  box(B * 0.71, 1.28, 0.06, C.glass, 0, 7.45, L * 0.242 - 0.03);
+  box(B * 0.7, 1.18, 0.06, C.glass, 0, 7.45, L * 0.328 + 0.03);
+  for (let i = -2; i <= 2; i++) box(0.08, 1.4, 0.11, C.white, i * B * 0.14, 7.45, L * 0.242 - 0.06);
+  for (const side of [-1, 1]) {
+    box(0.06, 1.25, L * 0.07, C.glass, side * B * 0.388, 7.45, L * 0.285);
+    for (let i = 0; i < 5; i++) {
+      const z = L * (0.27 + i * 0.039);
+      box(0.08, 1.15, 1.3, C.steel, side * B * 0.418, 4.65, z);
+      box(0.09, 0.93, 1.08, C.glass, side * B * 0.423, 4.65, z);
+    }
+    rail(side * B * 0.42, L * 0.34, L * 0.455, 5.95);
+    // Fender tyres and lifebuoys.
+    for (let z = -L * 0.25; z < L * 0.39; z += L * 0.16) {
+      const tyre = mesh(new T.TorusGeometry(0.42, 0.17, 6, 12), C.rubber, side * B * 0.503, 1.4, z);
+      tyre.rotation.y = Math.PI / 2;
+      rod([side * B * 0.48, 2.7, z], [side * B * 0.51, 1.7, z], 0.035, C.steel);
+    }
+    const ring = mesh(
+      new T.TorusGeometry(0.4, 0.105, 6, 16),
+      '#ef572d',
+      side * B * 0.425,
+      4.8,
+      L * 0.345,
     );
-  // One colour band of the hull: section points (port to starboard) per station.
-  function band(sectionAt, color) {
-    const pos = [];
-    for (let i = 0; i < N; i++) {
-      const a = sectionAt(stations[i]),
-        b = sectionAt(stations[i + 1]);
-      for (let j = 0; j < a.length - 1; j++) {
-        const p = [a[j], a[j + 1], b[j + 1], b[j]];
-        pos.push(...p[0], ...p[1], ...p[2], ...p[0], ...p[2], ...p[3]);
+    ring.rotation.y = Math.PI / 2;
+  }
+  // Engine-room ventilation and two modest exhausts, instead of a sea-ship funnel.
+  box(B * 0.27, 2.3, 0.15, C.steel, 0, 4.1, L * 0.469);
+  for (let i = 0; i < 8; i++) box(B * 0.26, 0.07, 0.2, C.hull, 0, 3.2 + i * 0.26, L * 0.47);
+  for (const x of [-B * 0.3, B * 0.3]) tube(0.17, 1.5, C.hull, x, 6.65, L * 0.425);
+  box(1.9, 0.15, 1.05, '#bd9967', 0, 6.8, L * 0.39);
+  for (const z of [L * 0.38, L * 0.4]) box(1.9, 0.15, 0.28, '#bd9967', 0, 6.35, z);
+  // Ladder onto the aft deck.
+  for (const x of [-B * 0.28 - 0.28, -B * 0.28 + 0.28])
+    rod([x, 2.8, L * 0.475], [x, 6.25, L * 0.475], 0.045);
+  for (let y = 3; y < 6.2; y += 0.32)
+    rod([-B * 0.28 - 0.28, y, L * 0.475], [-B * 0.28 + 0.28, y, L * 0.475], 0.04);
+
+  // Repeated tank fittings; no above-deck cylindrical cargo tanks.
+  const bays = Math.max(4, Math.round(L / 16));
+  for (let i = 0; i < bays; i++) {
+    const z = -L * 0.28 + (i * (L * 0.46)) / (bays - 1);
+    for (const side of [-1, 1]) {
+      const x = side * B * 0.24;
+      tube(0.62, 0.22, C.steel, x, 2.83, z);
+      tube(0.53, 0.16, C.white, x, 3.02, z);
+      rod([x - 0.2, 3.16, z], [x + 0.2, 3.16, z], 0.04, C.hull);
+      tube(0.18, 0.5, C.blue, side * B * 0.13, 3.1, z + 1.1);
+      const valve = mesh(
+        new T.TorusGeometry(0.25, 0.045, 5, 10),
+        C.blue,
+        side * B * 0.13,
+        3.5,
+        z + 1.1,
+      );
+      valve.rotation.x = Math.PI / 2;
+      rod([side * B * 0.13, 3, z], [x, 3, z], 0.1, C.pipe);
+    }
+  }
+  for (const x of [-0.95, -0.45, 0.45, 0.95])
+    rod([x, 3.12, -L * 0.33], [x, 3.12, L * 0.205], 0.1, C.pipe);
+  box(1.15, 0.14, L * 0.54, C.steel, 0, 3.75, -L * 0.065);
+  for (let z = -L * 0.31; z < L * 0.21; z += 4) {
+    box(1.8, 0.1, 0.18, C.white, 0, 3.7, z);
+    rod([-0.48, 2.7, z], [-0.48, 3.7, z], 0.05, C.steel);
+  }
+  rail(-0.57, -L * 0.32, L * 0.2, 3.8);
+  // Cross-deck bunker manifold and blue flanged outlets.
+  for (const z of [-L * 0.1, L * 0.08]) {
+    rod([-B * 0.37, 3.15, z], [B * 0.37, 3.15, z], 0.18, C.pipe);
+    for (const side of [-1, 1]) {
+      const flange = tube(0.32, 0.15, C.blue, side * B * 0.37, 3.15, z);
+      flange.rotation.z = Math.PI / 2;
+      const reel = mesh(
+        new T.TorusGeometry(0.7, 0.2, 6, 16),
+        C.rubber,
+        side * B * 0.31,
+        3.55,
+        z + 2,
+      );
+      reel.rotation.y = Math.PI / 2;
+      box(0.6, 0.3, 1.8, C.blue, side * B * 0.31, 2.9, z + 2);
+    }
+  }
+  for (const z of [-L * 0.42, L * 0.445])
+    for (const side of [-1, 1]) {
+      const x = side * B * 0.28;
+      box(1.5, 0.15, 1.2, C.steel, x, 2.8, z);
+      for (const dx of [-0.4, 0.4]) {
+        tube(0.15, 0.55, C.hull, x + dx, 3.1, z);
+        tube(0.22, 0.09, C.hull, x + dx, 3.4, z);
       }
     }
-    const geo = new T.BufferGeometry();
-    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-    geo.computeVertexNormals();
-    const m = mesh(geo, color, 0, 0, 0, g);
-    m.castShadow = true;
-    return m;
+  // Anchor windlass and foremast.
+  box(B * 0.38, 0.4, 1.4, C.blue, 0, 2.95, -L * 0.41);
+  rod([-B * 0.18, 3.5, -L * 0.41], [B * 0.18, 3.5, -L * 0.41], 0.18, C.steel);
+  rod([0, 2.8, -L * 0.435], [0, 7.4, -L * 0.435], 0.1);
+  rod([-1.8, 7.2, -L * 0.435], [1.8, 7.2, -L * 0.435], 0.06);
+  rod([0, 8.5, L * 0.3], [0, 11.1, L * 0.3], 0.09);
+  for (const x of [-B * 0.32, B * 0.32]) rod([x, 8.5, L * 0.3], [x, 10.9, L * 0.3], 0.025);
+  for (const z of [-L * 0.23, L * 0.13]) rod([0, 3.8, z], [0, 5.1, z], 0.055);
+  finish(fixed);
+
+  const radar = new T.Group();
+  radar.name = 'Radar-rotor';
+  box(3.0, 0.18, 0.28, C.white, 0, 0.12, 0, radar);
+  box(0.5, 0.3, 0.45, C.blue, 0, -0.05, 0, radar);
+  finish(radar);
+  radar.position.set(0, 10.5, L * 0.3);
+  root.add(radar);
+
+  const slew = new T.Group(),
+    lift = new T.Group();
+  slew.name = 'Bunker-boom-slew';
+  lift.name = 'Bunker-boom-lift';
+  const boomLength = Math.min(25, L * 0.255);
+  tube(0.85, 0.4, C.blue, B * 0.15, 2.9, -L * 0.3, root);
+  tube(0.48, 1.7, C.white, B * 0.15, 3.7, -L * 0.3, root);
+  const boom = new T.Group();
+  boom.name = 'Bunker-boom-truss';
+  for (const x of [-0.45, 0.45])
+    for (const y of [-0.32, 0.32]) rod([x, y, 0], [x, y, boomLength], 0.065, C.steel, boom);
+  const sections = Math.ceil(boomLength / 1.7);
+  for (let i = 0; i < sections; i++) {
+    const z0 = (i * boomLength) / sections,
+      z1 = ((i + 1) * boomLength) / sections;
+    for (const x of [-0.45, 0.45])
+      rod([x, i % 2 ? 0.32 : -0.32, z0], [x, i % 2 ? -0.32 : 0.32, z1], 0.04, C.white, boom);
+    rod([-0.45, 0.32, z0], [0.45, 0.32, z0], 0.04, C.white, boom);
   }
-  const side = (z) => {
-    const yd = deckY(z),
-      hd = half(z, tipD),
-      hw = half(z, tipW);
-    // Above the boot-top the side flares from the waterline to the deck edge.
-    const at = (y) => hw + (hd - hw) * Math.max(0, Math.min(1, y / yd));
-    return { yd, hd, hw, at };
+  rod([0, -0.05, 0], [0, -0.05, boomLength], 0.15, C.rubber, boom);
+  finish(boom);
+  lift.add(boom);
+  slew.add(lift);
+  slew.position.set(B * 0.15, 4.6, -L * 0.3);
+  root.add(slew);
+  // A hanging hose follows the tip, but stays vertical when the boom raises.
+  const hose = new T.Group();
+  hose.name = 'Bunker-hose';
+  const hoseCurve = new T.CatmullRomCurve3([
+    new T.Vector3(),
+    new T.Vector3(0.15, -1.4, 0.1),
+    new T.Vector3(0.45, -3.2, 0.3),
+    new T.Vector3(0.8, -4, 0.1),
+  ]);
+  mesh(new T.TubeGeometry(hoseCurve, 10, 0.16, 6, false), C.rubber, 0, 0, 0, hose);
+  tube(0.25, 0.22, C.blue, 0.8, -4, 0.1, hose);
+  finish(hose);
+  slew.add(hose);
+
+  const nav = new T.Group(),
+    deckLights = new T.Group(),
+    cabin = new T.Group();
+  nav.name = 'Navigation-lights';
+  deckLights.name = 'Deck-lights';
+  cabin.name = 'Wheelhouse-lights';
+  root.add(nav, deckLights, cabin);
+  const glow = (color) =>
+    new T.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.5 });
+  const red = glow('#ff3026'),
+    green = glow('#29ed80'),
+    white = glow('#fff2cc');
+  const lamp = (x, y, z, material, group, radius = 0.14) =>
+    mesh(new T.SphereGeometry(radius, 8, 6), material, x, y, z, group);
+  lamp(-B * 0.4, 7.2, L * 0.255, red, nav);
+  lamp(B * 0.4, 7.2, L * 0.255, green, nav);
+  lamp(0, 7.45, -L * 0.435, white, nav);
+  lamp(0, 11.15, L * 0.3, white, nav);
+  lamp(0, 3.4, L * 0.49, white, nav);
+  for (const z of [-L * 0.23, L * 0.13]) {
+    lamp(0, 5.1, z, white, deckLights, 0.19);
+    // Two bounded lights only; no shadow maps on mobile.
+    const spot = new T.SpotLight('#fff1cd', 300, L * 0.45, Math.PI / 2.8, 0.6, 2);
+    spot.position.set(0, 5.1, z);
+    spot.quaternion.setFromUnitVectors(
+      new T.Vector3(0, 0, -1),
+      new T.Vector3(0, -2.5, -L * 0.08).normalize(),
+    );
+    spot.target.position.set(0, 0, -1);
+    spot.add(spot.target);
+    deckLights.add(spot);
+  }
+  const cabinMat = glow('#ffc776');
+  box(B * 0.68, 0.16, 0.04, cabinMat, 0, 6.93, L * 0.242 - 0.08, cabin);
+  for (const side of [-1, 1])
+    box(0.07, 0.17, L * 0.065, cabinMat, side * B * 0.392, 6.93, L * 0.285, cabin);
+
+  const controls = {
+    radar: true,
+    navigation: true,
+    deck: false,
+    cabin: false,
+    boomSide: 0,
+    boomRaised: false,
   };
-  // Black topside from the boot-top (0.6 m) to the company stripe.
-  band((z) => {
-    const s = side(z);
-    return [
-      [-s.at(s.yd - 1.0), s.yd - 1.0, z],
-      [-s.at(0.6), 0.6, z],
-    ];
-  }, hull);
-  band((z) => {
-    const s = side(z);
-    return [
-      [s.at(0.6), 0.6, z],
-      [s.at(s.yd - 1.0), s.yd - 1.0, z],
-    ];
-  }, hull);
-  // The company stripe under the sheer: the rival you see coming, by colour.
-  for (const k of [-1, 1])
-    band((z) => {
-      const s = side(z);
-      return [
-        [k * s.at(s.yd - 1.0), s.yd - 1.0, z],
-        [k * s.at(s.yd - 0.3), s.yd - 0.3, z],
-      ];
-    }, company);
-  // High white bulwark round the bow (forward of zBul), flat to the deck aft of it.
-  for (const k of [-1, 1])
-    band((z) => {
-      const s = side(z),
-        h = z < zBul ? 1.3 * Math.min(1, (zBul - z) / 3) : 0;
-      return [
-        [k * s.hd, s.yd, z],
-        [k * s.hd, s.yd + h, z],
-      ];
-    }, C.rail);
-  // White sheer strake along the deck edge.
-  for (const k of [-1, 1])
-    band((z) => {
-      const s = side(z);
-      return [
-        [k * s.at(s.yd - 0.3), s.yd - 0.3, z],
-        [k * s.hd, s.yd, z],
-      ];
-    }, C.rail);
-  // Red boot-top and bottom (mostly under water, it shows when she rolls or rides light).
-  band((z) => {
-    const s = side(z);
-    return [
-      [-s.at(0.6), 0.6, z],
-      [-s.hw, 0, z],
-      [-s.hw * 0.9, -0.7, z],
-      [s.hw * 0.9, -0.7, z],
-      [s.hw, 0, z],
-      [s.at(0.6), 0.6, z],
-    ];
-  }, C.boot);
-  // Deck.
-  band((z) => {
-    const s = side(z);
-    return [
-      [-s.hd, s.yd, z],
-      [s.hd, s.yd, z],
-    ];
-  }, C.deck);
-  // Low bulwark (rail) along both sides and round the bow.
-  for (let i = 0; i < N; i += 2) {
-    const z = stations[i];
-    const s = side(z);
-    if (s.hd < 0.5 || z < zBul) continue;
-    for (const k of [-1, 1]) box(0.08, 1.0, 0.08, C.rail, k * (s.hd - 0.12), s.yd + 0.5, z, g);
+  let yaw = 0,
+    elevation = 0;
+  function update(dt, settings = controls) {
+    const delta = Math.max(0, Math.min(0.25, Number.isFinite(dt) ? dt : 0));
+    if (settings.radar !== false)
+      radar.rotation.y = (radar.rotation.y + delta * Math.PI * 0.8) % (Math.PI * 2);
+    const side = [-1, 0, 1].includes(settings.boomSide) ? settings.boomSide : 0;
+    const targetYaw = (side * Math.PI) / 2;
+    // Raise before slewing; centre before lowering back onto the support.
+    const desiredElevation = side || settings.boomRaised || Math.abs(yaw) > 0.01 ? 0.65 : 0;
+    elevation += T.MathUtils.clamp(desiredElevation - elevation, -delta * 0.22, delta * 0.22);
+    if (elevation > 0.5 || side === 0)
+      yaw += T.MathUtils.clamp(targetYaw - yaw, -delta * 0.35, delta * 0.35);
+    slew.rotation.y = yaw;
+    lift.rotation.x = -elevation;
+    hose.position.set(0, Math.sin(elevation) * boomLength, Math.cos(elevation) * boomLength);
+    hose.visible = elevation > 0.5;
+    nav.visible = settings.navigation !== false;
+    deckLights.visible = settings.deck === true;
+    cabin.visible = settings.cabin === true;
   }
-  for (const k of [-1, 1])
-    for (let i = 0; i < N; i++) {
-      const z0 = stations[i],
-        z1 = stations[i + 1],
-        a = side(z0),
-        b = side(z1);
-      if (a.hd < 0.5 || b.hd < 0.5 || z1 < zBul) continue;
-      beam([k * (a.hd - 0.12), a.yd + 1, z0], [k * (b.hd - 0.12), b.yd + 1, z1], 0.05, C.rail, g);
-    }
-  // ---- Bow: forecastle, anchors, windlass, folding foremast ----
-  const zF = -0.43 * L,
-    yF = deckY(zF);
-  box(B * 0.55, 1.1, 0.07 * L, C.deck, 0, yF + 0.45, -0.445 * L, g); // raised foredeck
-  box(1.6, 1.0, 1.4, C.dark, 0, yF + 1.4, -0.43 * L, g); // anchor windlass
-  for (const k of [-1, 1]) {
-    cyl(0.45, 0.9, C.dark, k * 1.3, yF + 1.4, -0.43 * L, g).rotation.z = Math.PI / 2; // gypsies
-    box(0.25, 1.1, 1.4, C.black, k * (side(-0.45 * L).at(1.8) + 0.08), 1.8, -0.45 * L, g); // anchor in its pocket, on the shell
-    cyl(0.25, 0.6, C.dark, k * 2.2, yF + 1.2, -0.41 * L, g); // bollards
-  }
-  cyl(0.18, 9, C.trim, 0, yF + 5.5, -0.415 * L, g); // foremast
-  box(2.6, 0.12, 0.12, C.trim, 0, yF + 8.5, -0.415 * L, g);
-  // ---- Cargo deck: pipe rack, tank domes, vents, catwalk ----
-  const zA = -0.38 * L,
-    zB = 0.2 * L;
-  // Raised catwalk (loopbrug) on the centre line, white railings both sides.
-  box(1.2, 0.12, zB - zA, C.walk, 0, 4.6, (zA + zB) / 2, g);
-  for (let z = zA; z <= zB; z += 6) {
-    box(0.12, 1.6, 0.12, C.walk, 0, 3.8, z, g);
-    for (const k of [-1, 1]) box(0.06, 1.0, 0.06, C.rail, k * 0.6, 5.1, z, g);
-  }
-  for (const k of [-1, 1]) beam([k * 0.6, 5.6, zA], [k * 0.6, 5.6, zB], 0.04, C.rail, g);
-  // Cargo lines beside it, with blue valves at every tank.
-  for (const [x, r, c] of [
-    [-1.7, 0.22, C.pipe],
-    [-1.2, 0.18, C.pipe2],
-    [1.25, 0.2, C.pipe],
-    [1.75, 0.14, C.pipe2],
-  ]) {
-    const p = cyl(r, zB - zA, c, x, 3.45, (zA + zB) / 2, g);
-    p.rotation.x = Math.PI / 2;
-  }
-  for (let z = zA + 3; z < zB; z += 7) box(4.2, 0.15, 0.25, C.pipe2, 0, 3.2, z, g); // pipe supports
-  for (let z = zA + 6; z < zB; z += 9.5)
-    for (const x of [-1.7, 1.25]) box(0.55, 0.5, 0.4, C.flange, x, 3.75, z, g);
-  for (let z = zA + 5, i = 0; z < zB - 4; z += 9.5, i++) {
-    for (const x of [-B * 0.27, B * 0.27]) {
-      cyl(0.65, 0.5, C.trim, x, 3.25, z, g); // tank dome / hatch
-      cyl(0.5, 0.12, C.dark, x, 3.55, z, g);
-    }
-    cyl(0.1, 1.6, C.pipe2, -B * 0.35, 3.8, z + 3, g); // high-velocity vent
-    cyl(0.2, 0.25, C.flange, -B * 0.35, 4.65, z + 3, g);
-  }
-  // ---- Manifold amidships and the hose crane ----
-  const zM = -0.06 * L;
-  for (const k of [-1, 1]) {
-    const pipe = cyl(0.22, B * 0.4, C.pipe, k * B * 0.2, 3.6, zM, g);
-    pipe.rotation.z = Math.PI / 2;
-    cyl(0.38, 0.15, C.flange, k * B * 0.41, 3.6, zM, g).rotation.z = Math.PI / 2;
-    box(1.4, 0.3, 2.2, C.dark, k * B * 0.38, 3.15, zM, g); // drip tray
-  }
-  // The long dark hose crane that reaches up to a seagoing ship's rail.
-  cyl(0.5, 2.8, C.crane, -B * 0.3, 4.4, zM + 3, g); // pedestal
-  beam([-B * 0.3, 5.8, zM + 3], [-B * 0.15, 15, zM - 9], 0.26, C.crane, g); // boom
-  beam([-B * 0.15, 15, zM - 9], [-B * 0.15, 9.5, zM - 9], 0.04, C.dark, g); // wire
-  const hose = new T.TubeGeometry(
-    new T.CatmullRomCurve3([
-      new T.Vector3(-B * 0.15, 9.5, zM - 9),
-      new T.Vector3(-B * 0.25, 6, zM - 4),
-      new T.Vector3(-B * 0.38, 3.9, zM),
-    ]),
-    12,
-    0.2,
-    6,
-  );
-  mesh(hose, C.black, 0, 0, 0, g);
-  // ---- Aft: accommodation, raised wheelhouse on its column, funnels, car, dinghy ----
-  const zH0 = 0.31 * L,
-    zH1 = 0.44 * L,
-    hw = B * 0.43;
-  box(hw * 2, 2.8, zH1 - zH0, C.house, 0, 3 + 1.4, (zH0 + zH1) / 2, g);
-  for (const k of [-1, 1])
-    box(0.06, 0.8, (zH1 - zH0) * 0.8, C.window, k * hw, 4.7, (zH0 + zH1) / 2, g);
-  box(hw * 2 - 0.4, 0.8, 0.06, C.window, 0, 4.7, zH0 - 0.01, g);
-  box(hw * 2 + 0.2, 0.2, zH1 - zH0 + 0.2, C.trim, 0, 5.85, (zH0 + zH1) / 2, g);
-  // Wheelhouse: frame, roof and glass all round; the camera stands inside it.
-  const wf = TANKER.wheelhouseFront * L,
-    wa = TANKER.wheelhouseAft * L,
-    ww = B * 0.36,
-    fl = TANKER.floor;
-  cyl(0.9, fl - 3, C.trim, 0, 3 + (fl - 3) / 2, (wf + wa) / 2 + 1, g); // hydraulic column
-  box(ww * 2, 0.35, wa - wf, C.house, 0, fl - 0.17, (wf + wa) / 2, g); // floor
-  box(ww * 2, 0.8, wa - wf, C.house, 0, fl + 0.4, (wf + wa) / 2, g); // lower panels
-  box(ww * 2 + 0.6, 0.3, wa - wf + 0.6, C.trim, 0, fl + 2.75, (wf + wa) / 2, g); // roof
-  box(ww * 2 + 0.6, 0.12, wa - wf + 0.6, '#bdb7a6', 0, fl + 2.95, (wf + wa) / 2, g);
-  for (const x of [-ww, -ww * 0.55, ww * 0.55, ww]) // no post dead ahead: the view over the bow stays clear
-    box(0.12, 1.8, 0.12, C.trim, x, fl + 1.7, wf, g); // window posts
-  for (const k of [-1, 1])
-    for (const z of [wf, (wf + wa) / 2, wa]) box(0.12, 1.8, 0.12, C.trim, k * ww, fl + 1.7, z, g);
-  const glass = (w, h, d, x, y, z) => mesh(new T.BoxGeometry(w, h, d), glassMat, x, y, z, g);
-  glass(ww * 2, 1.8, 0.05, 0, fl + 1.7, wf);
-  for (const k of [-1, 1]) glass(0.05, 1.8, wa - wf, k * ww, fl + 1.7, (wf + wa) / 2);
-  box(ww * 2, 1.8, 0.1, C.house, 0, fl + 1.7, wa, g); // back wall
-  box(ww * 1.6, 0.9, 0.6, C.dark, 0, fl + 0.85, wf + 0.6, g); // console under the windows
-  // Bridge wings with railing, out over the side for docking.
-  for (const k of [-1, 1]) {
-    box(
-      B * 0.5 + 1.2 - ww,
-      0.2,
-      wa - wf,
-      C.house,
-      k * (ww + (B * 0.5 + 1.2 - ww) / 2),
-      fl - 0.1,
-      (wf + wa) / 2,
-      g,
-    );
-    box(0.08, 1, wa - wf, C.rail, k * (B * 0.5 + 1.2), fl + 0.5, (wf + wa) / 2, g);
-  }
-  // Radar mast on the wheelhouse roof.
-  cyl(0.1, 2.4, C.trim, 0, fl + 4.1, (wf + wa) / 2 + 1, g);
-  box(3.2, 0.15, 0.35, C.dark, 0, fl + 5.3, (wf + wa) / 2 + 1, g);
-  // Two exhaust stacks behind the house.
-  for (const k of [-1, 1]) {
-    cyl(0.32, 3.6, C.house, k * 1.3, 5.95 + 1.8, zH1 - 1.2, g); // standing on the roof
-    cyl(0.34, 0.5, C.black, k * 1.3, 5.95 + 3.8, zH1 - 1.2, g);
-  }
-  // The car on the aft deck, with its little crane: every Dutch skipper's.
-  const zC = 0.47 * L;
-  box(1.7, 0.7, 3.8, '#2e5e8c', 1.2, deckY(zC) + 0.6, zC, g);
-  box(1.5, 0.6, 2.0, '#2e5e8c', 1.2, deckY(zC) + 1.2, zC + 0.2, g);
-  box(1.52, 0.4, 1.8, C.window, 1.2, deckY(zC) + 1.2, zC + 0.2, g);
-  for (const dx of [-0.85, 0.85])
-    for (const dz of [-1.2, 1.2])
-      cyl(0.32, 0.25, C.black, 1.2 + dx, deckY(zC) + 0.3, zC + dz, g).rotation.z = Math.PI / 2;
-  cyl(0.18, 2.5, C.crane, -1.8, deckY(zC) + 1.25, zC, g);
-  beam([-1.8, deckY(zC) + 2.5, zC], [0.4, deckY(zC) + 3.0, zC], 0.1, C.crane, g);
-  // Dinghy on davits over the stern.
-  box(1.4, 0.6, 3.2, '#f2f0e8', -2.6, deckY(zC) + 1.6, zC + 1.4, g);
-  for (const dz of [0.4, 2.4])
-    beam([-1.6, deckY(zC), zC + dz], [-2.6, deckY(zC) + 2.3, zC + dz], 0.06, C.trim, g);
-  // Dutch flag at the stern.
-  const zFl = tipD.stern - 0.6;
-  cyl(0.05, 3.2, C.trim, 0, deckY(zFl) + 1.6, zFl, g);
-  for (const [i, c] of ['#ae1c28', '#f4f4f4', '#21468b'].entries())
-    box(0.04, 0.33, 1.4, c, 0, deckY(zFl) + 3 - i * 0.33, zFl + 0.7, g);
-  // Big fenders hanging along both sides.
-  for (const k of [-1, 1])
-    for (let z = -0.3 * L; z <= 0.3 * L; z += 0.15 * L) {
-      const f = cyl(0.65, 1.3, C.black, k * (B / 2 + 0.55), 1.4, z, g);
-      f.rotation.x = Math.PI / 2;
-    }
-  // Life rings on the house front.
-  for (const k of [-1, 1]) {
-    const ring = mesh(
-      new T.TorusGeometry(0.4, 0.12, 6, 12),
-      '#e6894d',
-      k * hw * 0.7,
-      4.6,
-      zH0 - 0.08,
-      g,
-    );
-    ring.rotation.y = 0;
-  }
-  // Name on the white bow bulwark, in the company colour (as LEONORE, ZEELAND).
-  const cv = document.createElement('canvas');
-  cv.width = 512;
-  cv.height = 80;
-  const cx = cv.getContext('2d');
-  if (cx) {
-    cx.fillStyle = company;
-    cx.font = 'bold 56px sans-serif';
-    cx.textAlign = 'center';
-    cx.textBaseline = 'middle';
-    cx.fillText(name, 256, 42);
-  }
-  const tex = new T.CanvasTexture(cv);
-  const nameMat = new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
-  const zFwd = -0.445 * L,
-    zAft = -0.395 * L;
-  for (const k of [-1, 1]) {
-    // Follow the curving bow: from aft to fore on starboard, fore to aft on port,
-    // so the name reads left to right from either side.
-    const a = { x: k * (side(zAft).hd + 0.06), z: zAft },
-      f = { x: k * (side(zFwd).hd + 0.06), z: zFwd },
-      [p0, p1] = k > 0 ? [a, f] : [f, a];
-    const len = Math.hypot(p1.x - p0.x, p1.z - p0.z);
-    const plate = new T.Mesh(new T.PlaneGeometry(len, len / 6.4), nameMat);
-    const y = Math.max(side(zAft).yd, side(zFwd).yd) + 0.65;
-    plate.position.set((p0.x + p1.x) / 2, y, (p0.z + p1.z) / 2);
-    plate.rotation.y = Math.atan2(-(p1.z - p0.z), p1.x - p0.x);
-    g.add(plate);
-  }
-  return g;
+  update(0);
+  root.userData.tanker = { controls, update, radar, slew, lift, hose, nav, deckLights, cabin };
+  return root;
 }

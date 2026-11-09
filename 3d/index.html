@@ -68,6 +68,20 @@
         ><button id="audio">Geluid aan</button>
       </div>
       <small id="vts"></small>
+      <details class="equipmentPanel">
+        <summary>Schip · radar, verlichting &amp; bunkergiek</summary>
+        <div role="group" aria-label="Scheepsuitrusting">
+          <button id="radarSwitch" aria-pressed="true" title="Radar aan/uit (R)">Radar aan</button>
+          <button id="navSwitch" aria-pressed="true" title="Navigatieverlichting aan/uit (L)">
+            Navigatie aan
+          </button>
+          <button id="deckSwitch" aria-pressed="false">Deklicht uit</button>
+          <button id="cabinSwitch" aria-pressed="false">Stuurhuislicht uit</button>
+          <button id="boomSwitch" title="Vastgemaakt: geborgen → omhoog → bakboord → stuurboord">
+            Giek: geborgen
+          </button>
+        </div>
+      </details>
     </div>
     <nav class="mobileTools mobileOnly" aria-label="Havenpanelen">
       <button id="mapToggle" aria-expanded="false" aria-controls="chartPanel">Kaart</button
