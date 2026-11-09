@@ -70,7 +70,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
     scene.add(edge);
     const place = (r) => {
       for (const o of [m, edge]) {
-        o.position.set((r.x0 + r.x1) / 2, o === m ? 0.6 : 0.7, (r.z0 + r.z1) / 2);
+        o.position.set((r.x0 + r.x1) / 2, (o === m ? 0.6 : 0.7) + waterLevel, (r.z0 + r.z1) / 2);
         o.scale.set(r.x1 - r.x0, r.z1 - r.z0, 1);
       }
     };
@@ -187,7 +187,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       const t = target(s);
       beacon.visible = !!t && !s.moored && s.phase !== 'bunker';
       if (t) {
-        beacon.position.set(t.x, 0, t.z);
+        beacon.position.set(t.x, waterLevel, t.z);
         const col = t.kind === 'ship' ? '#7dffc4' : '#ffd84a';
         beamMat.color.set(col);
         flagMat.color.set(col);
@@ -315,7 +315,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
   scene.add(arrowLabel);
   let arrowText = '';
   const along = (m, x, z, dx, dz, len, width) => {
-    m.position.set(x, 0.95, z);
+    m.position.set(x, 0.95 + waterLevel, z);
     m.rotation.y = Math.atan2(-dz, dx);
     m.scale.set(len, 1, width);
   };
@@ -360,7 +360,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
         }
         arrowTex.needsUpdate = true;
       }
-      arrowLabel.position.set(ax, 7, az);
+      arrowLabel.position.set(ax, 7 + waterLevel, az);
       arrowLabel.scale.set(30, 7.5, 1);
     }
   }
@@ -850,6 +850,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
     if (line.visible) {
       line.geometry.dispose();
       line.geometry = routeRibbon(routePoints(s, t), ROUTE_WIDTH);
+      line.position.y = waterLevel; // the tide lifts the water up to 1,2 m: stay on top of it
     }
   }
   return { zones, updateWake, updateRoute };
