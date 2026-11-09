@@ -9,7 +9,7 @@ De game behoudt het bestaande **110 × 11 m-profiel**, inclusief de gedeelde `hu
 Open **Havenmenu → Schip · radar, verlichting & bunkergiek** (desktop: het havenpaneel).
 
 - Radar: aan/uit, ook **R**; 24 omwentelingen per minuut in werkelijke speeltijd.
-- Navigatieverlichting: aan/uit, ook **L**. Rode bakboord-, groene stuurboord- en witte mast-/heklichten. Dit zijn vereenvoudigde spellampen, zonder gecertificeerde lichtsectoren.
+- Navigatieverlichting: aan/uit, ook **L**. Varend volgens BPR/RPR art. 3.08: wit toplicht op de voormast (225°, 112,5° naar elke kant), een tweede, hoger toplicht achter, zijlichten rood bakboord en groen stuurboord op de stuurhutvleugels (elk 112,5°, van recht vooruit tot 22,5° achterlijker dan dwars, elk 2° over de boeg, zodat je recht van voren beide ziet) en een wit heklicht (135° naar achteren). Elke gloed is alleen te zien vanuit de eigen sector, gezien vanaf de camera. Aangemeerd (BPR 3.20): navigatielichten uit, één wit licht rondom op de stuurhutmast (vereenvoudigd; de regel vraagt de vaarwaterzijde). Lichtsterkte en exacte afschermhoeken zijn vereenvoudigd.
 - Deklicht: twee gerichte lampen verlichten echt het dek; geen extra schaduwkaarten.
 - Stuurhuislicht: warme lichtstroken in de ramen.
 - Giek: klik achtereenvolgens voor **omhoog → bakboord → stuurboord → geborgen**. Bediening kan als het schip is vastgemaakt. De giek komt eerst omhoog, draait dan naar buiten en centreert vóór het zakken. De slang hangt vanaf de top. Losgooien laat de giek terugbergen.

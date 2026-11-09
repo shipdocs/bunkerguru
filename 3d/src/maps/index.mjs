@@ -118,7 +118,7 @@ export function currentAt(x, z, speed) {
   }
   for (const c of channels)
     if (inRect(c, x, z)) {
-      const k = MAP.current.tide ? speed / MAP.current.tide.ebbMax : 1;
+      const k = MAP.current.tide ? speed / MAP.current.tide.ebbMax : CURRENT_FEEL;
       return { x: c.cs * k, z: c.cn * k };
     }
   return { x: 0, z: 0 };
@@ -126,11 +126,16 @@ export function currentAt(x, z, speed) {
 
 // Tide as in engine.js: period in 2D real seconds; the 2D game ran three simulated
 // seconds per real second, so one cycle lasts period × 3 simulated seconds here.
+// CURRENT_FEEL: the 2D maps carry arcade stream speeds (up to 4 m/s on the Waterweg).
+// Seen from the deck in 3D that is too much: leaving a harbour the bow is swept away
+// before the rudder bites. Half of it gives 1.5–2 m/s at the peak, close to the real
+// rivers. One factor for river, eddies and side channels; the hull model is untouched.
+export const CURRENT_FEEL = 0.5;
 export function tideSpeed(clock, phase = 0) {
   const td = MAP.current.tide;
-  if (!td) return MAP.current.base;
+  if (!td) return MAP.current.base * CURRENT_FEEL;
   const f = Math.sin((clock * Math.PI * 2) / (td.period * 3) + phase);
-  return f >= 0 ? td.ebbMax * Math.pow(f, 0.8) : -td.floodMax * Math.pow(-f, 0.8);
+  return (f >= 0 ? td.ebbMax * Math.pow(f, 0.8) : -td.floodMax * Math.pow(-f, 0.8)) * CURRENT_FEEL;
 }
 export function tideState(clock, phase = 0) {
   const td = MAP.current.tide;

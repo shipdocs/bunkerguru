@@ -836,13 +836,19 @@ function drawNight(t) { // schemer en nacht: donkerblauwe waas, vaarlichten op s
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   const glow = (x, y, r, col, a) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col.replace('A', (a * dk).toFixed(2))); g.addColorStop(1, col.replace('A', '0')); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); };
   const vis = (x, y) => x > cam.x - 200 && x < cam.x + VW + 200 && y > cam.y - 200 && y < cam.y + VH + 200;
-  const navLights = (x, y, hdg, len, beam) => { if (!vis(x, y)) return; const c = Math.cos(hdg), sn = Math.sin(hdg); const fx = x + c * len * 0.3, fy = y + sn * len * 0.3; // zijlichten rood bb / groen sb, toplicht wit, heklicht wit
-    glow(fx - sn * beam / 2, fy + c * beam / 2, 14, 'rgba(255,40,40,A)', 0.9); glow(fx + sn * beam / 2, fy - c * beam / 2, 14, 'rgba(40,255,80,A)', 0.9); glow(x - c * len * 0.42, y - sn * len * 0.42, 16, 'rgba(255,240,200,A)', 0.9); glow(x + c * len * 0.1, y + sn * len * 0.1, 22, 'rgba(255,250,220,A)', 0.5); };
+  // Varend (BPR/RPR 3.08): zijlichten rood bakboord / groen stuurboord, toplicht wit voorop, heklicht wit achter.
+  // Lokaal +y = stuurboord. side = waar de zijlichten zitten (stuurhut), mast = toplicht (fractie van de lengte vanaf midden).
+  const navLights = (x, y, hdg, len, beam, side = 0.3, mast = 0.1) => { if (!vis(x, y)) return; const c = Math.cos(hdg), sn = Math.sin(hdg); const fx = x + c * len * side, fy = y + sn * len * side;
+    glow(fx + sn * beam / 2, fy - c * beam / 2, 14, 'rgba(255,40,40,A)', 0.9); glow(fx - sn * beam / 2, fy + c * beam / 2, 14, 'rgba(40,255,80,A)', 0.9); glow(x - c * len * 0.48, y - sn * len * 0.48, 16, 'rgba(255,240,200,A)', 0.9); glow(x + c * len * mast, y + sn * len * mast, 22, 'rgba(255,250,220,A)', 0.5); };
+  // Stilliggend (BPR 3.20): alleen een wit licht rondom (vereenvoudigd: op de stuurhutmast, niet aan de vaarwaterzijde).
+  const mooredLight = (x, y, hdg, len) => { if (vis(x, y)) glow(x - Math.cos(hdg) * len * 0.3, y - Math.sin(hdg) * len * 0.3, 20, 'rgba(255,250,220,A)', 0.7); };
   // spiegeling van lichten in het water: uitgerekte zachte glow onder elk licht
   const refl = (x, y, col, ang) => { if (!vis(x, y) || land.some(l => inPoly({ x, y }, l.poly))) return; ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(3.4, 1); glow(0, 0, 11, col, 0.28); ctx.restore(); };
   for (const b of berths) { if (!vis(b.cx, b.cy)) continue; for (let k = -0.4; k <= 0.4; k += 0.4) refl(b.cx + Math.cos(b.hdg) * b.len * k - Math.sin(b.hdg) * 44, b.cy + Math.sin(b.hdg) * b.len * k + Math.cos(b.hdg) * 44, 'rgba(255,230,170,A)', b.hdg + Math.PI / 2); }
   for (const e of shore) { if (!vis(e.p.x, e.p.y) && !vis(e.q.x, e.q.y)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y); for (let k = 70; k < len; k += 140) refl(e.p.x + (e.q.x - e.p.x) * k / len + e.nx * 30, e.p.y + (e.q.y - e.p.y) * k / len + e.ny * 30, 'rgba(255,200,110,A)', Math.atan2(e.ny, e.nx)); }
-  navLights(boat.x, boat.y, boat.hdg, toPx(boat.L), toPx(boat.B)); for (const r of rivals) if (r.mode !== 'sunk') navLights(r.x, r.y, r.hdg, 2 * RL, 2 * RB); for (const tr of traffic) navLights(tr.cx, tr.cy, tr.hdg, tr.len, SH);
+  // Eigen schip (Leonore): zijlichten op de stuurhut achter, toplicht op de voormast.
+  if (moored) mooredLight(boat.x, boat.y, boat.hdg, toPx(boat.L)); else navLights(boat.x, boat.y, boat.hdg, toPx(boat.L), toPx(boat.B), -0.255, 0.435);
+  for (const r of rivals) if (r.mode !== 'sunk') navLights(r.x, r.y, r.hdg, 2 * RL, 2 * RB); for (const tr of traffic) navLights(tr.cx, tr.cy, tr.hdg, tr.len, SH);
   for (const b of berths) { if (!vis(b.cx, b.cy)) continue; const c = Math.cos(b.hdg), sn = Math.sin(b.hdg); for (let k = -0.4; k <= 0.4; k += 0.2) glow(b.cx + c * b.len * k, b.cy + sn * b.len * k, 18, 'rgba(255,230,170,A)', 0.55); }
   for (const e of shore) { if (!vis(e.p.x, e.p.y) && !vis(e.q.x, e.q.y)) continue; const len = Math.hypot(e.q.x - e.p.x, e.q.y - e.p.y); for (let k = 70; k < len; k += 140) glow(e.p.x + (e.q.x - e.p.x) * k / len - e.nx * 14, e.p.y + (e.q.y - e.p.y) * k / len - e.ny * 14, 26, 'rgba(255,200,110,A)', 0.5); }
   for (const tm of terminals) { const c = sn2w((tm.s0 + tm.s1) / 2, (tm.n0 + tm.n1) / 2); if (vis(c.x, c.y)) glow(c.x, c.y, 160, 'rgba(255,245,210,A)', 0.45); }

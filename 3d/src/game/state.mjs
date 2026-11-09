@@ -52,7 +52,7 @@ export function fresh() {
     jobDamage: 0,
     vtsBonus: 0,
     clock: 0,
-    tidePhase: 1.3,
+    tidePhase: 0.1, // a new career casts off at slack water, the ebb building up
     rivals: [],
     fleet: [],
     fleetMap: null,

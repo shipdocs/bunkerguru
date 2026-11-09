@@ -306,6 +306,8 @@ export function buildClassic(def) {
     radio: def.radio,
     i18n: def.i18n || {},
     version: 5,
+    // 2D map units (s along, n across the river) → metres: x = s·k − cx, z = n·k.
+    sn: { k: K / SCALE, cx },
     halfWidth,
     zMin,
     zMax,

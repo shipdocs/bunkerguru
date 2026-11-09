@@ -52,7 +52,28 @@ Zie [architectuur](docs/ARCHITECTURE.md) en [scheepsregels](VESSEL_RULES.md).
 - `tests/maps.test.mjs` controleert per kaart: alle terminals, wachtplaatsen en klanten liggen op water, passen de romp en accepteren vastmaken; routes lopen niet over land; 30 minuten verkeer en concurrenten blijven op het water en maken klussen af.
 - `tests/ui-smoke.test.mjs` bouwt de echte scène en speelt een klus via de echte knoppen.
 
-Niet getest: echte WebGL-prestaties op een telefoon. Nog niet overgezet: Engels, muziek-/volumepaneel, weerbeelden (regen), ranglijst.
+- `tests/haven.test.mjs` controleert per haven dat elk herkenningspunt op land staat, buiten ligplaatsen, en binnen het driehoekenbudget; plus het weerbeeld en de hoorn van de concurrenten.
+
+Niet getest: echte WebGL-prestaties op een telefoon. Nog niet overgezet: Engels, volumepaneel, ranglijst.
+
+## Stroom en drift
+
+De stroom is in 3D de helft van de waarde op de 2D-kaart (`CURRENT_FEEL = 0.5` in `src/maps/index.mjs`): op de piek 1,5 m/s in Rotterdam, 1,75 m/s op de Schelde en 2 m/s op de Waterweg, dicht bij de echte rivier. De factor geldt voor rivier, neren voor de havenmonden en zijkanalen; het vaarmodel zelf blijft gelijk aan `engine.js`. Een nieuwe carrière begint rond de kentering, zodat de eb pas opkomt als je onderweg bent.
+
+Zoals in 2D zie je drift op het water: wit doorgetrokken is waar de kop heen wijst, geel gestippeld de koers over de grond (vanaf 3° verschil). Voor de boeg staat een cyaan pijl met de stroomrichting en -sterkte op die plek (`src/game/drift.mjs`, getekend in `navigation-effects.mjs`).
+
+## Havens
+
+De indeling is die van de 2D-kaart (rechtgetrokken rivier, bekkens als rechthoeken). Wat erop staat is cartoon, maar staat waar het in het echt staat. `src/render/landmarks.mjs` bevat per haven de herkenningspunten in de s/n-eenheden van `../maps/*.js`, zodat een plek naast de kaart te leggen is:
+
+- **Rotterdam Stad**: Euromast, Depot Boijmans, Zalmhaventoren, Witte Huis, Kubuswoningen, Markthal, Laurenskerk, De Rotterdam, Hotel New York, Maastoren, Maassilo, De Kuip; Erasmusbrug, Willemsbrug, De Hef en Van Brienenoordbrug met hun eigen silhouet.
+- **Nieuwe Waterweg · Botlek**: Maeslantkering, windpark op de Landtong, Groote Kerk Maassluis, verkeerspost, raffinaderijen Europoort, Botlek en Shell Pernis met fakkels, Botlekbrug, Schiedamse molens, Wilton-Fijenoord.
+- **Amsterdam Westpoort**: Hoogovens, windpark, kolenoverslag, Zaandam en de Zaanse molens, Hemwegcentrale, graansilo, NDSM-kraan, REM-eiland, Pontsteiger, A'DAM Toren.
+- **Antwerpen Schelde**: kerncentrale Doel, radartoren Zandvliet, BASF, Fort Liefkenshoek, Fort Lillo met molen De Eenhoorn, Havenhuis, Het Steen, kathedraal, Boerentoren, MAS, Linkeroever met Sint-Annastrand.
+
+Kades hebben een muur met deksloof, bolders en fenders; polderoevers een steenbestorting. Containerkranen staan waar de kaart containers heeft. De grond is per wijk geschilderd (`ground.mjs`). Een nieuw herkenningspunt: regel in `LANDMARKS` (soort, naam, s, n, vrije straal r) en zo nodig een bouwblok in `createLandmarks`.
+
+Weer zoals in 2D: elke 8–15 minuten een nieuw weerbeeld (helder, bewolkt, regen, buien) met weerbericht op de marifoon; wind voel je vanaf 4 Bft en staat achter de klok. Bij regen en buien regent het ook echt. Concurrenten geven een stoot op de hoorn en soms een opmerking over de marifoon als je voor hun boeg ligt.
 
 Three.js r160 staat met MIT-licentie in `vendor/`.
 
