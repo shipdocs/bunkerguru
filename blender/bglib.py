@@ -25,15 +25,18 @@ def args():
     """Vlaggen na '--': --png PAD --glb PAD --px N (pixels per meter) --view top|iso --samples N --outline PX (0 = geen rand)."""
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     out = {'png': None, 'glb': None, 'px': 20.0, 'view': 'top', 'samples': 32, 'outline': 2.5}
-    i = 0
-    while i < len(argv):
-        k = argv[i].lstrip('-')
-        if k in out and i + 1 < len(argv):
-            v = argv[i + 1]
-            out[k] = float(v) if k in ('px', 'outline') else int(v) if k == 'samples' else v
-            i += 2
-        else:
-            i += 1
+    if len(argv) % 2:
+        sys.exit(f'[bglib] vlaggen komen in paren (--naam waarde), kreeg: {argv}')
+    for k, v in zip(argv[::2], argv[1::2]):
+        key = k[2:] if k.startswith('--') else None
+        if key not in out:
+            sys.exit(f'[bglib] onbekende vlag {k}; geldig: ' + ', '.join('--' + n for n in out))
+        try:
+            out[key] = float(v) if key in ('px', 'outline') else int(v) if key == 'samples' else v
+        except ValueError:
+            sys.exit(f'[bglib] {k} verwacht een getal, kreeg {v!r}')
+    if out['view'] not in ('top', 'iso'):
+        sys.exit(f"[bglib] --view is top of iso, kreeg {out['view']!r}")
     return out
 
 
