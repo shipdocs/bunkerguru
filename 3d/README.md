@@ -54,7 +54,11 @@ Zie [architectuur](docs/ARCHITECTURE.md) en [scheepsregels](VESSEL_RULES.md).
 
 - `tests/haven.test.mjs` controleert per haven dat elk herkenningspunt op land staat, buiten ligplaatsen, en binnen het driehoekenbudget; plus het weerbeeld en de hoorn van de concurrenten.
 
-Niet getest: echte WebGL-prestaties op een telefoon. Nog niet overgezet: Engels, volumepaneel, ranglijst.
+Niet getest: echte WebGL-prestaties op een telefoon. Nog niet overgezet: Engels, volumepaneel.
+
+## Ranglijst per haven
+
+Onder de planning staat de ranglijst van de haven: de vijf beste diensten in deze browser (`src/game/ranking.mjs`, opslag `bunkerguru3d-rank-<kaart>`). Een dienst is één verblijf in een haven binnen één carrière; elke afgeronde klus telt erbij. Score per klus zoals in 2D: 1000, plus 3 punten per seconde die je voor de ETA klaar bent (hooguit 900), min 10 per punt schade, plus VTS-punten. De 2D-versie telde de tijd onder vijf minuten; hier telt de marge op de ETA, omdat klussen in 3D een eigen deadline hebben.
 
 ## Stroom en drift
 

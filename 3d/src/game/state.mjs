@@ -56,6 +56,7 @@ export function fresh() {
     rivals: [],
     fleet: [],
     fleetMap: null,
+    shift: null, // leaderboard: made on the first finished job (ranking.mjs)
     trainingDone: false,
     pumping: false,
     xp: 0,
@@ -99,6 +100,14 @@ export function restore(raw) {
   if (Array.isArray(raw.fleet))
     s.fleet = raw.fleet.filter((b) => b && typeof b === 'object').slice(0, 2);
   if (typeof raw.fleetMap === 'string') s.fleetMap = raw.fleetMap;
+  // The running shift counts for the harbour it was sailed in; elsewhere a new one starts.
+  if (raw.shift && raw.shift.mapId === MAP.id && isNum(raw.shift.id) && isNum(raw.shift.score))
+    s.shift = {
+      id: raw.shift.id,
+      mapId: MAP.id,
+      score: Math.max(0, raw.shift.score),
+      jobs: Math.max(0, Math.floor(raw.shift.jobs) || 0),
+    };
   if (isNum(raw.rudderCmd)) s.rudderCmd = clamp(raw.rudderCmd, -1, 1);
   s.rudder = isNum(raw.rudder) ? clamp(raw.rudder, -1, 1) : s.rudderCmd;
   // Voyage state only on the same map and save version.

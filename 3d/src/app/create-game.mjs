@@ -13,7 +13,7 @@ import { newspaper, paperDue, retirement, rankOf } from '../game/career.mjs';
 import { createCards } from '../ui/cards.mjs';
 import { portraitFor } from '../ui/portraits.mjs';
 import { clockStr, dayClock, berthOf, terminalOf } from '../game/harbor.mjs';
-import { addToHall } from './storage.mjs';
+import { addToHall, saveShift } from './storage.mjs';
 import { fastTravel, planFastTravel } from '../game/fast-travel.mjs';
 import { createWorld } from '../render/world.mjs';
 import { createNavigationEffects } from '../render/navigation-effects.mjs';
@@ -108,6 +108,7 @@ export function createGame({ createRenderer } = {}) {
     },
     done: (r) => {
       coinFly(r.total);
+      if (r.shift) saveShift(MAP.id, r.shift);
       if (r.promotion)
         card({
           who: 'Havenmeester',
@@ -126,6 +127,7 @@ export function createGame({ createRenderer } = {}) {
           ' = ' +
           r.total +
           ' 🪙' +
+          (r.score ? ' · ' + r.score + ' punten' : '') +
           (r.dayGoal ? ' · 🏆 Dagdoel: +300!' : '') +
           (r.hazmat ? ' · ☣️ schade aan gevaarlijke lading: reputatie −10' : ''),
         6,

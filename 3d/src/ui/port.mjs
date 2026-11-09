@@ -26,7 +26,7 @@ import {
   canRetire,
   RETIRE_MIN_JOBS,
 } from '../game/career.mjs';
-import { loadHall } from '../app/storage.mjs';
+import { loadHall, loadRanking } from '../app/storage.mjs';
 import { idleBoats, fleetOf, nextBoat, buyBoat, dispatch, CREW_SHARE } from '../game/fleet.mjs';
 
 // Harbours open up with your rank; a locked one says what it takes.
@@ -197,6 +197,28 @@ export function bindPort({
       };
       $('offers').append(card);
     }
+    // Leaderboard of this harbour: the five best shifts, yours marked.
+    const board = MAP.id === 'training' ? [] : loadRanking(MAP.id);
+    $('boardTitle').hidden = $('leaderboard').hidden = MAP.id === 'training';
+    $('boardTitle').textContent = 'Ranglijst ' + MAP.name;
+    $('leaderboard').innerHTML = board.length
+      ? board
+          .map(
+            (e) =>
+              '<li' +
+              (e.id === s.shift?.id ? ' class="mine"' : '') +
+              '><b>' +
+              Math.round(e.score).toLocaleString('nl-NL') +
+              '</b> <small>(' +
+              (e.jobs === 1 ? '1 klus' : e.jobs + ' klussen') +
+              ', ' +
+              e.date +
+              ')' +
+              (e.id === s.shift?.id ? ' ← deze dienst' : '') +
+              '</small></li>',
+          )
+          .join('')
+      : '<li class="none">nog geen scores: maak je eerste klus af</li>';
     const r = getWorld().rivals.filter((x) => !x.own);
     const d = s.day || {};
     $('rank').textContent =
