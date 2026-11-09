@@ -119,6 +119,25 @@ test('scene builds finite geometry and UI supports start, delivery, office, upgr
   assert($('intro').open);
   $('start').click();
   assert(!$('intro').open);
+  const rig = game.scene.getObjectByName('Bunkerguru-tanker').userData.tanker;
+  $('radarSwitch').click();
+  $('deckSwitch').click();
+  $('cabinSwitch').click();
+  $('navSwitch').click();
+  assert.deepEqual(game.state.equipment, {
+    radar: false,
+    navigation: false,
+    deck: true,
+    cabin: true,
+    boomSide: 0,
+    boomRaised: false,
+  });
+  $('boomSwitch').click();
+  $('boomSwitch').click();
+  assert.equal(game.state.equipment.boomSide, -1);
+  globalThis.nextFrame(performance.now() + 16);
+  assert.equal(rig.deckLights.visible, true);
+  assert.equal(rig.nav.visible, false);
   turnWheel(18);
   assert(Math.abs(game.state.rudderCmd - 0.3) < 1e-9);
   assert.equal(game.state.rudder, 0);
@@ -232,6 +251,12 @@ test('scene builds finite geometry and UI supports start, delivery, office, upgr
   $('confirmReset').click();
   assert.notEqual(game.state, previousState);
   assert.equal(game.state.jobs, 0);
+  $('deckSwitch').click();
+  assert.equal(game.state.equipment.deck, true);
+  assert.equal(previousState.equipment.deck, true);
+  $('deckSwitch').click();
+  assert.equal(game.state.equipment.deck, false);
+  assert.equal(previousState.equipment.deck, true);
   turnWheel(15);
   assert(Math.abs(game.state.rudderCmd - 0.25) < 1e-9);
   assert.equal(previousState.rudderCmd, 0);
