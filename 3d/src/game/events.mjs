@@ -25,7 +25,13 @@ export function eventTick(ev, s, dt, world, fx) {
   if (s.phase === 'sunk' || s.moored) ev.next -= dt * 0.3;
   else ev.next -= dt;
   if (ev.fog > 0) ev.fog -= dt;
-  if (ev.wind && (ev.wind.T -= dt) <= 0) {
+  // A storm job keeps a hard beam wind going until it is done (also after a reload).
+  const storm = s.job?.twist === 'storm' && s.phase !== 'done';
+  if (storm && !ev.wind) {
+    const a = Math.random() * Math.PI * 2;
+    ev.wind = { x: Math.cos(a) * 0.9, z: Math.sin(a) * 0.9, T: Infinity, job: true };
+  }
+  if (ev.wind && ((ev.wind.T -= dt) <= 0 || (ev.wind.job && !storm))) {
     ev.wind = null;
     fx.say('Wind is gaan liggen', 3);
   }

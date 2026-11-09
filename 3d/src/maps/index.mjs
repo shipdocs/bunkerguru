@@ -146,8 +146,20 @@ export function tideState(clock, phase = 0) {
       ' ' +
       Math.abs(v).toFixed(1).replace('.', ',') +
       ' m/s ' +
-      (Math.sin(a) >= 0 === rising ? '▲' : '▼'),
+      (Math.sin(a) >= 0 === rising ? '▲' : '▼') +
+      ' · ' +
+      (Math.cos(a) >= 0 ? '+' : '−') +
+      Math.abs(1.2 * Math.cos(a))
+        .toFixed(1)
+        .replace('.', ',') +
+      ' m',
   };
+}
+// Water level in metres around mean: +amp at high water (start of ebb), −amp at low.
+export function tideLevel(clock, phase = 0, amp = 1.2) {
+  const td = MAP.current.tide;
+  if (!td) return 0;
+  return amp * Math.cos((clock * Math.PI * 2) / (td.period * 3) + phase);
 }
 // Next high water (start of ebb) after simulated time t, or null without tide.
 export function nextHighWater(t, phase = 0) {

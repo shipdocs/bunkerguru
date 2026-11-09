@@ -103,6 +103,27 @@ export function estTime(s, ti, bi) {
   return d / 5.5 + 60 + up(s, 'pomp') + 45;
 }
 const tidePhase = (s) => s.tidePhase || 0;
+// Dilemma jobs: each one says plainly what you gain and what you risk.
+export const TWISTS = {
+  hazmat: {
+    tag: '☣️ GEVAARLIJK',
+    mult: 1.35,
+    reward: '+35% loon',
+    risk: 'elke nieuwe schade kost −10 reputatie en haalt de krant',
+  },
+  race: {
+    tag: '🏁 WEDSTRIJD',
+    mult: 1.4,
+    reward: '+40% loon',
+    risk: 'een concurrent gaat zeker ook voor dit schip',
+  },
+  storm: {
+    tag: '💨 STORM',
+    mult: 1.3,
+    reward: '+30% loon',
+    risk: 'harde wind dwars in zolang de klus loopt',
+  },
+};
 function newOffer(s, kind, rnd) {
   const busy = new Set([s.job?.berth, ...s.offers.map((o) => o.berth)]);
   const pool = customers.map((_, i) => i).filter((i) => !busy.has(i));
@@ -125,8 +146,14 @@ function newOffer(s, kind, rnd) {
     deadline = hw === null ? slot + est : hw * LOGIC;
     mult = 1.35;
   }
-  const pay = Math.round(target * 0.6 * mult * (b.gate ? 1.3 : 1) * tariff(s, client));
+  // A dilemma now and then (fase 3): more money, one clear risk.
+  const tw = rnd(),
+    twist = tw < 0.14 ? 'hazmat' : tw < 0.27 && !b.gate ? 'race' : tw < 0.38 ? 'storm' : null;
+  const pay = Math.round(
+    target * 0.6 * mult * (b.gate ? 1.3 : 1) * tariff(s, client) * (TWISTS[twist]?.mult || 1),
+  );
   return {
+    twist,
     id: Math.floor(rnd() * 1e9),
     berth: bi,
     terminal: ti,
@@ -247,6 +274,16 @@ export function settle(s) {
   if (onTime) d.onTime++;
   if (clean) d.clean++;
   if (j) addRep(s, j.client, (onTime ? 3 : -5) + (clean ? 2 : s.damage > 20 ? -4 : 0));
+  // A dangerous cargo spilled into the news: the client remembers.
+  if (j?.twist === 'hazmat' && s.damage > (s.jobDamage || 0) + 0.5) {
+    addRep(s, j.client, -10);
+    result.hazmat = true;
+    addNews(
+      s,
+      'hazmat',
+      'Schade bij gevaarlijke lading: ' + (j.client || 'rederij') + ' eist onderzoek',
+    );
+  }
   if (!d.goalDone && d.onTime >= 3 && d.clean >= 3) {
     d.goalDone = true;
     s.gold += 300;

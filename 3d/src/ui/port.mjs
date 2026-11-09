@@ -13,6 +13,7 @@ import {
   CLOCK_RATE,
   repOf,
   atTerminal,
+  TWISTS,
 } from '../game/harbor.mjs';
 import { MAP_LIST, MAP_KEY } from '../maps/index.mjs';
 import { tideState } from '../maps/index.mjs';
@@ -130,6 +131,7 @@ export function bindPort({
         '</span>' +
         (b.gate ? ' <span class="tag">🔒 ' + b.gate + '</span>' : '') +
         (o.vip ? ' <span class="tag vip">★ vaste klant</span>' : '') +
+        (TWISTS[o.twist] ? ' <span class="tag twist">' + TWISTS[o.twist].tag + '</span>' : '') +
         (o.taken ? ' <span class="tag taken">' + o.taken + '</span>' : '') +
         '</h3><p>' +
         b.company +
@@ -141,7 +143,15 @@ export function bindPort({
         Math.round(repOf(s, o.client)) +
         ' · <b>' +
         o.pay +
-        ' 🪙</b> +25% op tijd</p></div>';
+        ' 🪙</b> +25% op tijd' +
+        (TWISTS[o.twist]
+          ? '<span class="dilemma"><b>Beloning:</b> ' +
+            TWISTS[o.twist].reward +
+            ' · <b>Risico:</b> ' +
+            TWISTS[o.twist].risk +
+            '</span>'
+          : '') +
+        '</p></div>';
       if (!o.taken)
         card.onclick = () => {
           if (takeJob(o.id)) {

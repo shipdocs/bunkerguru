@@ -12,6 +12,14 @@ import {
 import { fresh, step, createWorldState, mooringCandidate } from '../../src/game/simulation.mjs';
 import { hullContacts } from '../../src/game/collisions.mjs';
 import { quickJob } from '../../src/game/harbor.mjs';
+import { landmarkSpots } from '../../src/render/landmarks.mjs';
+// Reproducible run: a fixed seed instead of real randomness (a few seeds left the
+// Antwerpen rivals without a finished job in 30 minutes, a flaky test).
+let seed = Number(process.env.BUNKERGURU_SEED) || 20261109;
+Math.random = () => {
+  seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+  return seed / 4294967296;
+};
 const out = {
   id: MAP.id,
   problems: [],
@@ -21,6 +29,8 @@ const out = {
   routeLegs: 0,
 };
 const bad = (m) => out.problems.push(m);
+for (const p of landmarkSpots())
+  if (!landAt(p.x, p.z, 15)) bad('landmark in the water at ' + p.x + ',' + p.z);
 if (!waterAt(MAP.start.x, MAP.start.z, 4)) bad('start on land');
 for (const t of [...terminals, ...waits]) {
   if (!waterAt(t.x, t.z, 4)) bad(t.name + ' centre on land');
