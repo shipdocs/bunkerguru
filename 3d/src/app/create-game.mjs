@@ -141,7 +141,7 @@ export function createGame({ createRenderer } = {}) {
           ' = ' +
           r.total +
           ' 🪙' +
-          (r.score ? ' · ' + r.score + ' punten' : '') +
+          (r.score !== undefined ? ' · ' + r.score + ' punten' : '') +
           (r.dayGoal ? ' · 🏆 Dagdoel: +300!' : '') +
           (r.hazmat ? ' · ☣️ schade aan gevaarlijke lading: reputatie −10' : ''),
         6,
