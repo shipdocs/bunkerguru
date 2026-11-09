@@ -4,8 +4,32 @@ export const cameraRange = (p) => ({
   max: Math.max(1400, p.length * 12),
   initial: Math.max(160, p.length * 3.1),
 });
-export const CAMERA_MODES = ['follow', 'free', 'top'];
-export const CAMERA_LABELS = { follow: 'Volgcamera', free: 'Vrije camera', top: 'Bovenaanzicht' };
+export const CAMERA_MODES = ['follow', 'free', 'top', 'bridge'];
+export const CAMERA_LABELS = {
+  follow: 'Volgcamera',
+  free: 'Vrije camera',
+  top: 'Bovenaanzicht',
+  bridge: 'Stuurhuis',
+};
+// Wheelhouse view, in the ship's own frame (bow towards −z, port towards −x, waterline
+// y = 0; see ship-model.mjs: deck at 3 m, wheelhouse windows at 0.229 L aft).
+// look: −1 port bridge wing, 0 behind the front windows, +1 starboard wing.
+export const BRIDGE_LOOKS = { '-1': 'Bakboordvleugel', 0: 'Stuurhuis', 1: 'Stuurboordvleugel' };
+export function bridgeEye(profile, look = 0) {
+  const L = profile.length,
+    B = profile.beam;
+  if (!look) return { x: 0, y: 7.9, z: L * 0.215, yaw: 0 };
+  // On the wing, outside the wheelhouse, looking out over the side and a bit forward.
+  return { x: look * (B * 0.5 + 0.4), y: 7.9, z: L * 0.27, yaw: -look * (Math.PI / 2 - 0.35) };
+}
+// Local view direction for a head turn (yaw > 0 to port, pitch > 0 up).
+export function bridgeDir(yaw, pitch) {
+  return {
+    x: -Math.sin(yaw) * Math.cos(pitch),
+    y: Math.sin(pitch),
+    z: -Math.cos(yaw) * Math.cos(pitch),
+  };
+}
 export function nextCamera(mode) {
   return CAMERA_MODES[(CAMERA_MODES.indexOf(mode) + 1) % CAMERA_MODES.length];
 }

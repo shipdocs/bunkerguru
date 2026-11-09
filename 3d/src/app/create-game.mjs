@@ -182,6 +182,8 @@ export function createGame({ createRenderer } = {}) {
     shop: () => (started && !paused ? openPort('shop') : null),
     gate: () => started && !paused && toast(callGate(nearestGate(sim.gates, s))),
     chart: () => $('chartPanel').classList.toggle('expanded'),
+    lookLeft: () => cameraControl.lookLeft(),
+    lookRight: () => cameraControl.lookRight(),
     warp: () => {
       s.timeScale = s.timeScale === 6 ? 3 : 6;
       toast(s.timeScale === 6 ? '⏩ Snelvaart 6× (T = uit)' : 'Normale tijd 3×');
@@ -211,7 +213,7 @@ export function createGame({ createRenderer } = {}) {
     actions,
     sound: (n) => sound.fx(n),
   });
-  const cameraControl = createCameraController({ $, camera, zoomLimits, state: s, toast });
+  const cameraControl = createCameraController({ $, camera, zoomLimits, state: s, toast, boat });
   $('pause').onclick = () => {
     release();
     paused = !paused;

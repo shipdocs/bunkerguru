@@ -4,6 +4,7 @@
 // Space rudder amidships, M moor, N schedule, B shop, C call bridge/lock, K chart,
 // T fast forward, H horn, V VHF, G sound, P music. S = AFSTOPPEN, F = camera,
 // J = "varen naar…" (skip the open-water stretch to just short of the destination).
+// Z/X = look to the port/starboard bridge wing (switches to the wheelhouse view).
 const held = { ArrowLeft: 'left', ArrowRight: 'right', KeyQ: 'bowL', KeyE: 'bowR' };
 const actions = {
   ArrowUp: 'ahead',
@@ -22,6 +23,8 @@ const actions = {
   KeyG: 'sound',
   KeyP: 'music',
   KeyF: 'camera',
+  KeyZ: 'lookLeft',
+  KeyX: 'lookRight',
   KeyJ: 'fast',
   Escape: 'pause',
 };

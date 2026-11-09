@@ -613,3 +613,87 @@ footer .anchor {
     opacity: 0.86;
   }
 }
+
+/* Wheelhouse view: a window frame over the world, and the wing buttons. */
+#bridgeFrame,
+#bridgeLooks {
+  display: none;
+}
+body.bridgeView #bridgeFrame {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Roof and the top of the window frame. */
+  background: linear-gradient(
+    180deg,
+    #1b1510 0,
+    #2a2016 3.5vh,
+    #b8893e 3.5vh,
+    #b8893e calc(3.5vh + 3px),
+    transparent calc(3.5vh + 3px)
+  );
+}
+body.bridgeView #bridgeFrame i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  background: linear-gradient(90deg, #b8893e 0 2px, #2a2016 2px 12px, #b8893e 12px);
+  box-shadow: 0 0 12px #0008;
+}
+body.bridgeView #bridgeFrame i:nth-child(1) {
+  left: 18%;
+}
+body.bridgeView #bridgeFrame i:nth-child(2) {
+  display: none; /* keep the bow line free */
+}
+body.bridgeView #bridgeFrame i:nth-child(3) {
+  right: 18%;
+}
+body.bridgeView #bridgeLooks {
+  display: flex;
+  position: absolute;
+  bottom: 184px; /* just above the console, clear of toasts and the radio */
+  left: 50%;
+  transform: translateX(-50%);
+  gap: 6px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+#bridgeLooks button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #b8893e88;
+  background: #ffffff0d;
+  color: #f3e3b8;
+  font: inherit;
+  cursor: pointer;
+}
+#bridgeLooks button.selected {
+  background: #b8893e;
+  color: #1b1510;
+}
+#bridgeInfo {
+  margin-left: 6px;
+  color: #ffd98a;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
+/* The top-left panels step aside in the wheelhouse: the view is the instrument. */
+body.bridgeView .mission:not(:hover),
+body.bridgeView .harborBar:not(:hover) {
+  opacity: 0.55;
+}
+@media (max-width: 800px), (pointer: coarse) {
+  body.bridgeView #bridgeLooks {
+    bottom: auto;
+    top: calc(3.5vh + 8px);
+    font-size: 11px;
+  }
+  body.bridgeView #bridgeFrame i {
+    width: 8px;
+  }
+}
