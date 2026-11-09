@@ -5,7 +5,7 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 name="${1:?modelnaam, zie blender/models/}"; shift
-command -v blender >/dev/null || { echo "Blender ontbreekt: sudo apt-get install -y blender python3-numpy" >&2; exit 1; }
+command -v blender >/dev/null || { echo "Blender ontbreekt: sudo apt-get install -y blender python3-numpy python3-pil" >&2; exit 1; }
 cd "$here/.."
 PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" blender -b --factory-startup --python-exit-code 1 \
   -P "$here/models/$name.py" -- "$@" > "${TMPDIR:-/tmp}/blender-$name.log" 2>&1 || { tail -30 "${TMPDIR:-/tmp}/blender-$name.log" >&2; exit 1; }

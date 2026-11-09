@@ -1369,7 +1369,7 @@ function drawBoom(t) {
   let side = 0;
   if (state.phase === 'bunker' && ship) { const dx = ship.cx - b.x, dy = ship.cy - b.y; side = -dx * Math.sin(b.hdg) + dy * Math.cos(b.hdg) < 0 ? -1 : 1; } // + = stuurboord
   const wantE = side || Math.abs(BOOM.yaw) > 0.01 ? 0.65 : 0;
-  const k = 3; // zelfde snelheden als de 3D-giek tijdens een levering: ±2,5 s tot boven het zeeschip (bunkeren duurt 6 s)
+  const k = state.phase === 'bunker' ? Math.max(1, 7.5 * warp / (0.4 * up('pomp'))) : 3; // zoals 3D: boven het zeeschip binnen 40 % van de pomptijd (ook turbo-pomp, snelvaart)
   BOOM.e += Math.max(-dt * 0.22 * k, Math.min(dt * 0.22 * k, wantE - BOOM.e));
   if (BOOM.e > 0.5 || side === 0) BOOM.yaw += Math.max(-dt * 0.35 * k, Math.min(dt * 0.35 * k, side * Math.PI / 2 - BOOM.yaw));
   const px = toPx(33), py = toPx(1.6), len = toPx(25) * Math.cos(BOOM.e), w = toPx(1.1) * (1 + BOOM.e * 0.35);

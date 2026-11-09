@@ -20,8 +20,10 @@ export function sideOf(s, ship) {
 
 // While delivering the boom goes up and swings over the customer; afterwards it
 // follows the switches again (stowed once underway). The saved setting is untouched.
-// Three times the manual speed: in place within ±2.5 s, bunkering lasts 6 s.
-export function boomSettings(s, ship) {
+// The manual move takes ±7.5 s; while delivering it speeds up so the hose is over the
+// customer within 40 % of the pumping time (bunkerSeconds, real seconds: 6, 4 or 2.5).
+export function boomSettings(s, ship, bunkerSeconds = 6) {
   if (s.phase !== 'bunker' || !ship) return s.equipment;
-  return { ...s.equipment, boomRaised: true, boomSide: sideOf(s, ship), boomRate: 3 };
+  const boomRate = Math.max(1, 7.5 / (0.4 * Math.max(0.5, bunkerSeconds)));
+  return { ...s.equipment, boomRaised: true, boomSide: sideOf(s, ship), boomRate };
 }

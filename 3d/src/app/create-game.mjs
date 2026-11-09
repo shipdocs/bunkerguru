@@ -1,6 +1,6 @@
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
 import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/graphics.mjs';
-import { MAP, quickJob, planTick, LOGIC } from '../game/harbor.mjs';
+import { MAP, quickJob, planTick, LOGIC, up } from '../game/harbor.mjs';
 import { HarborAudio } from '../audio/harbor-audio.mjs';
 import { createRadio } from '../audio/radio.mjs';
 import { radioChatter } from '../game/chatter.mjs';
@@ -622,7 +622,10 @@ export function createGame({ createRenderer } = {}) {
       s.equipment.boomSide = 0;
       s.equipment.boomRaised = false;
     }
-    boat.userData.tanker.update(playing ? dt : 0, boomSettings(s, s.job && berthOf(s)));
+    boat.userData.tanker.update(
+      playing ? dt : 0,
+      boomSettings(s, s.job && berthOf(s), up(s, 'pomp')),
+    );
     sound.update(s, playing, keys);
     cameraControl.update(s, dt);
     if (shake > 0) {

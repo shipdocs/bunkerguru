@@ -96,8 +96,8 @@ test('delivering raises the boom and swings the hose over the customer ship', as
       const ship = { shipX: s.x + side * 30 * Math.cos(h), shipZ: s.z + side * 30 * Math.sin(h) };
       model.position.set(s.x, 0, s.z);
       model.rotation.y = renderYaw(s.h);
-      // In place within 3 s of a 6 s delivery.
-      for (let i = 0; i < 30; i++) rig.update(0.1, boomSettings(s, ship));
+      // In place within 40 % of the pumping time, also with the turbo pump (2.5 s).
+      for (let i = 0; i < 10; i++) rig.update(0.1, boomSettings(s, ship, 2.5));
       assert(rig.hose.visible, 'hose shows once the boom is up');
       model.updateMatrixWorld(true);
       const tip = rig.hose.getWorldPosition(new T.Vector3());

@@ -3,7 +3,7 @@
 Spelgraphics als Python-code, headless gerenderd met Blender (4.0+).
 
 ```sh
-sudo apt-get install -y blender python3-numpy
+sudo apt-get install -y blender python3-numpy python3-pil
 blender/make.sh sleepboot --png art/tug.png --px 10           # sprite, recht van boven
 blender/make.sh boei_rood --png art/buoy.png --view iso --px 14
 blender/make.sh sleepboot --glb 3d/assets/sleepboot.glb        # 3D-model voor de Three.js-versie

@@ -9,7 +9,7 @@ Modellen worden **in code** gebouwd (`blender/models/<naam>.py`) met de helpers 
 
 ## 1. Klaarzetten (eenmalig per container)
 ```sh
-command -v blender || apt-get install -y blender python3-numpy   # sudo als je geen root bent; numpy is nodig voor GLB-export
+command -v blender || apt-get install -y blender python3-numpy python3-pil   # sudo als je geen root bent; numpy voor GLB-export, Pillow voor fit_sprite.py
 ```
 Geen GPU nodig: renders gaan via Cycles op de CPU (sprite van ~350 px: 2–5 s).
 
