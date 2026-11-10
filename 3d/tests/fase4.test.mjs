@@ -4,8 +4,9 @@ globalThis.BUNKERGURU_MAP = 'rotterdam';
 // Reproducible: the rival AI and offers use Math.random.
 let seed = 4242;
 Math.random = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
-const { fresh, restore, createWorldState, step, takeJob } =
-  await import('../src/game/simulation.mjs');
+const { fresh, restore, createWorldState, step, takeJob } = await import(
+  '../src/game/simulation.mjs'
+);
 const { planTick } = await import('../src/game/harbor.mjs');
 const { customers } = await import('../src/maps/index.mjs');
 const fleet = await import('../src/game/fleet.mjs');

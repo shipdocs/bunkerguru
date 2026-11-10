@@ -7,11 +7,13 @@ globalThis.document = {
   }),
 };
 const T = await import('../../vendor/three.js');
-const { MAP, landAt, terminals, waits, customers, inRect } =
-  await import('../../src/maps/index.mjs');
+const { MAP, landAt, terminals, waits, customers, inRect } = await import(
+  '../../src/maps/index.mjs'
+);
 const { createHarborScenery } = await import('../../src/render/scenery.mjs');
-const { createLandmarks, landmarkSpots, LANDMARKS } =
-  await import('../../src/render/landmarks.mjs');
+const { createLandmarks, landmarkSpots, LANDMARKS } = await import(
+  '../../src/render/landmarks.mjs'
+);
 const { createPrimitives } = await import('../../src/render/primitives.mjs');
 const scene = new T.Scene(),
   problems = [];

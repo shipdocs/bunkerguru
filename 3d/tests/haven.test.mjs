@@ -68,8 +68,9 @@ test('a rival under way sounds the horn once when the player is close ahead', ()
 });
 
 test('current in 3D is half the 2D map value, on the river and at the peak of the tide', async () => {
-  const { MAP, WARP, toWorld, tideSpeed, currentAt, CURRENT_FEEL } =
-    await import('../src/maps/index.mjs');
+  const { MAP, WARP, toWorld, tideSpeed, currentAt, CURRENT_FEEL } = await import(
+    '../src/maps/index.mjs'
+  );
   assert.equal(CURRENT_FEEL, 0.5);
   const td = MAP.current.tide;
   // Peak ebb: a quarter period after slack (period in 2D seconds, ×3 simulated).
