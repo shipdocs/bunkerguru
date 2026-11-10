@@ -7,6 +7,7 @@ import { createHarborScenery, landColor } from './scenery.mjs';
 import { groundTexture, GROUND_TILE } from './ground.mjs';
 import { batchVessel } from './scene-batch.mjs';
 import { warpedRect, warpedSkirt, span } from './warp-geometry.mjs';
+import { createRealTerrain, obbGeometry } from './real-terrain.mjs';
 import {
   MAP,
   land,
@@ -18,6 +19,10 @@ import {
   waits,
   customers,
   tideLevel,
+  SHAPE,
+  riverAt,
+  riverSpan,
+  riverHalfAt,
 } from '../maps/index.mjs';
 import { skyLook } from './daylight.mjs';
 import { createLandmarks } from './landmarks.mjs';
@@ -134,6 +139,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     top.name = 'terrain-top';
     terrain.add(top);
   }
+  if (SHAPE) createRealTerrain(scene, quality);
   batchVessel(sides);
   if (sides.children[0]) sides.children[0].name = 'terrain-surface';
   terrain.add(sides);
@@ -148,9 +154,9 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   for (const b of basins)
     nameAt(
       b.name,
-      (b.x0 + b.x1) / 2,
+      b.label ? b.label.x : (b.x0 + b.x1) / 2,
       12,
-      b.labelZ ?? (b.z0 + b.z1) / 2,
+      b.label ? b.label.z : (b.labelZ ?? (b.z0 + b.z1) / 2),
       Math.min(110, b.x1 - b.x0) * 0.7,
       '#dce4d2',
       scene,
@@ -166,7 +172,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   for (const t of [...terminals, ...waits]) {
     const col = t.kind === 'terminal' ? '#e8c64a' : t.yard ? '#f0b429' : '#4d8fd6';
     const strip = mesh(
-      warpedRect(t, 0.55),
+      t.obb ? obbGeometry(t.obb, 0.55) : warpedRect(t, 0.55),
       new T.MeshBasicMaterial({
         color: col,
         transparent: true,
@@ -187,7 +193,15 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       0.12,
     );
   }
-  for (const side of [-1, 1])
+  // Buoys where the chart ends, across the river at both ends.
+  if (MAP.river)
+    for (const end of [-riverSpan + 30, riverSpan - 30])
+      for (const f of [-0.7, -0.35, 0, 0.35, 0.7]) {
+        const p = riverAt(end, f * riverHalfAt(end));
+        cyl(2, 1, '#d4b77a', p.x, 1, p.z);
+        cyl(0.4, 4, '#d4b77a', p.x, 3, p.z);
+      }
+  for (const side of MAP.river ? [] : [-1, 1])
     for (const x of [-MAP.halfWidth + 30, MAP.halfWidth - 30]) {
       for (const z of [-0.7, -0.35, 0, 0.35, 0.7].map((f) => f * MAP.riverHalf)) {
         const p = toWorld(x, z);
@@ -196,7 +210,10 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       }
       void side;
     }
-  nameAt(MAP.name.toUpperCase() + tr(' · KAARTGRENS'), -MAP.halfWidth + 30, 14, 0, 90);
+  if (MAP.river) {
+    const p = riverAt(-riverSpan + 30, 0);
+    textSprite(MAP.name.toUpperCase() + tr(' · KAARTGRENS'), p.x, 14, p.z, 90);
+  } else nameAt(MAP.name.toUpperCase() + tr(' · KAARTGRENS'), -MAP.halfWidth + 30, 14, 0, 90);
   const vesselProfile = profileOf(s),
     zoomLimits = cameraRange(vesselProfile);
   const boat = createBunkerTanker(vesselProfile);
@@ -286,10 +303,14 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   const lamps = new T.Group();
   lamps.name = 'quay lamps';
   for (const z of [...terminals, ...customers.map((c) => c.zone), ...waits]) {
-    const n = Math.max(2, Math.round((z.x1 - z.x0) / 70));
+    const o = z.obb,
+      n = Math.max(2, Math.round((o ? o.hl * 2 : z.x1 - z.x0) / 70));
     for (let i = 0; i < n; i++) {
       const sp = new T.Sprite(lampMat),
-        p = toWorld(z.x0 + ((i + 0.5) / n) * (z.x1 - z.x0), (z.z0 + z.z1) / 2);
+        u = ((i + 0.5) / n - 0.5) * 2,
+        p = o
+          ? { x: o.cx + o.tx * u * o.hl, z: o.cz + o.tz * u * o.hl }
+          : toWorld(z.x0 + ((i + 0.5) / n) * (z.x1 - z.x0), (z.z0 + z.z1) / 2);
       sp.position.set(p.x, 11, p.z);
       sp.scale.set(26, 26, 1);
       lamps.add(sp);

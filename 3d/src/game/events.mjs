@@ -3,7 +3,17 @@
 // seagoing ship stopped in the fairway. VTS: "wait at the harbour mouth until X has
 // passed" — obeying earns points and reputation, ignoring costs reputation.
 // Times in logic seconds; positions in metres.
-import { MAP, basins, currentAt, landAt, toMap, toWorld } from '../maps/index.mjs';
+import {
+  MAP,
+  basins,
+  currentAt,
+  landAt,
+  riverFrame,
+  riverAt,
+  riverSpan,
+  riverHalfAt,
+  basinMouth,
+} from '../maps/index.mjs';
 import { addRep, up } from './harbor.mjs';
 import { addNews } from './career.mjs';
 
@@ -169,14 +179,15 @@ export function eventTick(ev, s, dt, world, fx) {
     fx.say('💨 Windvlaag! Harde wind dwars in – let op je verlijering.', 6);
   } else if (pick === 4) {
     const dir = (s.tideSpeed || 0) >= 0 ? 1 : -1;
-    // Placed on the map (450 m along the river, somewhere in the fairway); from then
-    // on the container drifts in the world.
-    const mx = Math.max(
-      -MAP.halfWidth + 50,
-      Math.min(MAP.halfWidth - 50, toMap(s.x, s.z).x + dir * 450),
+    // Placed 450 m up or down the river, somewhere in the fairway; from then on the
+    // container drifts in the world.
+    const st = Math.max(
+      -riverSpan + 50,
+      Math.min(riverSpan - 50, riverFrame(s.x, s.z).s + dir * 450),
     );
-    const mz = (Math.random() - 0.5) * MAP.riverHalf * 1.2;
-    ev.flotsam.push({ ...toWorld(mx, mz), rot: Math.random() * 6, T: 400 });
+    const n = (Math.random() - 0.5) * riverHalfAt(st) * 1.2,
+      at = riverAt(st, n);
+    ev.flotsam.push({ x: at.x, z: at.z, rot: Math.random() * 6, T: 400 });
     fx.sound('alarm', 2);
     fx.say('📦 Drijvende container in de vaargeul, komt met de stroom mee!', 6);
     fx.radio([
@@ -210,18 +221,24 @@ export function eventTick(ev, s, dt, world, fx) {
   }
 }
 
-// Harbour mouths and the lanes of the seagoing ships are map geometry: the player is
-// looked up at its place on the map (p), the state itself (s) stays untouched.
+// Harbour mouths and the lanes of the seagoing ships, measured along the river: the
+// player and the ships are looked up at their station (x = along, z = across; see
+// riverFrame), the state itself (s) stays untouched.
+const frameOf = (o) => {
+  const f = riverFrame(o.x, o.z);
+  return { x: f.s, z: f.n };
+};
 function vtsTick(ev, s, dt, world, fx) {
   if (s.phase === 'sunk' || s.moored) return;
-  const p = toMap(s.x, s.z);
+  const p = frameOf(s);
   if (ev.vtsCd > 0) ev.vtsCd -= dt;
-  const RH = MAP.riverHalf;
+  const RH = riverHalfAt(p.x);
   if (ev.vts) {
     const a = ev.vts;
     a.T -= dt;
     const sh = a.sh,
-      passed = Math.sign(sh.x - a.mx) !== a.side0 && Math.abs(sh.x - a.mx) > 30;
+      sx = frameOf(sh).x,
+      passed = Math.sign(sx - a.mx) !== a.side0 && Math.abs(sx - a.mx) > 30;
     const inMouth =
       p.x > a.x0 &&
       p.x < a.x1 &&
@@ -266,22 +283,24 @@ function vtsTick(ev, s, dt, world, fx) {
   }
   if (ev.vtsCd > 0) return;
   for (const b of basins) {
-    const side = b.z0 >= RH - 1 ? 1 : b.z1 <= -RH + 1 ? -1 : 0;
-    if (!side) continue;
-    const mx = (b.x0 + b.x1) / 2,
+    const m = basinMouth(b);
+    if (!m || !m.side) continue;
+    const side = m.side,
+      mx = m.s,
       mz = side * RH,
       d = Math.hypot(p.x - mx, p.z - mz);
     if (d > 350 || d < 60) continue;
-    const x0 = b.x0 - 40,
-      x1 = b.x1 + 40;
+    const x0 = mx - m.half - 40,
+      x1 = mx + m.half + 40;
     if (p.x > x0 && p.x < x1 && Math.abs(p.z) > RH - 75 && Math.sign(p.z) === side) continue;
     for (const sh of world.traffic) {
       if (sh.axis !== 'x' || !sh.v) continue;
-      const dx = mx - sh.x;
+      const shx = frameOf(sh).x,
+        dx = mx - shx;
       if (Math.sign(dx) !== Math.sign(sh.v)) continue;
       const eta = Math.abs(dx) / Math.abs(sh.v) / 3; // logic seconds
       if (eta < 8 || eta > 40) continue;
-      ev.vts = { sh, x0, x1, mx, side, side0: Math.sign(sh.x - mx), T: eta + 25 };
+      ev.vts = { sh, x0, x1, mx, side, side0: Math.sign(shx - mx), T: eta + 25 };
       fx.say('📻 VTS: wacht bij de ' + b.name + ' tot ' + sh.name + ' gepasseerd is', 6);
       fx.card?.({
         who: sector(),

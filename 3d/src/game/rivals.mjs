@@ -15,9 +15,16 @@ import {
   stripSpot,
   waterRouteM as waterRoute,
   waterAtM as waterAt,
+  riverFrameM,
+  riverAtM,
+  riverHalfAt,
+  inBasin as inBasinOf,
 } from '../maps/index.mjs';
 import { hullContacts } from './collisions.mjs';
 const SIM = 3;
+// On a real harbour (twice the length of a 2D map) the AI skippers cruise a little
+// faster, so the competition keeps its pace. Approach and berthing stay as they are.
+const PACE = MAP.aiPace || 1;
 const RL = 55; // half length (m)
 export const RIVAL_DEFS = [
   { name: 'Bunker Bert', color: '#c0392b', spd: 6.0 },
@@ -87,7 +94,7 @@ function terminalSpot(r, rivals) {
         Math.hypot(terminals[a].mx - r.x, terminals[a].mz - r.z) -
         Math.hypot(terminals[b].mx - r.x, terminals[b].mz - r.z),
     );
-  const len = (t) => (t.alongZ ? t.z1 - t.z0 : t.x1 - t.x0);
+  const len = (t) => t.len ?? (t.alongZ ? t.z1 - t.z0 : t.x1 - t.x0);
   // A short terminal holds one boat; a rival or the player there makes it busy.
   // A long one holds two – but with the player lying there, only one rival fits.
   const heading = (i) =>
@@ -107,7 +114,11 @@ function terminalSpot(r, rivals) {
     pos = (s) => (s - 0.5) * (2 * RL + 20);
   // On a long terminal, the berth away from the player when the player lies there.
   if (l >= 4 * RL + 40 && playerAt(t)) {
-    const pc = t.alongZ ? playerRef.p.z - t.mz : playerRef.p.x - t.mx;
+    const pc = t.tx
+      ? (playerRef.p.x - t.mx) * t.tx + (playerRef.p.z - t.mz) * t.tz
+      : t.alongZ
+        ? playerRef.p.z - t.mz
+        : playerRef.p.x - t.mx;
     slot = r.slot = Math.abs(pos(0) - pc) > Math.abs(pos(1) - pc) ? 0 : 1;
   }
   const d = l < 4 * RL + 40 ? 0 : pos(slot);
@@ -115,7 +126,7 @@ function terminalSpot(r, rivals) {
   return {
     ti,
     ...stripSpot(t, d),
-    away: t.alongZ ? { x: -t.wall, z: 0 } : { x: 0, z: -t.wall },
+    away: t.away || (t.alongZ ? { x: -t.wall, z: 0 } : { x: 0, z: -t.wall }),
   };
 }
 function berthSpot(bi) {
@@ -124,7 +135,7 @@ function berthSpot(bi) {
     x: b.mx,
     z: b.mz,
     h: b.mh,
-    away: b.alongX ? { x: 0, z: b.side } : { x: b.side, z: 0 },
+    away: b.away && MAP.real ? b.away : b.alongX ? { x: 0, z: b.side } : { x: b.side, z: 0 },
   };
 }
 function plan(r, spot) {
@@ -307,9 +318,16 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       plan(r, spotNow());
     }
     if (r.stuckT > 45 * SIM) {
-      const lane = MAP.lanes ? MAP.lanes.down : -20;
-      r.z = Math.abs(r.z) < MAP.riverHalf ? lane : Math.sign(r.z) * (MAP.riverHalf - 33);
-      r.h = -Math.PI / 2;
+      if (MAP.river) {
+        // Towed onto the downbound side of the fairway, abreast of where it was.
+        const f = riverFrameM(r.x, r.z),
+          q = riverAtM(f.s, -riverHalfAt(f.s) * 0.3);
+        Object.assign(r, { x: q.x, z: q.z, h: q.h + Math.PI });
+      } else {
+        const lane = MAP.lanes ? MAP.lanes.down : -20;
+        r.z = Math.abs(r.z) < MAP.riverHalf ? lane : Math.sign(r.z) * (MAP.riverHalf - 33);
+        r.h = -Math.PI / 2;
+      }
       r.cur = 0;
       r.stuckT = 0;
       plan(r, spotNow());
@@ -330,7 +348,7 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
       ? Math.min(r.spd, 0.3 + d / 45)
       : r.path.length === 2
         ? Math.min(r.spd, 3.5)
-        : r.spd;
+        : r.spd * PACE;
     if (r.path.length >= 2) {
       // A bend ahead: slow down in time (engine.js: "bocht verderop: afremmen").
       const n2 = r.path[1],
@@ -369,8 +387,8 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
         x: t.x,
         z: t.z,
         len: t.length,
-        vx: t.axis === 'x' ? t.v * t.k : 0,
-        vz: t.axis === 'z' ? t.v * t.k : 0,
+        vx: t.path ? t.vx : t.axis === 'x' ? t.v * t.k : 0,
+        vz: t.path ? t.vz : t.axis === 'z' ? t.v * t.k : 0,
       })),
     ];
     // Patience runs out: after half a minute of waiting, pass with care (the hull
@@ -398,7 +416,10 @@ export function updateRivals(rivals, dt, player, traffic, fx = {}, gates = []) {
         }
       }
     // A basin with another rival manoeuvring in it: wait at the mouth (engine.js).
-    const inBasin = (p) => basins.find((b) => p.x > b.x0 && p.x < b.x1 && p.z > b.z0 && p.z < b.z1);
+    const inBasin = (p) =>
+      basins.find((b) =>
+        b.poly ? inBasinOf(b, p.x, p.z) : p.x > b.x0 && p.x < b.x1 && p.z > b.z0 && p.z < b.z1,
+      );
     const mine = inBasin(r),
       next = inBasin(wp);
     if (next && next !== mine)

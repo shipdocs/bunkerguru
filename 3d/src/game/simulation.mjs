@@ -1,5 +1,6 @@
 // One simulation step: vessel, contacts, traffic, gates, rivals, incidents and the
 // harbour rules of the 2D game (engine.js logic()). No DOM or WebGL.
+import { feelOf, currentOf } from './feel-settings.mjs';
 import { timeScaleOf } from './time-scale.mjs';
 import { hullContacts } from './collisions.mjs';
 import { vesselStep } from './vessel.mjs';
@@ -142,7 +143,7 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
   s.clock = (s.clock || 0) + sim;
   // Tide and current.
   const prevTide = Math.sign(s.tideSpeed || 0);
-  s.tideSpeed = tideSpeed(s.clock, s.tidePhase);
+  s.tideSpeed = tideSpeed(s.clock, s.tidePhase) * currentOf(s).k;
   if (MAP.current.tide && prevTide && Math.sign(s.tideSpeed) !== prevTide)
     fx.say(
       s.tideSpeed > 0
@@ -163,6 +164,7 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
     currentAt: (x, z) => currentAt(x, z, s.tideSpeed),
     wind: windOf(ev),
     upgrades: { motor: up(s, 'motor'), bow: up(s, 'boeg') },
+    feel: feelOf(s),
   };
   const sunk = s.phase === 'sunk';
   const ctx = {

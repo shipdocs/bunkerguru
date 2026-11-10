@@ -27,6 +27,12 @@ Tekenen: land en zones zijn een vervormd raster (`render/warp-geometry.mjs`), ka
 
 Controleren: `BUNKERGURU_WARP=stress npm test` draait alles op een overdreven warp (alle grenzen tegelijk bereikt) en vangt zo code die kaart en wereld verwisselt; `BUNKERGURU_WARP=off` geeft de rechte kaart. In de browser: `?warp=stress` of `?warp=off`.
 
+### Echte havens (Rotterdam)
+
+Rotterdam Stad staat in 3D niet meer op de rechthoeken van de 2D-kaart maar op de echte waterlijn uit OpenStreetMap (`src/maps/real/rotterdam-osm.mjs`, gemaakt met `scripts/osm-outline.py`). Daar is geen warp: kaart en wereld vallen samen (noord boven, x oost, z zuid), `WARP.identity` is waar en `MAP.real` ook. `src/maps/shape.mjs` beantwoordt alle vragen over water en kade uit de omtrek (water ja/nee, afstand en richting tot de kade, kadestukken); `landAtM`, `waterAtM`, `nearestQuay`, `shoreSegments`, botsingen, het water (`water.mjs`), het land (`render/real-terrain.mjs`) en de kaart lezen `SHAPE` als die er is. `src/maps/real-map.mjs` legt terminals, wachtplaatsen, zeeschepen en bruggen tegen de dichtstbijzijnde echte kade (een punt op het water in `real/rotterdam.mjs` volstaat), maakt de vaargeul (`MAP.river`) met stroom en vaarbanen, en zet gebouwen, stapels en kranen neer volgens het grondgebruik.
+
+Langs de rivier rekenen gebeurt met `riverFrame(x, z)` → `{ s, n }` (station langs de geul, afstand ernaast; + = zuid/rechts stroomopwaarts) en `riverAt(s, n)`; op een rechthoekenkaart zijn dat gewoon de kaart-x en -z. Zones en stroken van een echte haven zijn gedraaide rechthoeken (`obb`), bekkens veelhoeken (`poly`, `inBasin`); `inRectW` kent beide. Verkeer volgt een pad (`path`, met `s` langs het pad). De 2D-versie houdt haar eigen Rotterdamkaart.
+
 Tijd: `s.clock` telt gesimuleerde seconden. De 2D-timers (laden, pompen, vermoeidheid, getij, deadlines) liepen op echte seconden terwijl de fysica 3× zo snel liep; daarom rekent `harbor.mjs` met `LOGIC = 1/3`. Op tempo 3× voelt alles precies als het 2D-spel.
 
 Runtime-wereld (`createWorldState`): verkeer, bruggen/sluizen, concurrenten en incidenten. Alleen geld en positie van de concurrenten worden bewaard.

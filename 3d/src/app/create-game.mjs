@@ -1,4 +1,5 @@
 import { nextWarp, tempoLabel } from '../game/time-scale.mjs';
+import { nextInertia, nextCurrent, inertiaLabel, currentLabel } from '../game/feel-settings.mjs';
 import { createTiltShift } from '../render/tilt-shift.mjs';
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
 import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/graphics.mjs';
@@ -352,6 +353,22 @@ export function createGame({ createRenderer } = {}) {
     save();
   };
   $('handling').textContent = 'Vaargedrag: ' + s.handling;
+  // Feel of the water: inertia of the hull and strength of the current (feel-settings.mjs).
+  const feelButtons = () => {
+    $('inertia').textContent = inertiaLabel(s);
+    $('currentFeel').textContent = currentLabel(s);
+  };
+  $('inertia').onclick = () => {
+    s.inertia = nextInertia(s);
+    feelButtons();
+    save();
+  };
+  $('currentFeel').onclick = () => {
+    s.currentFeel = nextCurrent(s);
+    feelButtons();
+    save();
+  };
+  feelButtons();
   mapButtons($('mapList'), MAP.id, (id) => (id === MAP.id ? begin() : switchMap(id, save)), s);
   const mobilePanels = bindMobilePanels($, {
     // The tap that closes the big chart must not open it again.
@@ -365,7 +382,12 @@ export function createGame({ createRenderer } = {}) {
     openPort,
     closePort,
     resetCareer: () => {
-      const keep = { handling: s.handling, timeScale: s.timeScale };
+      const keep = {
+        handling: s.handling,
+        timeScale: s.timeScale,
+        inertia: s.inertia,
+        currentFeel: s.currentFeel,
+      };
       s = Object.assign(fresh(), keep);
       clearFleet(sim);
       for (const r of sim.rivals)
@@ -460,7 +482,13 @@ export function createGame({ createRenderer } = {}) {
     $('retireDlg').showModal();
   }
   $('retireNew').onclick = () => {
-    const keep = { handling: s.handling, timeScale: s.timeScale, trainingDone: true };
+    const keep = {
+      handling: s.handling,
+      timeScale: s.timeScale,
+      inertia: s.inertia,
+      currentFeel: s.currentFeel,
+      trainingDone: true,
+    };
     s = Object.assign(fresh(), keep);
     clearFleet(sim);
     for (const r of sim.rivals)

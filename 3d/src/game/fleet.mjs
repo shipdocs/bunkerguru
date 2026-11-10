@@ -3,7 +3,17 @@
 // you hand them jobs from the planning, they load, sail and bunker, and the pay
 // (minus the crew's share) lands in your cash box. Idle too long, they pick a job
 // themselves. It turns the game into a company, like Railroad Tycoon.
-import { MAP, customers, waterAtM as waterAt, toMap, publishPose } from '../maps/index.mjs';
+import {
+  MAP,
+  customers,
+  waterAtM as waterAt,
+  toMap,
+  publishPose,
+  riverFrameM,
+  riverAtM,
+  riverSpan,
+  riverHalfAt,
+} from '../maps/index.mjs';
 import { rivalStartJob } from './rivals.mjs';
 import { rankIndex, RANKS, addNews } from './career.mjs';
 import { logicTime } from './harbor.mjs';
@@ -62,10 +72,12 @@ function boat(def, sv = {}, at = MAP.mstart) {
 export function createFleet(saved = [], mapId = MAP.id, savedMap = MAP.id) {
   if (MAP.id === 'training') return [];
   // On another map the boats come in on the fairway, one after the other.
-  const RH = MAP.riverHalf,
-    dir = MAP.mstart.x > 0 ? -1 : 1;
+  const st = riverFrameM(MAP.mstart.x, MAP.mstart.z).s,
+    dir = st > 0 ? -1 : 1;
   return saved.slice(0, FLEET_DEFS.length).map((sv, i) => {
-    const at = { x: MAP.mstart.x + (i + 1) * 350 * dir, z: -RH * 0.45, h: -Math.PI / 2 };
+    const k = st + (i + 1) * 350 * dir,
+      p = riverAtM(k, -riverHalfAt(k) * 0.45),
+      at = { x: p.x, z: p.z, h: p.h + Math.PI };
     return boat(
       FLEET_DEFS[i],
       savedMap === mapId ? sv : {},
@@ -86,15 +98,18 @@ export function clearFleet(world) {
 
 // A free spot on the fairway for a new boat: on water, clear of every other vessel.
 export function launchSpot(s, world) {
-  const RH = MAP.riverHalf,
-    p = toMap(s.x, s.z),
+  const p = toMap(s.x, s.z),
+    st = riverFrameM(p.x, p.z).s,
     others = [p, ...world.rivals, ...world.traffic];
   for (const dx of [0, 300, -300, 600, -600, 900, -900, 1200, -1200])
-    for (const z of [RH * 0.45, -RH * 0.45]) {
-      const x = Math.max(-MAP.halfWidth + 200, Math.min(MAP.halfWidth - 200, p.x + dx));
+    for (const side of [1, -1]) {
+      const k = Math.max(-riverSpan + 200, Math.min(riverSpan - 200, st + dx)),
+        q = riverAtM(k, side * riverHalfAt(k) * 0.45),
+        x = q.x,
+        z = q.z;
       if (!waterAt(x, z, 20)) continue;
       if (others.some((o) => Math.hypot(o.x - x, o.z - z) < 170)) continue;
-      return { x, z, h: z > 0 ? Math.PI / 2 : -Math.PI / 2 };
+      return { x, z, h: side > 0 ? q.h : q.h + Math.PI };
     }
   return MAP.mstart;
 }

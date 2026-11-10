@@ -79,15 +79,17 @@ test('current in 3D is half the 2D map value, on the river and at the peak of th
   assert(Math.abs(tideSpeed((td.period * 3 * 3) / 4, 0) + td.floodMax * 0.5) < 1e-9);
   // Mid-river the water runs at that speed towards the sea: −x on the map, along
   // the bend of the river in the world.
-  const mid = toWorld(0, 0),
+  // On a real outline (MAP.river) mid-river is the middle of its fairway.
+  const fair = MAP.river?.at(MAP.river.length / 2),
+    mid = fair || toWorld(0, 0),
     c = currentAt(mid.x, mid.z, peak),
-    sea = WARP.tangent(0, 0, -1, 0),
+    sea = fair ? { x: -fair.tx, z: -fair.tz } : WARP.tangent(0, 0, -1, 0),
     len = Math.hypot(sea.x, sea.z);
   assert(Math.abs(Math.hypot(c.x, c.z) - peak) < 1e-9, 'same strength in a bend');
   assert(
     Math.abs(c.x - (sea.x / len) * peak) < 1e-9 && Math.abs(c.z - (sea.z / len) * peak) < 1e-9,
   );
-  if (WARP.identity) assert(Math.abs(c.x + peak) < 1e-9 && c.z === 0);
+  if (WARP.identity && !MAP.river) assert(Math.abs(c.x + peak) < 1e-9 && c.z === 0);
   // A new career starts near slack water.
   const { fresh } = await import('../src/game/state.mjs');
   assert(Math.abs(tideSpeed(0, fresh().tidePhase)) < 0.3);
@@ -192,4 +194,23 @@ test('a new career starts between 6:00 and 13:00 as in 2D; an older save keeps 6
   assert.equal(restore(old).startHour, 6 * 3600);
   assert.equal(restore({ ...old, startHour: 11 * 3600 }).startHour, 11 * 3600);
   assert.equal(dayClock({ clock: 0 }), 6 * 3600, 'state without the field');
+});
+
+test('real Rotterdam: an old Rotterdam save keeps the fleet record but not its places; basins lie still', async () => {
+  const { restore, fresh } = await import('../src/game/state.mjs');
+  const { MAP, basins, currentAt } = await import('../src/maps/index.mjs');
+  assert.ok(MAP.real && MAP.layout);
+  const old = restore({
+    ...fresh(),
+    layout: undefined,
+    fleet: [{ jobs: 3, earned: 900, x: 10, z: 20, h: 1 }],
+    fleetMap: MAP.id,
+  });
+  assert.deepEqual(old.fleet, [{ jobs: 3, earned: 900 }]);
+  const same = restore({ ...fresh(), fleet: [{ jobs: 3, earned: 900, x: 10, z: 20 }] });
+  assert.equal(same.fleet[0].x, 10);
+  for (const b of basins) {
+    const c = currentAt(b.label.x, b.label.z, 1.5);
+    assert.equal(Math.hypot(c.x, c.z), 0, b.name + ' lies still');
+  }
 });

@@ -1,6 +1,7 @@
 import * as T from '../../vendor/three.js';
 import {
   MAP,
+  SHAPE,
   WARP,
   land,
   quayAxis,
@@ -242,9 +243,19 @@ export const LAND_COLORS = {
 };
 export const landColor = (l) => l.col || LAND_COLORS[l.kind] || '#c9bf9e';
 const HARD = ['city', 'port', 'tanks', 'containers'];
+// On a real outline the district comes from the land use (maps/real-map.mjs).
+const USE = { p: 'port', c: 'city', g: 'park' };
 export const kindAt = (x, z) =>
-  land.find((l) => l.kind !== 'pillar' && x > l.x0 && x < l.x1 && z > l.z0 && z < l.z1)?.kind;
+  SHAPE
+    ? SHAPE.inside(x, z)
+      ? undefined
+      : USE[MAP.landUseAt(x, z)]
+    : land.find((l) => l.kind !== 'pillar' && x > l.x0 && x < l.x1 && z > l.z0 && z < l.z1)?.kind;
 export function landContains(x, z, w = 0, d = 0) {
+  if (SHAPE) {
+    const r = Math.hypot(w, d) / 2;
+    return !SHAPE.inside(x, z) && !(SHAPE.closest(x, z, r)?.d < r);
+  }
   return land.some(
     (l) => x - w / 2 >= l.x0 && x + w / 2 <= l.x1 && z - d / 2 >= l.z0 && z + d / 2 <= l.z1,
   );
@@ -405,6 +416,61 @@ export function createHarborScenery(scene, quality = { light: false }) {
     dummy.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), delta.normalize());
     dummy.updateMatrix();
     emit(tubeGeo, c, dummy.position.x, dummy.position.z, detail, 1, null);
+  }
+  // A bridge of a real outline: straight deck from bank to bank at any angle, its
+  // pillars, ramps down to the street, and the Erasmusbrug's swan.
+  function realBridge(br) {
+    const dx = br.bx - br.ax,
+      dz = br.bz - br.az,
+      L = Math.hypot(dx, dz),
+      tx = dx / L,
+      tz = dz / L,
+      nx = -tz,
+      nz = tx,
+      rot = Math.atan2(-tz, tx),
+      cx = (br.ax + br.bx) / 2,
+      cz = (br.az + br.bz) / 2,
+      dy = (br.height || 30) + 4,
+      at = (u, v) => [cx + tx * u + nx * v, cz + tz * u + nz * v];
+    box(L, 2.4, 24, C.asphalt, cx, dy + 0.4, cz, rot);
+    for (const side of [-1, 1]) {
+      const [x, z] = at(0, side * 12.6);
+      box(L, 4, 1.6, br.color, x, dy, z, rot);
+      const [rx, rz] = at(0, side * 13);
+      box(L, 1.6, 0.5, C.dark, rx, dy + 2.8, rz, rot, true);
+    }
+    box(L, 0.1, 0.5, C.stripe, cx, dy + 1.65, cz, rot, true);
+    for (const dir of [-1, 1]) {
+      const [x, z] = at(dir * (L / 2 + 75), 0),
+        tilt = Math.atan2(dy - 4, 150) * dir;
+      if (!landContains(x, z, 30, 30)) continue;
+      dummy.position.set(x, 4 + (dy - 4) / 2 + 0.4, z);
+      dummy.rotation.set(0, rot, -tilt, 'YXZ');
+      dummy.scale.set(Math.hypot(150, dy - 4), 2.4, 24);
+      dummy.updateMatrix();
+      emit(boxGeo, C.asphalt, x, z, false, 1, null);
+      dummy.rotation.order = 'XYZ';
+    }
+    for (const p of br.pillars) {
+      box(9, dy, 9, '#c9c9c4', p.x, dy / 2, p.z, rot);
+      box(13, 3, 13, '#aeb0aa', p.x, 1, p.z, rot, true);
+    }
+    if (br.pylon !== null && /Erasmus/.test(br.name)) {
+      const u0 = (br.pylon - 0.5) * L,
+        P = (u, v, y) => {
+          const [x, z] = at(u0 + u, v);
+          return [x, y, z];
+        };
+      for (const side of [-1, 1]) {
+        beam(P(0, side * 15, 2), P(10, side * 5, 86), 2.6, br.color);
+        beam(P(10, side * 5, 86), P(34, 0, 142), 2.2, br.color);
+      }
+      for (let i = 1; i <= 8; i++) {
+        const t = i / 8;
+        beam(P(10 + 23 * t, 0, 86 + 54 * t), P(-30 - i * 26, 0, dy), 0.28, br.color, true);
+        beam(P(10 + 23 * t, 0, 86 + 54 * t), P(60 + i * 18, 0, dy), 0.28, br.color, true);
+      }
+    }
   }
   // Soft dark rim on the ground round everything that stands on it: one transparent
   // mesh for the whole harbour. It is what makes a building sit instead of float.
@@ -839,8 +905,10 @@ export function createHarborScenery(scene, quality = { light: false }) {
   single = quays;
   axis = 'affine'; // the wall and its coping follow the warped edge exactly
   for (const sg of shoreSegments) {
-    const alongX = sg.nz !== 0,
-      len = alongX ? sg.width : sg.depth,
+    // A real outline runs at any angle: the pieces are turned along their wall.
+    const rot = sg.length ? Math.atan2(sg.nx, sg.nz) : 0,
+      alongX = !!sg.length || sg.nz !== 0,
+      len = sg.length || (alongX ? sg.width : sg.depth),
       kind = kindAt(sg.x - sg.nx * 3, sg.z - sg.nz * 3),
       w = (t) => (alongX ? len + 0.2 : t),
       d = (t) => (alongX ? t : len + 0.2),
@@ -848,26 +916,26 @@ export function createHarborScenery(scene, quality = { light: false }) {
     edges.push({ sg, alongX, len, kind });
     if (HARD.includes(kind)) {
       let [x, z] = at(0.05);
-      box(w(0.6), 7.4, d(0.6), '#4f5a63', x, 0.3, z, 0, false, 0.55);
+      box(w(0.6), 7.4, d(0.6), '#4f5a63', x, 0.3, z, rot, false, 0.55);
       [x, z] = at(-0.9);
-      box(w(2.6), 0.5, d(2.6), '#efe8d3', x, 4.2, z);
+      box(w(2.6), 0.5, d(2.6), '#efe8d3', x, 4.2, z, rot);
       if (quality.light) continue;
       [x, z] = at(-1.6);
       box(0.8, 1, 0.8, C.dark, x, 4.9, z);
       [x, z] = at(0.45);
-      box(alongX ? 0.7 : 0.3, 3.4, alongX ? 0.3 : 0.7, '#22292e', x, 1.6, z);
+      box(alongX ? 0.7 : 0.3, 3.4, alongX ? 0.3 : 0.7, '#22292e', x, 1.6, z, rot);
     } else {
       let [x, z] = at(0.1);
-      box(w(0.8), 4.6, d(0.8), '#8d8f84', x, -0.9, z, 0, false, 0.6);
+      box(w(0.8), 4.6, d(0.8), '#8d8f84', x, -0.9, z, rot, false, 0.6);
       [x, z] = at(-1.6);
-      box(w(3.2), 0.3, d(3.2), C.grassDark, x, 4.1, z);
+      box(w(3.2), 0.3, d(3.2), C.grassDark, x, 4.1, z, rot);
     }
     if (quality.light) continue;
     // A band of shade on the land behind the edge gives the quay its depth.
     const [ax, az] = at(-2.2),
       [bx, bz] = at(-9),
-      hx = alongX ? len / 2 + 0.1 : 0,
-      hz = alongX ? 0 : len / 2 + 0.1,
+      hx = sg.length ? (-sg.nz * (len + 0.2)) / 2 : alongX ? len / 2 + 0.1 : 0,
+      hz = sg.length ? (sg.nx * (len + 0.2)) / 2 : alongX ? 0 : len / 2 + 0.1,
       a = HARD.includes(kind) ? 0.26 : 0.16,
       quad = [ax - hx, az - hz, ax + hx, az + hz, bx + hx, bz + hz, bx - hx, bz - hz];
     // wind the quad so it faces up whichever way the shore runs
@@ -1227,6 +1295,10 @@ export function createHarborScenery(scene, quality = { light: false }) {
   // Fixed bridges: high deck across the water; the pillars collide. Each named
   // bridge gets the silhouette you know it by.
   for (const br of bridges) {
+    if (br.ax !== undefined) {
+      realBridge(br);
+      continue;
+    }
     const span = br.z1 - br.z0,
       zc = (br.z0 + br.z1) / 2,
       x = br.x,

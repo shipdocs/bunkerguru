@@ -1,0 +1,129 @@
+# Makes src/maps/real/<harbour>-osm.mjs from OpenStreetMap map tiles: the water outline
+# (a polygon in metres, north up) and a coarse land use grid. A one-off developer tool,
+# not part of the game or the tests. Needs Python 3 with numpy, scipy, pillow and
+# opencv-python-headless. Map data © OpenStreetMap contributors (ODbL); fetch few tiles
+# (tile usage policy) and keep the credit on the chart.
+#
+#   python3 scripts/osm-outline.py fetch  <dir> <zoom> <lat_n> <lon_w> <lat_s> <lon_e>
+#   python3 scripts/osm-outline.py build  <dir> <out.mjs> <lat0> <lon0> <x_west> <x_east> <z_min> <z_max>
+#
+# build: water = the colour #aad3df, cleaned (bridges and labels closed, small ponds
+# dropped), traced and simplified to about 5 m; x, z in metres from (lat0, lon0),
+# shifted so the map is centred between x_west and x_east.
+import json, math, subprocess, sys
+import numpy as np
+from PIL import Image
+
+
+def tile(lat, lon, z):
+    n = 2**z
+    x = (lon + 180) / 360 * n
+    y = (1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n
+    return x, y
+
+
+def fetch(d, z, la0, lo0, la1, lo1):
+    x0, y0 = map(int, tile(la0, lo0, z))
+    x1, y1 = map(int, tile(la1, lo1, z))
+    open(f'{d}/range.txt', 'w').write(f'{z} {x0} {x1} {y0} {y1}')
+    for x in range(x0, x1 + 1):
+        for y in range(y0, y1 + 1):
+            subprocess.run(['curl', '-s', '-A', 'map-outline/0.1', '-o', f'{d}/{x}_{y}.png',
+                            f'https://tile.openstreetmap.org/{z}/{x}/{y}.png'])
+
+
+def build(d, out, lat0, lon0, xw, xe, zmin, zmax):
+    import cv2
+    from scipy import ndimage as nd
+    z, x0, x1, y0, y1 = map(int, open(f'{d}/range.txt').read().split())
+    W = Image.new('RGB', ((x1 - x0 + 1) * 256, (y1 - y0 + 1) * 256))
+    for x in range(x0, x1 + 1):
+        for y in range(y0, y1 + 1):
+            W.paste(Image.open(f'{d}/{x}_{y}.png').convert('RGB'), ((x - x0) * 256, (y - y0) * 256))
+    a = np.array(W).astype(int)
+    m = (abs(a[..., 0] - 170) < 8) & (abs(a[..., 1] - 211) < 8) & (abs(a[..., 2] - 223) < 8)
+    m = nd.binary_closing(m, iterations=3)
+    lab, n = nd.label(m)
+    sz = nd.sum(m, lab, range(1, n + 1))
+    keep = np.isin(lab, 1 + np.nonzero(sz > 8000)[0])
+    w = nd.binary_closing(keep, structure=np.ones((3, 3)), iterations=8) | keep
+    # Fill only small holes (labels, buoys, bridge piers): real islands stay land.
+    holes = nd.binary_fill_holes(w) & ~w
+    lab, n = nd.label(holes)
+    if n:
+        sz = nd.sum(holes, lab, range(1, n + 1))
+        w = w | np.isin(lab, 1 + np.nonzero(sz < 3000)[0])
+    w = nd.binary_opening(w, iterations=4)
+    lab, n = nd.label(w)
+    sz = nd.sum(w, lab, range(1, n + 1))
+    w = lab == (np.argmax(sz) + 1)
+    cx = (xw + xe) / 2
+
+    def metres(px, py):
+        X, Y, N = x0 + px / 256, y0 + py / 256, 2**z
+        lon = X / N * 360 - 180
+        lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * Y / N))))
+        return ((lon - lon0) * 111320 * math.cos(math.radians(lat0)) - cx, -(lat - lat0) * 110574)
+
+    cs, _ = cv2.findContours(w.astype(np.uint8), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    rings = []
+    for c in cs:
+        p = cv2.approxPolyDP(c, 1.6, True)[:, 0, :]
+        if len(p) >= 3:
+            rings.append([v for q in p for v in (round(c * 2) / 2 for c in metres(q[0] + 0.5, q[1] + 0.5))])
+    # Land use on a 50 m grid: p = port and industry, c = city, g = green.
+    G = 50
+    hw = (xe - xw) / 2
+    cols, rows = int(2 * hw / G), int((zmax - zmin) / G)
+    CL = {'c': ['#e0dfdf', '#d9d0c9', '#f2dad9', '#c4b6ab', '#ffd6d1', '#f2efe9'],
+          'p': ['#ebdbe8', '#f0d4e7', '#efc8c8'],
+          'g': ['#cdebb0', '#add19e', '#c8facc', '#aed1a0', '#cdebb1', '#c8d7ab', '#b5e3b5', '#def6c0', '#aacbaf']}
+    rgb = lambda c: np.array([int(c[1:3], 16), int(c[3:5], 16), int(c[5:7], 16)])
+
+    def pixel(xm, zm):
+        lon = (xm + cx) / (111320 * math.cos(math.radians(lat0))) + lon0
+        lat = -zm / 110574 + lat0
+        X, Y = tile(lat, lon, z)
+        return (X - x0) * 256, (Y - y0) * 256
+
+    grid = []
+    for r in range(rows):
+        row = ''
+        for c in range(cols):
+            u, v = pixel(-hw + (c + 0.5) * G, zmin + (r + 0.5) * G)
+            u0, v0 = int(u - 8), int(v - 8)
+            best, bn = 'c', 0
+            if 0 <= u0 and 0 <= v0 and u0 + 16 <= a.shape[1] and v0 + 16 <= a.shape[0]:
+                blk = a[v0:v0 + 16, u0:u0 + 16].reshape(-1, 3)
+                for k, cs2 in CL.items():
+                    n = sum(int((np.abs(blk - rgb(cc)).max(1) < 6).sum()) for cc in cs2)
+                    if n > bn:
+                        best, bn = k, n
+            row += best
+        grid.append(row)
+
+    def rle(s):
+        o, i = '', 0
+        while i < len(s):
+            j = i
+            while j < len(s) and s[j] == s[i]:
+                j += 1
+            o += (str(j - i) if j - i > 1 else '') + s[i]
+            i = j
+        return o
+
+    enc = '|'.join(rle(r) for r in grid)
+    open(out, 'w').write(
+        '// Generated by scripts/osm-outline.py from OpenStreetMap (© OpenStreetMap contributors,\n'
+        '// ODbL). Metres, x east, z south (north up), centred on the map.\n'
+        f'export const WATER = {json.dumps(rings, separators=(",", ":"))};\n'
+        f"export const LANDUSE = {{ cell: {G}, cols: {cols}, rows: {rows}, data: '{enc}' }};\n"
+        f'export const BOUNDS = {{ halfWidth: {hw}, zMin: {zmin}, zMax: {zmax} }};\n')
+
+
+if __name__ == '__main__':
+    cmd, d, *rest = sys.argv[1:]
+    if cmd == 'fetch':
+        fetch(d, int(rest[0]), *map(float, rest[1:]))
+    else:
+        build(d, rest[0], *map(float, rest[1:]))

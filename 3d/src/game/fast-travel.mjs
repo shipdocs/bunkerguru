@@ -2,7 +2,7 @@
 // route advice to an approach point short of the destination (or of a closed bridge or
 // lock); time, tide, traffic and rivals move on as if you had sailed it. Manoeuvring,
 // berthing and every interesting decision stay with the player.
-import { waterAt, currentAt, tideSpeed, inRectW, toMap } from '../maps/index.mjs';
+import { waterAt, currentAt, tideSpeed, inRectW, riverFrame, riverHalfAt } from '../maps/index.mjs';
 import { routePoints, LOGIC, CLOCK_RATE, MAP } from './harbor.mjs';
 import { updateTraffic } from './traffic.mjs';
 import { updateGates } from './gates.mjs';
@@ -69,11 +69,12 @@ export function planFastTravel(s, world) {
     // A destination inside a basin: stop on the river in front of the mouth, so the
     // turn into the basin (with the current on the beam) is the player's own.
     // (River and basins are told apart on the map.)
-    const tm = toMap(t.x, t.z),
-      sm = toMap(s.x, s.z);
-    const inBasinTarget = Math.abs(tm.z) > MAP.riverHalf,
-      onRiver = Math.abs(toMap(x, z).z) < MAP.riverHalf - 20;
-    const sameBasin = Math.abs(sm.z) > MAP.riverHalf && Math.abs(sm.x - tm.x) < 400;
+    const tm = riverFrame(t.x, t.z),
+      sm = riverFrame(s.x, s.z),
+      here = riverFrame(x, z);
+    const inBasinTarget = Math.abs(tm.n) > riverHalfAt(tm.s),
+      onRiver = Math.abs(here.n) < riverHalfAt(here.s) - 20;
+    const sameBasin = Math.abs(sm.n) > riverHalfAt(sm.s) && Math.abs(sm.s - tm.s) < 400;
     if (inBasinTarget && !onRiver && !sameBasin) continue;
     if (!busy && waterAt(x, z, 20) && waterAt(bowX, bowZ, 12) && waterAt(sternX, sternZ, 12))
       return { ok: true, x, z, h, dist, target: t, gateName };

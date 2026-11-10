@@ -1,6 +1,7 @@
 import { buildClassic } from './classic-map.mjs';
+import { buildReal, inObb, inPoly } from './real-map.mjs';
 import amsterdam from './classic/amsterdam.mjs';
-import rotterdam from './classic/rotterdam.mjs';
+import rotterdam from './real/rotterdam.mjs';
 import europoort from './classic/europoort.mjs';
 import antwerpen from './classic/antwerpen.mjs';
 import training from './classic/training.mjs';
@@ -33,7 +34,11 @@ export function selectedMapId() {
   } catch {}
   return known || !globalThis.document ? 'amsterdam' : 'training';
 }
-export const MAP = buildClassic(DEFS[selectedMapId()]);
+// Maps with a real outline (def.water) are built on it; the others from the 2D map.
+const DEF = DEFS[selectedMapId()];
+export const MAP = DEF.water ? buildReal(DEF) : buildClassic(DEF);
+// The outline of a real map (maps/shape.mjs), or null on a map of rectangles.
+export const SHAPE = MAP.shape || null;
 export const {
   land,
   basins,
@@ -56,11 +61,13 @@ export const WARP = MAP.warp;
 export const toMap = (x, z) => WARP.inverse(x, z);
 export const toWorld = (x, z) => WARP.forward(x, z);
 export function landAtM(x, z, margin = 0) {
+  if (SHAPE) return SHAPE.land(x, z, margin);
   return land.some(
     (l) => x > l.x0 - margin && x < l.x1 + margin && z > l.z0 - margin && z < l.z1 + margin,
   );
 }
 export function waterAtM(x, z, margin = 0) {
+  if (SHAPE) return SHAPE.water(x, z, margin);
   return (
     x > -MAP.halfWidth + margin &&
     x < MAP.halfWidth - margin &&
@@ -114,6 +121,7 @@ export function rectOutline(r) {
 // Which quay gives a spot on land its direction: 'x' along the river, 'z' along a
 // basin quay, by the nearest water's edge of the land it stands on (map coordinates).
 export function quayAxis(x, z) {
+  if (SHAPE) return 'x';
   const l = land.find(
     (l) => l.kind !== 'pillar' && x >= l.x0 && x <= l.x1 && z >= l.z0 && z <= l.z1,
   );
@@ -150,12 +158,18 @@ export const worldBounds = (() => {
 })();
 // Is a world point inside a map rectangle (zone, strip, gate, basin)?
 export const inRectW = (r, x, z, m = 0) => {
+  if (r.obb) return inObb(r.obb, x, z, m);
+  if (r.poly) return inPoly(r.poly, x, z);
   const p = WARP.inverse(x, z);
   return p.x > r.x0 - m && p.x < r.x1 + m && p.z > r.z0 - m && p.z < r.z1 + m;
 };
 // The nearest quay to a world point: the spot on the wall (world) and the clear
 // distance to it, measured square to the warped wall. rects: map rectangles.
 export function nearestQuay(x, z, rects = land) {
+  if (SHAPE && rects === land) {
+    const w = SHAPE.wall(x, z, 600);
+    return w && { x: w.qx, z: w.qz, d: w.wet ? w.d : 0 };
+  }
   const m = WARP.inverse(x, z);
   let best = null;
   for (const l of rects) {
@@ -179,6 +193,14 @@ export function nearestQuay(x, z, rects = land) {
 // Where a boat lies against the quay of a terminal or waiting place: half a beam plus
 // a fender off the wall, `along` metres from the middle. Map pose; worldPose() warps it.
 export function stripSpot(t, along = 0) {
+  if (t.away) {
+    const off = t.width / 2 - 7;
+    return {
+      x: t.mx - t.away.x * off + t.tx * along,
+      z: t.mz - t.away.z * off + t.tz * along,
+      h: t.mh,
+    };
+  }
   const off = t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7);
   return {
     x: t.alongZ ? t.mx + off : t.mx + along,
@@ -202,7 +224,13 @@ export const inRect = (r, x, z, m = 0) =>
   x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m;
 
 // Quay edges facing water, in 30 m pieces, for rendering and mooring lines.
-export const shoreSegments = [];
+export const shoreSegments = SHAPE
+  ? SHAPE.segments(30).map((g) => ({
+      ...g,
+      width: Math.abs(g.nz) * g.length || 2,
+      depth: Math.abs(g.nx) * g.length || 2,
+    }))
+  : [];
 for (const l of land) {
   if (l.kind === 'pillar') continue;
   for (const [x0, z0, x1, z1, nx, nz] of [
@@ -235,6 +263,7 @@ for (const l of land) {
 // slower along the banks, eddies before harbour mouths, side channels with their
 // own flow. speed > 0 = ebb (towards the sea, −x), < 0 = flood.
 export function currentAt(x, z, speed) {
+  if (MAP.river) return riverCurrent(x, z, speed);
   if (WARP.identity) return currentAtM(x, z, speed);
   // The water follows the bends: same strength, turned along the warped river.
   const m = WARP.inverse(x, z),
@@ -245,7 +274,22 @@ export function currentAt(x, z, speed) {
     k = sp / Math.hypot(t.x, t.z);
   return { x: t.x * k, z: t.z * k };
 }
+// A real river: the water runs along the fairway (seawards on the ebb), strongest in
+// the middle, slack along the banks, still inside the basins.
+function riverCurrent(x, z, speed) {
+  const q = MAP.river.near(x, z);
+  if (!q) return { x: 0, z: 0 };
+  const half = MAP.riverHalfAt(q.s),
+    r = Math.abs(q.n) / half;
+  if (r >= 1.15 || !SHAPE.inside(x, z) || basins.some((b) => b.poly && inBasin(b, x, z)))
+    return { x: 0, z: 0 };
+  const f = r < 1 ? 1 - Math.pow(r, 2.5) * 0.7 : (0.3 * (1.15 - r)) / 0.15,
+    p = MAP.river.at(q.s);
+  // speed > 0 = ebb, towards the sea: against the direction of the fairway (west → east).
+  return { x: -p.tx * speed * f, z: -p.tz * speed * f };
+}
 export function currentAtM(x, z, speed) {
+  if (MAP.river) return riverCurrent(x, z, speed);
   const RH = MAP.riverHalf;
   if (Math.abs(z) < RH && Math.abs(x) < MAP.halfWidth) {
     let f = 1 - Math.pow(Math.abs(z) / RH, 2.5) * 0.7,
@@ -333,23 +377,31 @@ const point = (id) => ({
   z: MAP.zMin + (Math.floor(id / cols) + 0.5) * CELL,
 });
 const shipRects = customers.map((b) =>
-  b.alongX
+  b.zone?.obb
     ? {
-        x0: b.shipMX - b.length / 2,
-        x1: b.shipMX + b.length / 2,
-        z0: b.shipMZ - 14,
-        z1: b.shipMZ + 14,
+        ...b.zone,
+        obb: { cx: b.shipX, cz: b.shipZ, tx: b.tx, tz: b.tz, hl: b.length / 2, hw: b.beam / 2 },
       }
-    : {
-        x0: b.shipMX - 14,
-        x1: b.shipMX + 14,
-        z0: b.shipMZ - b.length / 2,
-        z1: b.shipMZ + b.length / 2,
-      },
+    : b.alongX
+      ? {
+          x0: b.shipMX - b.length / 2,
+          x1: b.shipMX + b.length / 2,
+          z0: b.shipMZ - 14,
+          z1: b.shipMZ + 14,
+        }
+      : {
+          x0: b.shipMX - 14,
+          x1: b.shipMX + 14,
+          z0: b.shipMZ - b.length / 2,
+          z1: b.shipMZ + b.length / 2,
+        },
 );
 const free = new Map();
 function open(x, z, m) {
-  return waterAtM(x, z, m) && !shipRects.some((r) => inRect(r, x, z, m));
+  return (
+    waterAtM(x, z, m) &&
+    !shipRects.some((r) => (r.obb ? inObb(r.obb, x, z, m) : inRect(r, x, z, m)))
+  );
 }
 function clearLine(a, b, m) {
   const d = Math.hypot(b.x - a.x, b.z - a.z),
@@ -486,3 +538,43 @@ export function waterRouteM(start, goal, margin = 10) {
   }
   return [start, goal];
 }
+
+// Along the river: station s (metres from the sea end) and n across it (+ = to the right
+// going upstream), and back. On a map of rectangles these are the map's own x and z.
+export function riverFrame(x, z) {
+  if (MAP.river) {
+    const q = MAP.river.near(x, z);
+    return { s: q.s - MAP.river.length / 2, n: q.n };
+  }
+  const m = WARP.inverse(x, z);
+  return { s: m.x, n: m.z };
+}
+export function riverAt(s, n = 0) {
+  if (MAP.river) {
+    const p = MAP.river.at(s + MAP.river.length / 2);
+    return { x: p.x - p.tz * n, z: p.z + p.tx * n, h: p.h };
+  }
+  return { ...WARP.forward(s, n), h: WARP.heading(s, n, Math.PI / 2) };
+}
+// Half the river's length along its course (= halfWidth on a map of rectangles), and
+// its half width at a station.
+export const riverSpan = MAP.river ? MAP.river.length / 2 : MAP.halfWidth;
+export const riverHalfAt = (s) =>
+  MAP.river ? MAP.riverHalfAt(s + MAP.river.length / 2) : MAP.riverHalf;
+// Is a world point in a basin (on its polygon or map rectangle)?
+export const inBasin = (b, x, z) => (b.poly ? inPoly(b.poly, x, z) : inRectW(b, x, z));
+// Where a basin opens onto the river: station, side (+1 south / right going upstream)
+// and half the width of the mouth along the river.
+export function basinMouth(b) {
+  if (b.mouth) {
+    const f = riverFrame(b.mouth.x, b.mouth.z);
+    return { s: f.s, side: Math.sign(f.n), half: b.mouthHalf || 120 };
+  }
+  const RH = MAP.riverHalf,
+    side = b.z0 >= RH - 1 ? 1 : b.z1 <= -RH + 1 ? -1 : 0;
+  return { s: (b.x0 + b.x1) / 2, side, half: (b.x1 - b.x0) / 2 };
+}
+// The same along the river for boats that sail on the map (rivals, own fleet):
+// map coordinates in and out; h = heading upstream.
+export const riverFrameM = (x, z) => (MAP.river ? riverFrame(x, z) : { s: x, n: z });
+export const riverAtM = (s, n = 0) => (MAP.river ? riverAt(s, n) : { x: s, z: n, h: Math.PI / 2 });
