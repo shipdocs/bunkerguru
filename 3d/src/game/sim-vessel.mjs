@@ -41,6 +41,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
   for (let i = 0; i < count; i++) {
     if (s.moored) {
       s.u = s.v = s.r = 0;
+      s.cx = s.cz = 0; // a ship alongside does not drift: the current starts from nothing
       if (s.engineOff) s.rpm = 0; // a stopped engine stays stopped while moored
       s.rudder += (s.rudderCmd - s.rudder) * Math.min(1, h * 1.5);
       s.braking = false;
@@ -54,7 +55,17 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     const sn = Math.sin(s.h),
       cs = Math.cos(s.h);
     // Ground velocity in world frame, then relative to the water.
-    const c = currentAt(s.x, s.z);
+    // The current the hull has taken on. engine.js: the local current at once. With
+    // feel.lag (seconds) the hull's momentum makes it take the current on gradually,
+    // leaving a harbour or crossing an eddy; in steady water it ends the same.
+    const here = currentAt(s.x, s.z);
+    let c = here;
+    if (feel.lag > 0) {
+      const a = 1 - Math.exp(-h / feel.lag);
+      s.cx = (s.cx ?? here.x) + (here.x - (s.cx ?? here.x)) * a;
+      s.cz = (s.cz ?? here.z) + (here.z - (s.cz ?? here.z)) * a;
+      c = { x: s.cx, z: s.cz };
+    }
     const gx = sn * s.u + cs * s.v,
       gz = -cs * s.u + sn * s.v;
     const rx = gx - c.x,
@@ -138,7 +149,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
       cb = currentAt(s.x + sn * Lp, s.z - cs * Lp),
       ct = currentAt(s.x - sn * Lp, s.z + cs * Lp);
     const shear = (cb.x - ct.x) * cs + (cb.z - ct.z) * sn;
-    s.r += shear * 0.07 * h;
+    s.r += shear * 0.07 * h * (feel.yaw ?? 1);
     // Back to ground frame.
     const wx = sn * u + cs * v + c.x,
       wz = -cs * u + sn * v + c.z;

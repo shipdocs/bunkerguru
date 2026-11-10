@@ -107,3 +107,38 @@ test('the swing carries on after amidships: more when laden, counter-helm checks
   assert(laden > 25 && laden < 45, 'laden ' + laden);
   assert(swingOn('echt', 1, true) < laden / 2, 'counter-helm');
 });
+
+test('the current builds up on the hull: slower when laden, the same drift in the end', () => {
+  const drift = (inertia, load) => {
+    const s = {
+      ...fresh(),
+      x: 1,
+      z: 0,
+      h: Math.PI / 2,
+      moored: false,
+      timeScale: 1,
+      teleIdx: 3,
+      cargo: load * 1000,
+      target: 1000,
+      inertia,
+      cx: 0,
+      cz: 0,
+    };
+    const env = { feel: feelOf(s), currentAt: () => ({ x: 0, z: 0.75 }) };
+    let half = null,
+      last = s.z;
+    for (let t = 0; t < 120; t += 1 / 20) {
+      simStep(s, 1 / 20, {}, undefined, undefined, 0, env);
+      const v = (s.z - last) * 20;
+      last = s.z;
+      if (half === null && v > 0.375) half = t;
+    }
+    return { half, end: (s.z - last) * 20 || 0, v: s.v };
+  };
+  const light = drift('licht', 0),
+    empty = drift('echt', 0),
+    laden = drift('echt', 1);
+  assert(light.half < 1, 'licht as before ' + light.half);
+  assert(empty.half > 4 && empty.half < 10, 'empty ' + empty.half);
+  assert(laden.half > 12 && laden.half < 25, 'laden ' + laden.half);
+});
