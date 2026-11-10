@@ -21,7 +21,10 @@ export function createLegacySound() {
   function init() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
-    master = ac.createGain(); master.gain.value = gMaster(); master.connect(ac.destination);
+    master = ac.createGain(); master.gain.value = gMaster();
+    // 3D: a soft limiter before the speakers, so music, engine and radio together never clip (crackle).
+    const limiter = ac.createDynamicsCompressor(); limiter.threshold.value = -6; limiter.knee.value = 6; limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.15;
+    master.connect(limiter); limiter.connect(ac.destination);
     sfx = ac.createGain(); sfx.gain.value = vol.sfx / 100; sfx.connect(master); radioBus = ac.createGain(); radioBus.gain.value = vol.radio / 100; radioBus.connect(master);
     // dieselmotor: twee zaagtanden, laagdoorlaat, lichte tremolo
     engFilt = ac.createBiquadFilter(); engFilt.type = 'lowpass'; engFilt.frequency.value = 900; engGain = ac.createGain(); engGain.gain.value = 0;
@@ -84,7 +87,14 @@ export function createLegacySound() {
   let snareBuf = null;
   function schedule() {
     if (!ac || !musicOn) return;
-    while (nextT < ac.currentTime + 0.25) {
+    // 3D: when a heavy frame held up the timer, notes that are already late are skipped
+    // instead of all starting at once (that piles up and crackles); the tune stays in time.
+    while (nextT < ac.currentTime + 0.02) {
+      const prevT = events[step].t; step++;
+      if (step >= events.length) { step = 0; pass++; nextT += (loopLen - prevT) * EIGHTH; }
+      else nextT += (events[step].t - prevT) * EIGHTH;
+    }
+    while (nextT < ac.currentTime + 0.4) {
       const e = events[step], t0 = nextT;
       if (e.kind === 'lead') { lead(e.f, t0, e.d * EIGHTH * 0.92, false); if (pass % 2 === 1) lead(e.f * 0.75, t0, e.d * EIGHTH * 0.92, true); } // 2e keer met tweede stem (kwart lager)
       else if (e.kind === 'bass') pluck(e.f, t0, e.d * EIGHTH, 0.22, 'triangle');

@@ -31,10 +31,10 @@ export const inertiaK = (s) =>
   Math.max(1, inertiaOf(s).scale * (REAL_K.empty + (REAL_K.laden - REAL_K.empty) * loadOf(s)));
 // Neer: how hard the difference in current between bow and stern swings the ship,
 // on top of the 3D current (already CURRENT_FEEL = 0.5 of the 2D map). 1 = the
-// engine.js formula on that current; 0.5 halves the swing the 3D game had, so on the
-// 2D map's own stream it is a quarter. Leaving a harbour stays something to steer
-// against, not a spin.
-export const SHEAR_FEEL = 0.5;
+// engine.js formula on that current. A quarter: an eddy at a harbour mouth is
+// noticeably weaker than the river itself; entering or leaving a basin without helm
+// the bow wanders some 20°, something to steer against, not a spin.
+export const SHEAR_FEEL = 0.25;
 // Stroom: the river current and the eddies before the harbour mouths, together.
 export const CURRENTS = Object.freeze([
   { id: 'zwak', k: 0.5 },
