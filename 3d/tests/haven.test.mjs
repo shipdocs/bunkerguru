@@ -171,3 +171,22 @@ test('traffic: one inland barge per direction joins the lanes, half a map away',
   assert(down.beam < 26 && down.length <= 135, 'narrower than its lane mate');
   assert.equal(withBarges(base, 2500, 1).length, 5, 'one direction only');
 });
+
+test('a new career starts between 6:00 and 13:00 as in 2D; an older save keeps 6:00', async () => {
+  const { fresh, restore } = await import('../src/game/state.mjs');
+  const { dayClock } = await import('../src/game/harbor.mjs');
+  const hours = new Set();
+  for (let i = 0; i < 200; i++) {
+    const h = fresh().startHour / 3600;
+    assert(Number.isInteger(h) && h >= 6 && h <= 13);
+    hours.add(h);
+  }
+  assert(hours.size >= 6, 'really spread over the morning');
+  const s = fresh();
+  assert.equal(dayClock({ ...s, clock: 0 }), s.startHour);
+  const old = JSON.parse(JSON.stringify(s));
+  delete old.startHour;
+  assert.equal(restore(old).startHour, 6 * 3600);
+  assert.equal(restore({ ...old, startHour: 11 * 3600 }).startHour, 11 * 3600);
+  assert.equal(dayClock({ clock: 0 }), 6 * 3600, 'state without the field');
+});

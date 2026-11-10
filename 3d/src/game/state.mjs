@@ -58,6 +58,8 @@ export function fresh() {
     rivals: [],
     fleet: [],
     fleetMap: null,
+    // engine.js: clock = 6:00 plus 0–7 whole hours, so dusk and night come sooner or later.
+    startHour: (6 + Math.floor(Math.random() * 8)) * 3600,
     shift: null, // leaderboard: made on the first finished job (ranking.mjs)
     trainingDone: false,
     pumping: false,
@@ -102,6 +104,8 @@ export function restore(raw) {
   if (Array.isArray(raw.fleet))
     s.fleet = raw.fleet.filter((b) => b && typeof b === 'object').slice(0, 2);
   if (typeof raw.fleetMap === 'string') s.fleetMap = raw.fleetMap;
+  // Careers from before this field keep their 6:00 start: their clock must not jump.
+  s.startHour = isNum(raw.startHour) ? raw.startHour : 6 * 3600;
   // The running shift counts for the harbour it was sailed in; elsewhere a new one starts.
   if (raw.shift && raw.shift.mapId === MAP.id && isNum(raw.shift.id) && isNum(raw.shift.score))
     s.shift = {
