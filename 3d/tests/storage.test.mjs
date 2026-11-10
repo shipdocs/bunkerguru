@@ -33,7 +33,8 @@ test('refactored storage reads existing browser keys and preserves career and he
   assert.equal(JSON.parse(values.get('bunkerguru3d-v1')).gold, 4322);
   assert.equal(values.get('bunkerguru-graphics'), 'rich');
   values.set('bunkerguru3d-v1', 'invalid JSON');
-  assert.deepEqual(loadCareer(), fresh());
+  // A new career starts at a random morning hour: compare everything but that.
+  assert.deepEqual({ ...loadCareer(), startHour: 0 }, { ...fresh(), startHour: 0 });
 });
 test('unavailable browser storage cannot prevent a new game or saving attempts', () => {
   globalThis.localStorage = {
@@ -44,7 +45,8 @@ test('unavailable browser storage cannot prevent a new game or saving attempts',
       throw new Error('full');
     },
   };
-  assert.deepEqual(loadCareer(), fresh());
+  // A new career starts at a random morning hour: compare everything but that.
+  assert.deepEqual({ ...loadCareer(), startHour: 0 }, { ...fresh(), startHour: 0 });
   assert.equal(loadGraphicsMode(), 'auto');
   assert.doesNotThrow(() => saveCareer(fresh()));
   assert.doesNotThrow(() => saveGraphicsMode('light'));

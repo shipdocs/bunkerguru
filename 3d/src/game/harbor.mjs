@@ -28,7 +28,8 @@ export function clockStr(t) {
     m = Math.floor((t % 3600) / 60);
   return h + ':' + String(m).padStart(2, '0');
 }
-export const dayClock = (s) => START_HOUR + logicTime(s) * CLOCK_RATE;
+// A career starts somewhere between 6:00 and 13:00, as in the 2D game (state.startHour).
+export const dayClock = (s) => (s.startHour ?? START_HOUR) + logicTime(s) * CLOCK_RATE;
 export const logicTime = (s) => (s.clock || 0) * LOGIC;
 
 export const UPG = {

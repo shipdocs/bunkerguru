@@ -1,3 +1,4 @@
+import { nextWarp, tempoLabel } from '../game/time-scale.mjs';
 import { createTiltShift } from '../render/tilt-shift.mjs';
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
 import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/graphics.mjs';
@@ -239,8 +240,15 @@ export function createGame({ createRenderer } = {}) {
     },
     lookRight: () => cameraControl.lookRight(),
     warp: () => {
-      s.timeScale = s.timeScale === 6 ? 3 : 6;
-      toast(s.timeScale === 6 ? '⏩ Snelvaart 6× (T = uit)' : 'Normale tijd 3×');
+      s.timeScale = nextWarp(s.timeScale);
+      toast(
+        s.timeScale === 6
+          ? '⏩ Snelvaart 6× (T = nog sneller)'
+          : s.timeScale === 12
+            ? '⏩⏩ Snelvaart 12× (T = uit)'
+            : 'Normale tijd 3×',
+      );
+      $('tempo').textContent = tempoLabel(s.timeScale); // the start-screen button shows it too
     },
     horn: () => {
       sound.horn();

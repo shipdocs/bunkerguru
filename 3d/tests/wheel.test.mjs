@@ -98,5 +98,6 @@ test('careers keep their tempo, money and helm; tempo cycles 1×, 2×, 3× (2D p
     assert.equal(restore({ ...updated, timeScale }).timeScale, timeScale);
   assert.equal(nextTempo(2), 3);
   assert.equal(nextTempo(3), 6);
-  assert.equal(nextTempo(6), 1);
+  assert.equal(nextTempo(6), 12);
+  assert.equal(nextTempo(12), 1);
 });
