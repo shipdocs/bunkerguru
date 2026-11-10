@@ -11,6 +11,8 @@ import { clamp } from './math.mjs';
 // slower than engine.js. Same forces, same top speed and stopping point of balance:
 // only how fast the speed moves towards it. {up: 1, down: 1} gives engine.js exactly.
 export const FEEL = { up: 1.3, down: 0.75 };
+// Rudder command rate while a key is held: from start × (1/s) to 1/s over ramp seconds.
+export const HELM = { start: 0.25, ramp: 0.9 };
 export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0, env = {}) {
   const p = profileOf(s);
   const currentAt = env.currentAt || (() => ({ x: 0, z: 0 }));
@@ -22,9 +24,17 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
   const helmDirection = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
   const tired = (s.fatigue || 0) >= 100;
   // engine.js input(): once per frame, 1/s of rudder command in real time.
+  // 3D helm feel (not in engine.js): a held key or button starts gently and speeds
+  // up, so a tap is a fine correction (about 4° in 0,2 s instead of 12°) and holding
+  // still reaches hard over. HELM.ramp = 0 gives engine.js exactly: 1/s at once.
+  const real = clamp(dt, 0, 0.05);
+  s.helmHold = helmDirection && helmDirection === s.helmDir ? (s.helmHold || 0) + real : 0;
+  s.helmDir = helmDirection;
+  const helm = env.helm || HELM,
+    rate = helm.ramp > 0 ? helm.start + (1 - helm.start) * Math.min(1, s.helmHold / helm.ramp) : 1;
   s.rudderCmd = Number.isFinite(keys.helm)
     ? clamp(keys.helm, -1, 1)
-    : clamp((s.rudderCmd ?? s.rudder ?? 0) + helmDirection * clamp(dt, 0, 0.05), -1, 1);
+    : clamp((s.rudderCmd ?? s.rudder ?? 0) + helmDirection * real * rate, -1, 1);
   for (let i = 0; i < count; i++) {
     if (s.moored) {
       s.u = s.v = s.r = 0;

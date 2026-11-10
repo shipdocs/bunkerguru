@@ -124,3 +124,50 @@ test('tilt-shift: sharp across the ship, blur growing to the top and bottom of t
   );
   assert.equal(createTiltShift({}), null, 'no pass without a real renderer');
 });
+
+test('T steps 3× → 6× → 12× and back; every tempo is a valid saved tempo', async () => {
+  const { nextWarp, TEMPOS, timeScaleOf } = await import('../src/game/time-scale.mjs');
+  assert.deepEqual([3, 6, 12].map(nextWarp), [6, 12, 3]);
+  assert.equal(nextWarp(1), 3, 'from a calm tempo T goes to the 2D pace');
+  for (const t of [3, 6, 12]) assert(TEMPOS.includes(t) && timeScaleOf({ timeScale: t }) === t);
+});
+
+test('helm: a tap is a fine correction, holding still reaches hard over; ramp 0 is engine.js', async () => {
+  const { simStep, HELM } = await import('../src/game/sim-vessel.mjs');
+  const hold = (seconds, env = {}) => {
+    const s = { rudderCmd: 0, rudder: 0, moored: true, timeScale: 3 };
+    for (let i = 0; i < Math.round(seconds * 60); i++)
+      simStep(s, 1 / 60, { right: true }, undefined, undefined, 0, env);
+    return s.rudderCmd * 60; // degrees commanded
+  };
+  assert(hold(0.2) > 3 && hold(0.2) < 5.5, 'tap: about 4°, was 12°');
+  assert(Math.abs(hold(0.2, { helm: { start: 1, ramp: 0 } }) - 12) < 0.3, 'engine.js rate');
+  assert(hold(1.0) > 33 && hold(1.0) < 45, 'one second: well on the way');
+  assert.equal(hold(1.6), 60, 'hard over within 1,6 s');
+  assert(HELM.start > 0 && HELM.start < 1 && HELM.ramp > 0);
+  // Letting go and pressing again starts gently again; the helm stays where it was.
+  const s = { rudderCmd: 0, rudder: 0, moored: true, timeScale: 3 };
+  for (let i = 0; i < 60; i++) simStep(s, 1 / 60, { right: true });
+  const held = s.rudderCmd;
+  simStep(s, 1 / 60, {});
+  assert.equal(s.rudderCmd, held);
+  simStep(s, 1 / 60, { right: true });
+  assert(s.rudderCmd - held < 0.006);
+});
+
+test('traffic: one inland barge per direction joins the lanes, half a map away', async () => {
+  const { withBarges } = await import('../src/game/traffic.mjs');
+  const base = [
+    { id: 0, name: 'A', axis: 'x', x: 100, z: -60, v: -3, length: 300, beam: 26 },
+    { id: 1, name: 'B', axis: 'x', x: -900, z: -60, v: -2, length: 200, beam: 26 },
+    { id: 2, name: 'C', axis: 'x', x: 0, z: 50, v: 3, length: 240, beam: 26 },
+    { id: 3, name: 'TUG', axis: 'z', x: 500, z: 400, v: -4, length: 45, beam: 8 },
+  ];
+  const all = withBarges(base, 2500);
+  assert.equal(all.length, 6, 'one down, one up; the tug gets none');
+  const [down, up] = all.slice(4);
+  assert(down.barge && down.z === -60 && down.v === -3 && up.z === 50 && up.v === 3);
+  assert(Math.abs(Math.abs(down.x - 100) - 2600) < 1e-9, 'half the lane length ahead');
+  assert(down.beam < 26 && down.length <= 135, 'narrower than its lane mate');
+  assert.equal(withBarges(base, 2500, 1).length, 5, 'one direction only');
+});

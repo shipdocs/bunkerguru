@@ -5,8 +5,58 @@
 import { MAP } from '../maps/index.mjs';
 const SIM_PER_LOGIC = 3; // 2D: tr.s += v * dt * TIME (TIME = 3) per real second
 
+// The 2D map lists four or five moving ships per harbour. From the deck of the 3D
+// game the river then looks empty, so every lane ship gets a companion half a map
+// further on: an inland barge on the same lane at the same speed (so the spacing
+// holds and the lane stays as safe as the map made it), narrower than its lane mate.
+const BARGES = [
+  ['MS VOLHARDING', '#7a8f6a'],
+  ['MT NOORDSTER', '#8a6f5a'],
+  ['MS EENDRACHT', '#5f7f9a'],
+  ['MT GESTAAG', '#9a7a4a'],
+  ['MS AVONTUUR', '#6f6f8f'],
+  ['MT VLIJT', '#a05f4f'],
+];
+// Antwerpen: only an upbound companion. With a second downbound ship on the Schelde
+// the rivals never get across (measured: 0 jobs and 6 tows in 30 minutes).
+const BARGE_ONLY = { antwerpen: 1 };
+export function withBarges(list, halfWidth, only = 0) {
+  // One companion per direction: more than that and the rivals, who give way to lane
+  // traffic, no longer get across the river to finish their jobs.
+  const lanes = [];
+  for (const t of list)
+    if (
+      t.axis !== 'z' &&
+      (!only || Math.sign(t.v) === only) &&
+      !lanes.some((o) => Math.sign(o.v) === Math.sign(t.v))
+    )
+      lanes.push(t);
+  const span = 2 * (halfWidth + 100);
+  return [
+    ...list,
+    ...lanes.map((t, i) => {
+      const [name, color] = BARGES[i % BARGES.length];
+      let x = t.x + span / 2;
+      if (x > halfWidth + 100) x -= span;
+      return {
+        ...t,
+        id: list.length + i,
+        name,
+        color,
+        x,
+        length: 110 + (i % 2) * 25,
+        beam: 11.4,
+        barge: true,
+      };
+    }),
+  ];
+}
 export function createTraffic() {
-  return MAP.traffic.map((t) => ({
+  const list =
+    MAP.id === 'training'
+      ? MAP.traffic
+      : withBarges(MAP.traffic, MAP.halfWidth, BARGE_ONLY[MAP.id] || 0);
+  return list.map((t) => ({
     ...t,
     h: headingOf(t, Math.sign(t.v)),
     speed: Math.abs(t.v),

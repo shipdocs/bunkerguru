@@ -61,7 +61,12 @@ function oracle({
 function run({ current, wind, cargo = 500, target = 500 }) {
   const s = { ...fresh(), x: 0, z: 0, h: 0, cargo, target, moored: false, timeScale: 3 },
     o = oracle({ current, wind, cargo, target }),
-    env = { currentAt: () => current || { x: 0, z: 0 }, wind, feel: { up: 1, down: 1 } };
+    env = {
+      currentAt: () => current || { x: 0, z: 0 },
+      wind,
+      feel: { up: 1, down: 1 },
+      helm: { start: 1, ramp: 0 },
+    };
   for (let i = 0; i < 4200; i++) {
     const dt = 1 / 60;
     s.teleIdx = i < 1800 ? 8 : i < 2400 ? 3 : 0;

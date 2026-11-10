@@ -399,7 +399,9 @@ export const PHRASES = [
   ],
   ['🔇 Hoofdmotor uit – O = weer starten', '🔇 Main engine off – O = start again'],
   ['🔊 Hoofdmotor start…', '🔊 Main engine starting…'],
-  ['⏩ Snelvaart 6× (T = uit)', '⏩ Fast forward 6× (T = off)'],
+  ['⏩ Snelvaart 6× (T = nog sneller)', '⏩ Fast forward 6× (T = faster still)'],
+  ['⏩⏩ Snelvaart 12× (T = uit)', '⏩⏩ Fast forward 12× (T = off)'],
+  ['dubbele snelvaart', 'double fast forward'],
   ['Normale tijd 3×', 'Normal time 3×'],
   ['Goede vaart', 'Fair sailing'],
   [
