@@ -1,6 +1,6 @@
 // One simulation step: vessel, contacts, traffic, gates, rivals, incidents and the
 // harbour rules of the 2D game (engine.js logic()). No DOM or WebGL.
-import { feelOf, currentOf } from './feel-settings.mjs';
+import { feelOf, currentOf, SHEAR_FEEL } from './feel-settings.mjs';
 import { timeScaleOf } from './time-scale.mjs';
 import { hullContacts } from './collisions.mjs';
 import { vesselStep } from './vessel.mjs';
@@ -165,6 +165,9 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
     wind: windOf(ev),
     upgrades: { motor: up(s, 'motor'), bow: up(s, 'boeg') },
     feel: feelOf(s),
+    // The swing from bow and stern lying in different current (leaving a harbour,
+    // eddies): engine.js strength felt too fierce from the deck in 3D.
+    shearK: SHEAR_FEEL,
   };
   const sunk = s.phase === 'sunk';
   const ctx = {

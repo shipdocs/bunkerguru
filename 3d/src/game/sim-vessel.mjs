@@ -161,7 +161,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
       cb = currentAt(s.x + sn * Lp, s.z - cs * Lp),
       ct = currentAt(s.x - sn * Lp, s.z + cs * Lp);
     const shear = (cb.x - ct.x) * cs + (cb.z - ct.z) * sn;
-    s.r += shear * 0.07 * h * (feel.yaw ?? 1);
+    s.r += shear * 0.07 * h * (feel.yaw ?? 1) * (env.shearK ?? 1);
     // Back to ground frame.
     const wx = sn * u + cs * v + c.x,
       wz = -cs * u + sn * v + c.z;

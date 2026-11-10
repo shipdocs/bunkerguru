@@ -155,3 +155,17 @@ test('moved elsewhere at once (fast travel, rescue): no current carried along', 
   assert.equal(s.cx, 0);
   assert(Math.hypot(s.u, s.v) < 0.01, 'lies still in still water');
 });
+
+test('the swing from different current at bow and stern is half that of engine.js', () => {
+  const swing = (shearK) => {
+    const s = { ...fresh(), x: 0, z: 0, h: 0, moored: false, timeScale: 1, inertia: 'licht' };
+    // Bow (north, z < 0) in a stream to the east, stern in still water.
+    const env = { feel: feelOf(s), shearK, currentAt: (x, z) => ({ x: z < 0 ? 0.8 : 0, z: 0 }) };
+    simStep(s, 1 / 20, {}, undefined, undefined, 0, env);
+    return s.r;
+  };
+  const full = swing(1),
+    half = swing(0.5);
+  assert(Math.abs(full) > 1e-4, 'the stream swings the ship ' + full);
+  assert(Math.abs(half / full - 0.5) < 0.02, half / full);
+});

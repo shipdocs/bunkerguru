@@ -1,5 +1,5 @@
 // Sound engine from shipdocs/bunkerguru audio.js, blob f0e0f97720ca1d9ed1721d68c4ea95f4348fb8a5.
-// Adaptations: factory export, music off, pause gate, scheduler catch-up guard, save-key namespace.
+// Adaptations: factory export, pause gate, scheduler catch-up guard, save-key namespace.
 // ---------- geluid (Web Audio, alles gegenereerd) ----------
 // 3D: the main engine is now the slow-speed diesel of diesel.mjs (Motorlab choice 1A);
 // the old thump scheduler, drone and turbo stay silent.
@@ -8,7 +8,8 @@ export function createLegacySound() {
   let diesel = null, dieselGain = null;
   let active = false;
   let ac = null, master, engLoadUntil = 0, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, turboT = 0, turboPw = 0, turboLast = 0, bowGain, washGain, pumpGain, muted = false, musicOn = false, musicGain = null, musicTimer = null;
-  try { musicOn = false; } catch (e) {}
+  // Music on by default, as in 2D; the switch (P) is remembered per browser.
+  try { musicOn = localStorage.getItem('bunkerguru3d_legacy_music') !== '0'; } catch (e) { musicOn = true; }
   try { muted = localStorage.getItem('bunkerguru3d_legacy_mute') === '1'; } catch (e) {}
   // volumes 0–100 per kanaal
   let vol = { master: 80, sfx: 80, music: 60, radio: 80 }, sfx = null, radioBus = null;
@@ -20,7 +21,10 @@ export function createLegacySound() {
   function init() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
-    master = ac.createGain(); master.gain.value = gMaster(); master.connect(ac.destination);
+    master = ac.createGain(); master.gain.value = gMaster();
+    // 3D: a soft limiter before the speakers, so music, engine and radio together never clip (crackle).
+    const limiter = ac.createDynamicsCompressor(); limiter.threshold.value = -6; limiter.knee.value = 6; limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.15;
+    master.connect(limiter); limiter.connect(ac.destination);
     sfx = ac.createGain(); sfx.gain.value = vol.sfx / 100; sfx.connect(master); radioBus = ac.createGain(); radioBus.gain.value = vol.radio / 100; radioBus.connect(master);
     // dieselmotor: twee zaagtanden, laagdoorlaat, lichte tremolo
     engFilt = ac.createBiquadFilter(); engFilt.type = 'lowpass'; engFilt.frequency.value = 900; engGain = ac.createGain(); engGain.gain.value = 0;
@@ -37,6 +41,7 @@ export function createLegacySound() {
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
     pumpGain = loopNoise('lowpass', 180, 0.7).g;
     musicGain = ac.createGain(); musicGain.gain.value = gMusic(); musicGain.connect(master);
+    if (musicOn) startMusic();
     // Music remains off in the 3D harbor.
   }
   // ---------- muziek: "Drunken Sailor" (traditioneel, rechtenvrij), D dorisch ----------
@@ -82,7 +87,14 @@ export function createLegacySound() {
   let snareBuf = null;
   function schedule() {
     if (!ac || !musicOn) return;
-    while (nextT < ac.currentTime + 0.25) {
+    // 3D: when a heavy frame held up the timer, notes that are already late are skipped
+    // instead of all starting at once (that piles up and crackles); the tune stays in time.
+    while (nextT < ac.currentTime + 0.02) {
+      const prevT = events[step].t; step++;
+      if (step >= events.length) { step = 0; pass++; nextT += (loopLen - prevT) * EIGHTH; }
+      else nextT += (events[step].t - prevT) * EIGHTH;
+    }
+    while (nextT < ac.currentTime + 0.4) {
       const e = events[step], t0 = nextT;
       if (e.kind === 'lead') { lead(e.f, t0, e.d * EIGHTH * 0.92, false); if (pass % 2 === 1) lead(e.f * 0.75, t0, e.d * EIGHTH * 0.92, true); } // 2e keer met tweede stem (kwart lager)
       else if (e.kind === 'bass') pluck(e.f, t0, e.d * EIGHTH, 0.22, 'triangle');
@@ -204,7 +216,7 @@ export function createLegacySound() {
     },
     radioClose() { burst(3000, 0.12, 0.2, 'highpass', radioBus); tone('square', 1400, 1400, 0.05, 0.03, 0.1, radioBus); },
     toggle() { muted = !muted; try { localStorage.setItem('bunkerguru3d_legacy_mute', muted ? '1' : '0'); } catch (e) {} applyVol(); return muted; },
-    toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunkerguru3d_legacy_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { applyVol(); if (musicOn) startMusic(); else setTimeout(stopMusic, 400); } return musicOn; },
+    toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunkerguru3d_legacy_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { applyVol(); if (musicOn) startMusic(); else setTimeout(() => { if (!musicOn) stopMusic(); }, 400); } return musicOn; },
     get muted() { return muted; }, get musicOn() { return musicOn; },
     get vol() { return Object.assign({}, vol); },
     setVol(k, v) { vol[k] = Math.max(0, Math.min(100, Math.round(v))); try { localStorage.setItem('bunkerguru3d_legacy_vol', JSON.stringify(vol)); } catch (e) {} applyVol(); },
