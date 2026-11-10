@@ -36,10 +36,29 @@ export function withBarges(list, halfWidth, only = 0) {
     ...list,
     ...lanes.map((t, i) => {
       const [name, color] = BARGES[i % BARGES.length];
-      let x = t.x + span / 2;
+      // Traffic does not give way to traffic: the barge takes the speed of the slowest
+      // ship on its lane (so it never runs into one ahead) and the middle of the
+      // widest gap on that lane (so it never starts beside one).
+      const mates = list.filter(
+        (o) => o.axis !== 'z' && o.z === t.z && Math.sign(o.v) === Math.sign(t.v),
+      );
+      const v = Math.sign(t.v) * Math.min(...mates.map((o) => Math.abs(o.v)));
+      const xs = mates.map((o) => o.x).sort((a, b) => a - b);
+      let x = t.x + span / 2,
+        widest = -1;
+      for (let k = 0; k < xs.length; k++) {
+        const a = xs[k],
+          b = k + 1 < xs.length ? xs[k + 1] : xs[0] + span,
+          gap = b - a;
+        if (gap > widest) {
+          widest = gap;
+          x = a + gap / 2;
+        }
+      }
       if (x > halfWidth + 100) x -= span;
       return {
         ...t,
+        v,
         id: list.length + i,
         name,
         color,

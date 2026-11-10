@@ -166,8 +166,11 @@ test('traffic: one inland barge per direction joins the lanes, half a map away',
   const all = withBarges(base, 2500);
   assert.equal(all.length, 6, 'one down, one up; the tug gets none');
   const [down, up] = all.slice(4);
-  assert(down.barge && down.z === -60 && down.v === -3 && up.z === 50 && up.v === 3);
-  assert(Math.abs(Math.abs(down.x - 100) - 2600) < 1e-9, 'half the lane length ahead');
+  assert(down.barge && down.z === -60 && up.z === 50 && up.v === 3);
+  assert.equal(down.v, -2, 'as slow as the slowest ship on its lane: it never runs into one');
+  // Lane −60 has ships at x −900 and 100 on a 5200 m loop: widest gap 100 → 4300, middle 2200.
+  assert(Math.abs(down.x - 2200) < 1e-9, 'in the middle of the widest gap');
+  for (const o of base.slice(0, 2)) assert(Math.abs(o.x - down.x) > 1000);
   assert(down.beam < 26 && down.length <= 135, 'narrower than its lane mate');
   assert.equal(withBarges(base, 2500, 1).length, 5, 'one direction only');
 });

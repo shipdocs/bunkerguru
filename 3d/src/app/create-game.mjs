@@ -1,4 +1,4 @@
-import { nextWarp } from '../game/time-scale.mjs';
+import { nextWarp, tempoLabel } from '../game/time-scale.mjs';
 import { createTiltShift } from '../render/tilt-shift.mjs';
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
 import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/graphics.mjs';
@@ -248,6 +248,7 @@ export function createGame({ createRenderer } = {}) {
             ? '⏩⏩ Snelvaart 12× (T = uit)'
             : 'Normale tijd 3×',
       );
+      $('tempo').textContent = tempoLabel(s.timeScale); // the start-screen button shows it too
     },
     horn: () => {
       sound.horn();
