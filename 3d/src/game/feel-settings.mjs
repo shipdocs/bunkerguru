@@ -18,6 +18,15 @@ export const DEFAULT_INERTIA = 'echt';
 export const REAL_K = { empty: 10, laden: 39 };
 const loadOf = (s) =>
   Math.max(0, Math.min(1, (s.cargo || 0) / Math.max(1, s.target || profileOf(s).tankCapacity)));
+// Rotational inertia: 1 = engine.js; echt 4 empty to 14 laden, half 2.5 to 7.5.
+export const YAW_K = { empty: 4, laden: 14 };
+export const yawK = (s) =>
+  1 + inertiaOf(s).scale * (YAW_K.empty - 1 + (YAW_K.laden - YAW_K.empty) * loadOf(s));
+// The current builds up on the hull (seconds to take on two thirds of a change):
+// echt 8 s empty to 24 s laden; licht 0 = at once, as in engine.js.
+export const CURRENT_LAG = { empty: 8, laden: 24 };
+export const currentLag = (s) =>
+  inertiaOf(s).scale * (CURRENT_LAG.empty + (CURRENT_LAG.laden - CURRENT_LAG.empty) * loadOf(s));
 export const inertiaK = (s) =>
   Math.max(1, inertiaOf(s).scale * (REAL_K.empty + (REAL_K.laden - REAL_K.empty) * loadOf(s)));
 // Stroom: the river current and the eddies before the harbour mouths, together.
@@ -35,7 +44,15 @@ export const feelOf = (s) => {
   const k = inertiaK(s);
   // Losing way is slowed less than gathering it (√k): the engine.js water drag is
   // light, and with the full factor a heavy hull would coast on for kilometres.
-  return { up: FEEL.up / k, down: FEEL.down / Math.sqrt(k) };
+  // Swinging: the turn builds up and dies out slowly too. After the helm is put
+  // amidships an empty tanker swings on about 20°, a laden one about 40° (echt):
+  // counter-rudder stops it sooner. The steady rate of turn stays that of engine.js.
+  return {
+    up: FEEL.up / k,
+    down: FEEL.down / Math.sqrt(k),
+    yaw: 1 / yawK(s),
+    lag: currentLag(s),
+  };
 };
 const next = (list, o) => list[(list.indexOf(o) + 1) % list.length].id;
 export const nextInertia = (s) => next(INERTIA, inertiaOf(s));
