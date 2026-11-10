@@ -29,6 +29,10 @@ export const currentLag = (s) =>
   inertiaOf(s).scale * (CURRENT_LAG.empty + (CURRENT_LAG.laden - CURRENT_LAG.empty) * loadOf(s));
 export const inertiaK = (s) =>
   Math.max(1, inertiaOf(s).scale * (REAL_K.empty + (REAL_K.laden - REAL_K.empty) * loadOf(s)));
+// Neer: how hard the difference in current between bow and stern swings the ship
+// (engine.js = 1). Half of it: leaving a harbour stays something to steer against,
+// not a spin.
+export const SHEAR_FEEL = 0.5;
 // Stroom: the river current and the eddies before the harbour mouths, together.
 export const CURRENTS = Object.freeze([
   { id: 'zwak', k: 0.5 },

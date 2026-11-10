@@ -281,9 +281,11 @@ function riverCurrent(x, z, speed) {
   if (!q) return { x: 0, z: 0 };
   const half = MAP.riverHalfAt(q.s),
     r = Math.abs(q.n) / half;
-  if (r >= 1.15 || !SHAPE.inside(x, z) || basins.some((b) => b.poly && inBasin(b, x, z)))
+  if (r >= 1.6 || !SHAPE.inside(x, z) || basins.some((b) => b.poly && inBasin(b, x, z)))
     return { x: 0, z: 0 };
-  const f = r < 1 ? 1 - Math.pow(r, 2.5) * 0.7 : (0.3 * (1.15 - r)) / 0.15,
+  // Beyond the fairway the stream dies out over 60 % of its half width, not in a step:
+  // a harbour mouth is a gentle shear, not a wall of water.
+  const f = r < 1 ? 1 - Math.pow(r, 2.5) * 0.7 : (0.3 * (1.6 - r)) / 0.6,
     p = MAP.river.at(q.s);
   // speed > 0 = ebb, towards the sea: against the direction of the fairway (west → east).
   return { x: -p.tx * speed * f, z: -p.tz * speed * f };
@@ -302,7 +304,8 @@ export function currentAtM(x, z, speed) {
       if (depth <= 0) continue;
       const u = (x - b.x0 + 20) / (b.x1 - b.x0 + 40);
       const dir = speed >= 0 ? -1 : 1;
-      cross += side * Math.sin(u * Math.PI) * -dir * (u < 0.5 ? 1 : -1) * 0.35 * depth;
+      // Eddy before the mouth: half the 2D strength (felt too strong from the deck).
+      cross += side * Math.sin(u * Math.PI) * -dir * (u < 0.5 ? 1 : -1) * 0.175 * depth;
       f -= 0.3 * depth * Math.sin(u * Math.PI);
     }
     return { x: -speed * f, z: Math.abs(speed) * cross };

@@ -1,5 +1,5 @@
 // Sound engine from shipdocs/bunkerguru audio.js, blob f0e0f97720ca1d9ed1721d68c4ea95f4348fb8a5.
-// Adaptations: factory export, music off, pause gate, scheduler catch-up guard, save-key namespace.
+// Adaptations: factory export, pause gate, scheduler catch-up guard, save-key namespace.
 // ---------- geluid (Web Audio, alles gegenereerd) ----------
 // 3D: the main engine is now the slow-speed diesel of diesel.mjs (Motorlab choice 1A);
 // the old thump scheduler, drone and turbo stay silent.
@@ -8,7 +8,8 @@ export function createLegacySound() {
   let diesel = null, dieselGain = null;
   let active = false;
   let ac = null, master, engLoadUntil = 0, engGain, engFilt, engBus, rumGain, turboOsc, turboOsc2, turboGain, engTimer = null, engNext = 0, engRpm = 0.35, engOn = 0, turboT = 0, turboPw = 0, turboLast = 0, bowGain, washGain, pumpGain, muted = false, musicOn = false, musicGain = null, musicTimer = null;
-  try { musicOn = false; } catch (e) {}
+  // Music on by default, as in 2D; the switch (P) is remembered per browser.
+  try { musicOn = localStorage.getItem('bunkerguru3d_legacy_music') !== '0'; } catch (e) { musicOn = true; }
   try { muted = localStorage.getItem('bunkerguru3d_legacy_mute') === '1'; } catch (e) {}
   // volumes 0–100 per kanaal
   let vol = { master: 80, sfx: 80, music: 60, radio: 80 }, sfx = null, radioBus = null;
@@ -37,6 +38,7 @@ export function createLegacySound() {
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
     pumpGain = loopNoise('lowpass', 180, 0.7).g;
     musicGain = ac.createGain(); musicGain.gain.value = gMusic(); musicGain.connect(master);
+    startMusic();
     // Music remains off in the 3D harbor.
   }
   // ---------- muziek: "Drunken Sailor" (traditioneel, rechtenvrij), D dorisch ----------

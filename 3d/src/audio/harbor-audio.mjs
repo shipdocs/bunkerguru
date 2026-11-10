@@ -57,7 +57,13 @@ export class HarborAudio {
     this.sound.setVol(channel, value);
   }
   get musicOn() {
-    return !!this.sound?.musicOn;
+    if (this.sound) return !!this.sound.musicOn;
+    // Before the first sound: the saved choice (on unless switched off), as legacy-audio reads it.
+    try {
+      return globalThis.localStorage?.getItem('bunkerguru3d_legacy_music') !== '0';
+    } catch {
+      return true;
+    }
   }
   toggleMusic() {
     this.start();

@@ -573,10 +573,14 @@ export function createGame({ createRenderer } = {}) {
       $('t_' + k).textContent = sound.vol[k];
     };
   }
-  $('musicSwitch').onclick = () => {
-    const on = sound.toggleMusic();
+  const musicLabel = (on) => {
     $('musicSwitch').textContent = on ? 'Muziek aan' : 'Muziek uit';
     $('musicSwitch').setAttribute('aria-pressed', String(on));
+  };
+  musicLabel(sound.musicOn);
+  $('musicSwitch').onclick = () => {
+    const on = sound.toggleMusic();
+    musicLabel(on);
     toast(on ? '🎵 Muziek aan' : '🎵 Muziek uit');
   };
   function release() {
