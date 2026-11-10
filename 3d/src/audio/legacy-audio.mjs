@@ -206,7 +206,7 @@ export function createLegacySound() {
     },
     radioClose() { burst(3000, 0.12, 0.2, 'highpass', radioBus); tone('square', 1400, 1400, 0.05, 0.03, 0.1, radioBus); },
     toggle() { muted = !muted; try { localStorage.setItem('bunkerguru3d_legacy_mute', muted ? '1' : '0'); } catch (e) {} applyVol(); return muted; },
-    toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunkerguru3d_legacy_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { applyVol(); if (musicOn) startMusic(); else setTimeout(stopMusic, 400); } return musicOn; },
+    toggleMusic() { musicOn = !musicOn; try { localStorage.setItem('bunkerguru3d_legacy_music', musicOn ? '1' : '0'); } catch (e) {} if (ac) { applyVol(); if (musicOn) startMusic(); else setTimeout(() => { if (!musicOn) stopMusic(); }, 400); } return musicOn; },
     get muted() { return muted; }, get musicOn() { return musicOn; },
     get vol() { return Object.assign({}, vol); },
     setVol(k, v) { vol[k] = Math.max(0, Math.min(100, Math.round(v))); try { localStorage.setItem('bunkerguru3d_legacy_vol', JSON.stringify(vol)); } catch (e) {} applyVol(); },
