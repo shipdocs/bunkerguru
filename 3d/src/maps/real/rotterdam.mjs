@@ -130,6 +130,10 @@ export default {
   waits: [
     { name: 'Wachtplaats Maashaven', yard: true, at: [1500, 1050], length: 240 },
     { name: 'Wachtplaats Boompjes', at: [1380, -540], length: 220 },
+    { name: 'Wachtplaats Merwehaven', at: [-3630, 150], length: 200 },
+    { name: 'Wachtplaats Waalhaven', at: [-1880, 2350], length: 220 },
+    { name: 'Wachtplaats Eemhaven', at: [-4450, 2420], length: 200 },
+    { name: 'Wachtplaats De Esch', at: [3720, 650], length: 200 },
   ],
   berths: [
     {
