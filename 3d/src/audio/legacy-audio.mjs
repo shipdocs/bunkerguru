@@ -38,7 +38,7 @@ export function createLegacySound() {
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
     pumpGain = loopNoise('lowpass', 180, 0.7).g;
     musicGain = ac.createGain(); musicGain.gain.value = gMusic(); musicGain.connect(master);
-    startMusic();
+    if (musicOn) startMusic();
     // Music remains off in the 3D harbor.
   }
   // ---------- muziek: "Drunken Sailor" (traditioneel, rechtenvrij), D dorisch ----------
