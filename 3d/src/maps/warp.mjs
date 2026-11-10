@@ -27,15 +27,16 @@ export const HARBOUR_WARPS = {
     leanN: 0.15,
     leanS: -0.25,
   },
-  // Nieuwe Maas: a long sweep past Merwehaven and Waalhaven, straight under the city bridges,
-  // a last turn before the Van Brienenoordbrug.
+  // Nieuwe Maas: like the real river it climbs north going upstream, turning past
+  // Parkhaven and the Maashaven towards the city, straight under the city bridges, and
+  // a last turn north before the Van Brienenoordbrug.
   rotterdam: {
     course: [
-      { a: 155, w: 800, x: -1350 },
+      { a: -140, w: 640, x: -880 },
       { a: -52, w: 350, x: 1380 },
     ],
     leanN: 0.25,
-    leanS: -0.3,
+    leanS: -0.28,
   },
   // Nieuwe Waterweg: one long sweep, the petroleum harbours fanning out from it.
   europoort: {
