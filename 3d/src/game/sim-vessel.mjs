@@ -42,6 +42,8 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     if (s.moored) {
       s.u = s.v = s.r = 0;
       s.cx = s.cz = 0; // a ship alongside does not drift: the current starts from nothing
+      s.cpx = s.x;
+      s.cpz = s.z;
       if (s.engineOff) s.rpm = 0; // a stopped engine stays stopped while moored
       s.rudder += (s.rudderCmd - s.rudder) * Math.min(1, h * 1.5);
       s.braking = false;
@@ -61,6 +63,16 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     const here = currentAt(s.x, s.z);
     let c = here;
     if (feel.lag > 0) {
+      // Moved elsewhere at once (fast travel, rescue, tow): the hull lies in the water
+      // it is now in, it does not bring the old place's current along.
+      const jumped =
+        s.cpx === undefined ? s.cx === undefined : Math.hypot(s.x - s.cpx, s.z - s.cpz) > 30;
+      if (jumped) {
+        s.cx = here.x;
+        s.cz = here.z;
+      }
+      s.cpx = s.x;
+      s.cpz = s.z;
       const a = 1 - Math.exp(-h / feel.lag);
       s.cx = (s.cx ?? here.x) + (here.x - (s.cx ?? here.x)) * a;
       s.cz = (s.cz ?? here.z) + (here.z - (s.cz ?? here.z)) * a;

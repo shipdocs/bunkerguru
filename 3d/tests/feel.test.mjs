@@ -126,14 +126,15 @@ test('the current builds up on the hull: slower when laden, the same drift in th
     };
     const env = { feel: feelOf(s), currentAt: () => ({ x: 0, z: 0.75 }) };
     let half = null,
-      last = s.z;
-    for (let t = 0; t < 120; t += 1 / 20) {
+      last = s.z,
+      v = 0;
+    for (let t = 0; t < 240; t += 1 / 20) {
       simStep(s, 1 / 20, {}, undefined, undefined, 0, env);
-      const v = (s.z - last) * 20;
+      v = (s.z - last) * 20;
       last = s.z;
       if (half === null && v > 0.375) half = t;
     }
-    return { half, end: (s.z - last) * 20 || 0, v: s.v };
+    return { half, end: v };
   };
   const light = drift('licht', 0),
     empty = drift('echt', 0),
@@ -141,4 +142,16 @@ test('the current builds up on the hull: slower when laden, the same drift in th
   assert(light.half < 1, 'licht as before ' + light.half);
   assert(empty.half > 4 && empty.half < 10, 'empty ' + empty.half);
   assert(laden.half > 12 && laden.half < 25, 'laden ' + laden.half);
+  for (const r of [light, empty, laden]) assert(Math.abs(r.end - 0.75) < 0.02, 'drift ' + r.end);
+});
+
+test('moved elsewhere at once (fast travel, rescue): no current carried along', () => {
+  const s = { ...fresh(), x: 0, z: 0, h: 0, moored: false, timeScale: 1, inertia: 'echt' };
+  const env = { feel: feelOf(s), currentAt: (x) => (x < 500 ? { x: 1, z: 0 } : { x: 0, z: 0 }) };
+  for (let i = 0; i < 20 * 120; i++) simStep(s, 1 / 20, {}, undefined, undefined, 0, env);
+  assert(s.cx > 0.9, 'took on the current');
+  Object.assign(s, { x: 2000, z: 0, u: 0, v: 0 });
+  simStep(s, 1 / 20, {}, undefined, undefined, 0, env);
+  assert.equal(s.cx, 0);
+  assert(Math.hypot(s.u, s.v) < 0.01, 'lies still in still water');
 });
