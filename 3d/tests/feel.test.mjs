@@ -66,3 +66,44 @@ test('feel settings cycle, are saved, and the current setting scales the stream'
   assert(Math.abs(speeds[0] * 2 - speeds[1]) < 1e-6);
   assert(Math.abs(speeds[2] - speeds[1] * 1.5) < 1e-6);
 });
+
+// Full helm at half ahead until the swing is steady, then amidships (or counter-helm).
+function swingOn(inertia, load, counter = false) {
+  const s = {
+    ...fresh(),
+    x: 0,
+    z: 0,
+    h: 0,
+    moored: false,
+    timeScale: 1,
+    teleIdx: 6,
+    cargo: load * 1000,
+    target: 1000,
+    inertia,
+  };
+  const feel = feelOf(s),
+    run = (sec) => {
+      for (let i = 0; i < sec * 20; i++)
+        simStep(s, 1 / 20, {}, undefined, undefined, TELE[6], { feel });
+    };
+  run(400);
+  s.rudderCmd = 0.6;
+  run(200);
+  const r0 = s.r,
+    h0 = s.h;
+  s.rudderCmd = counter ? -0.6 : 0;
+  for (let i = 0; i < 300 * 20; i++) {
+    simStep(s, 1 / 20, {}, undefined, undefined, TELE[6], { feel });
+    if (counter && s.r < 0.02 * r0) s.rudderCmd = 0;
+  }
+  return ((s.h - h0) * 180) / Math.PI;
+}
+test('the swing carries on after amidships: more when laden, counter-helm checks it', () => {
+  const light = swingOn('licht', 0),
+    empty = swingOn('echt', 0),
+    laden = swingOn('echt', 1);
+  assert(light < 10, 'licht ' + light);
+  assert(empty > 12 && empty < 25, 'empty ' + empty);
+  assert(laden > 25 && laden < 45, 'laden ' + laden);
+  assert(swingOn('echt', 1, true) < laden / 2, 'counter-helm');
+});

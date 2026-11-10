@@ -132,7 +132,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     const fu = du + wu - rudDrag * u * Math.abs(u) * 0.06;
     u += fu * (fu * u >= 0 ? feel.up : feel.down) * h;
     v += (dv + wv - rudForce * 0.3 + bow * bowF * 4.5) * h;
-    s.r += dr * h;
+    s.r += dr * h * (feel.yaw ?? 1);
     // Stroomschering: kop en hek in verschillende stroom geven een draaimoment.
     const Lp = p.length * 0.45,
       cb = currentAt(s.x + sn * Lp, s.z - cs * Lp),
