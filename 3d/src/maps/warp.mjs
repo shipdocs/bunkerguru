@@ -27,11 +27,11 @@ export const HARBOUR_WARPS = {
     leanN: 0.15,
     leanS: -0.25,
   },
-  // Nieuwe Maas: a wide bend past the Waalhaven, straight under the city bridges,
+  // Nieuwe Maas: a long sweep past Merwehaven and Waalhaven, straight under the city bridges,
   // a last turn before the Van Brienenoordbrug.
   rotterdam: {
     course: [
-      { a: 125, w: 640, x: -1250 },
+      { a: 155, w: 800, x: -1350 },
       { a: -52, w: 350, x: 1380 },
     ],
     leanN: 0.25,

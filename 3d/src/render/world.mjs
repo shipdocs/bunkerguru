@@ -162,6 +162,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     if (l.label)
       nameAt(l.label, (l.x0 + l.x1) / 2, 18, (l.z0 + l.z1) / 2, 60, '#f4efd8', scene, 0.11);
   // Terminal strips (yellow quay edge) and waiting places (blue P, yellow W = yard).
+  const stripMeshes = []; // lie on the water: lifted with the tide in updateAmbient
   for (const t of [...terminals, ...waits]) {
     const col = t.kind === 'terminal' ? '#e8c64a' : t.yard ? '#f0b429' : '#4d8fd6';
     const strip = mesh(
@@ -174,6 +175,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       }),
     );
     strip.castShadow = false;
+    stripMeshes.push(strip);
     textSprite(
       (t.kind === 'terminal' ? '⛽ ' : t.yard ? 'W 🔧 ' : 'P ') + t.name,
       t.x,
@@ -387,6 +389,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     level = tideLevel(st.clock, st.tidePhase);
     if (waterMat.userData.mesh) waterMat.userData.mesh.position.y = level;
     for (const m of customerMeshes) m.position.y = level;
+    for (const m of stripMeshes) m.position.y = level;
     return level;
   }
   function updateDynamic(world, time) {
