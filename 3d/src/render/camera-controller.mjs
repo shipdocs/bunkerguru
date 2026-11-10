@@ -160,7 +160,11 @@ export function createCameraController({ $, camera, zoomLimits, state: s, toast,
       const want =
         cameraMode === 'follow' && s.autoZoom !== false ? autoZoomFactor(Math.hypot(s.u, s.v)) : 1;
       zoomFactor += (want - zoomFactor) * (1 - Math.exp(-dt * 0.6));
-      const d = clamp(distance * zoomFactor, zoomLimits.min, zoomLimits.max);
+      // Free and top views keep the distance you chose (the camera position eases over).
+      const d =
+        cameraMode === 'follow'
+          ? clamp(distance * zoomFactor, zoomLimits.min, zoomLimits.max)
+          : distance;
       const pose = cameraPose(s, cameraMode, yaw, elevation, d);
       focus.lerp(new T.Vector3(pose.focus.x, pose.focus.y, pose.focus.z), 1 - Math.exp(-dt * 4));
       const desired = new T.Vector3(pose.position.x, pose.position.y, pose.position.z);
