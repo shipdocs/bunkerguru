@@ -49,6 +49,7 @@ test('explicit legacy comparison matches original source over throttle, helm, re
       timeScale: 2,
       x: 0,
       z: 0,
+      h: 0,
       cargo: 500,
       target: 500,
       moored: false,

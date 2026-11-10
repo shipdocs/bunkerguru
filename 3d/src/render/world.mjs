@@ -6,11 +6,13 @@ import { createBunkerTanker } from './bunker-tanker.mjs';
 import { createHarborScenery, landColor } from './scenery.mjs';
 import { groundTexture, GROUND_TILE } from './ground.mjs';
 import { batchVessel } from './scene-batch.mjs';
+import { warpedRect, warpedSkirt, span } from './warp-geometry.mjs';
 import {
   MAP,
   land,
   basins,
   waterAt,
+  toWorld,
   labels,
   terminals,
   waits,
@@ -118,22 +120,16 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     }
     return tops.get(key);
   };
+  // Every map rectangle follows the warp: the river bank bends, the basin quays lean.
+  const sideMats = new Map();
   for (const l of land) {
     if (l.kind === 'pillar') continue;
-    const w = l.x1 - l.x0,
-      d = l.z1 - l.z0,
-      cx = (l.x0 + l.x1) / 2,
-      cz = (l.z0 + l.z1) / 2;
-    box(w, 6.9, d, landColor(l), cx, 0.45, cz, sides);
-    const g = new T.PlaneGeometry(w, d);
-    g.rotateX(-Math.PI / 2);
-    // World-space UVs: the pattern runs on across neighbouring rectangles.
-    const uv = g.getAttribute('uv'),
-      pos = g.getAttribute('position');
-    for (let i = 0; i < uv.count; i++)
-      uv.setXY(i, (pos.getX(i) + cx) / GROUND_TILE, (pos.getZ(i) + cz) / GROUND_TILE);
-    const top = new T.Mesh(g, groundMat(l.kind, landColor(l)));
-    top.position.set(cx, 4, cz);
+    const col = landColor(l);
+    if (!sideMats.has(col))
+      sideMats.set(col, new T.MeshStandardMaterial({ color: col, roughness: 0.76 }));
+    sides.add(new T.Mesh(warpedSkirt(l, -3, 3.9), sideMats.get(col)));
+    // Map-space UVs: the pattern runs on across neighbouring rectangles.
+    const top = new T.Mesh(warpedRect(l, 4, GROUND_TILE), groundMat(l.kind, col));
     top.receiveShadow = true;
     top.name = 'terrain-top';
     terrain.add(top);
@@ -144,8 +140,13 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   scene.add(terrain);
   const scenery = createHarborScenery(scene, quality);
   const landmarks = createLandmarks(scene, primitives);
+  // Names stand where their place lies in the world.
+  const nameAt = (text, x, y, z, ...rest) => {
+    const p = toWorld(x, z);
+    return textSprite(text, p.x, y, p.z, ...rest);
+  };
   for (const b of basins)
-    textSprite(
+    nameAt(
       b.name,
       (b.x0 + b.x1) / 2,
       12,
@@ -156,23 +157,25 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       0.11,
     );
   for (const l of labels)
-    textSprite(l.text, l.x, 16, l.z, Math.max(40, (l.size || 14) * 6), '#f4efd8', scene, 0.12);
+    nameAt(l.text, l.x, 16, l.z, Math.max(40, (l.size || 14) * 6), '#f4efd8', scene, 0.12);
   for (const l of land)
     if (l.label)
-      textSprite(l.label, (l.x0 + l.x1) / 2, 18, (l.z0 + l.z1) / 2, 60, '#f4efd8', scene, 0.11);
+      nameAt(l.label, (l.x0 + l.x1) / 2, 18, (l.z0 + l.z1) / 2, 60, '#f4efd8', scene, 0.11);
   // Terminal strips (yellow quay edge) and waiting places (blue P, yellow W = yard).
+  const stripMeshes = []; // lie on the water: lifted with the tide in updateAmbient
   for (const t of [...terminals, ...waits]) {
     const col = t.kind === 'terminal' ? '#e8c64a' : t.yard ? '#f0b429' : '#4d8fd6';
-    const w = t.x1 - t.x0,
-      d = t.z1 - t.z0;
-    const strip = box(w, 0.3, d, col, t.x, 0.4, t.z);
-    strip.material = new T.MeshBasicMaterial({
-      color: col,
-      transparent: true,
-      opacity: 0.18,
-      depthWrite: false,
-    });
+    const strip = mesh(
+      warpedRect(t, 0.55),
+      new T.MeshBasicMaterial({
+        color: col,
+        transparent: true,
+        opacity: 0.18,
+        depthWrite: false,
+      }),
+    );
     strip.castShadow = false;
+    stripMeshes.push(strip);
     textSprite(
       (t.kind === 'terminal' ? '⛽ ' : t.yard ? 'W 🔧 ' : 'P ') + t.name,
       t.x,
@@ -187,12 +190,13 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   for (const side of [-1, 1])
     for (const x of [-MAP.halfWidth + 30, MAP.halfWidth - 30]) {
       for (const z of [-0.7, -0.35, 0, 0.35, 0.7].map((f) => f * MAP.riverHalf)) {
-        cyl(2, 1, '#d4b77a', x, 1, z);
-        cyl(0.4, 4, '#d4b77a', x, 3, z);
+        const p = toWorld(x, z);
+        cyl(2, 1, '#d4b77a', p.x, 1, p.z);
+        cyl(0.4, 4, '#d4b77a', p.x, 3, p.z);
       }
       void side;
     }
-  textSprite(MAP.name.toUpperCase() + tr(' · KAARTGRENS'), -MAP.halfWidth + 30, 14, 0, 90);
+  nameAt(MAP.name.toUpperCase() + tr(' · KAARTGRENS'), -MAP.halfWidth + 30, 14, 0, 90);
   const vesselProfile = profileOf(s),
     zoomLimits = cameraRange(vesselProfile);
   const boat = createBunkerTanker(vesselProfile);
@@ -222,9 +226,13 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   const rivalMeshes = [...meshOf.values()];
   // Movable bridges and lock gates: a coloured barrier that slides away when open.
   const gateMeshes = sim.gates.map((g) => {
+    // A rigid barrier between the two warped ends of the gate.
     const grp = new T.Group();
-    const along = g.x1 - g.x0 > g.z1 - g.z0;
-    const len = along ? g.x1 - g.x0 : g.z1 - g.z0;
+    const along = g.x1 - g.x0 > g.z1 - g.z0,
+      xm = (g.x0 + g.x1) / 2,
+      zm = (g.z0 + g.z1) / 2,
+      sp = along ? span(g.x0, zm, g.x1, zm) : span(xm, g.z0, xm, g.z1);
+    const len = sp.length;
     const deck = box(
       along ? len : 6,
       4,
@@ -243,7 +251,8 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       0,
       grp,
     );
-    grp.position.set((g.x0 + g.x1) / 2, 0, (g.z0 + g.z1) / 2);
+    grp.position.set(sp.x, 0, sp.z);
+    grp.rotation.y = along ? sp.yaw : sp.yaw + Math.PI / 2;
     textSprite(g.name, 0, 20, 0, 40, '#ffe9a0', grp, 0.11);
     scene.add(grp);
     return { g, grp, deck, lamp, along, len };
@@ -279,8 +288,9 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   for (const z of [...terminals, ...customers.map((c) => c.zone), ...waits]) {
     const n = Math.max(2, Math.round((z.x1 - z.x0) / 70));
     for (let i = 0; i < n; i++) {
-      const sp = new T.Sprite(lampMat);
-      sp.position.set(z.x0 + ((i + 0.5) / n) * (z.x1 - z.x0), 11, (z.z0 + z.z1) / 2);
+      const sp = new T.Sprite(lampMat),
+        p = toWorld(z.x0 + ((i + 0.5) / n) * (z.x1 - z.x0), (z.z0 + z.z1) / 2);
+      sp.position.set(p.x, 11, p.z);
       sp.scale.set(26, 26, 1);
       lamps.add(sp);
     }
@@ -379,6 +389,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     level = tideLevel(st.clock, st.tidePhase);
     if (waterMat.userData.mesh) waterMat.userData.mesh.position.y = level;
     for (const m of customerMeshes) m.position.y = level;
+    for (const m of stripMeshes) m.position.y = level;
     return level;
   }
   function updateDynamic(world, time) {
@@ -390,8 +401,8 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     // Smoke and steam lean with the wind, a light breeze when it is calm.
     landmarks.update(time, { x: 0.3 + wx.wind.x * 1.6, z: 0.1 + wx.wind.z * 1.6 });
     for (const [i, b] of world.traffic.entries()) {
-      trafficMeshes[i].position.set(b.x, level, b.z);
-      trafficMeshes[i].rotation.y = renderYaw(b.h);
+      trafficMeshes[i].position.set(b.wx ?? b.x, level, b.wz ?? b.z);
+      trafficMeshes[i].rotation.y = renderYaw(b.wh ?? b.h);
     }
     for (const m of meshOf.values()) m.visible = false;
     for (const [i, r] of world.rivals.entries()) {
@@ -401,8 +412,12 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
         mastLight(m);
       }
       const sinking = r.mode === 'sunk' ? Math.min(1, r.sinkT / 12) : 0;
-      m.position.set(r.x, level + Math.sin(time * 1.1 + i) * 0.07 - sinking * 8, r.z);
-      m.rotation.set(sinking * 0.3, renderYaw(r.h), 0);
+      m.position.set(
+        r.wx ?? r.x,
+        level + Math.sin(time * 1.1 + i) * 0.07 - sinking * 8,
+        r.wz ?? r.z,
+      );
+      m.rotation.set(sinking * 0.3, renderYaw(r.wh ?? r.h), 0);
       m.visible = sinking < 1;
     }
     // A boat that left the list (new career) takes its mesh and name textures with it.

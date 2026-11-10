@@ -1,6 +1,6 @@
 // Docking as the skill moment: every make-fast alongside a seagoing ship or a terminal
 // is rated with 1–3 anchors on speed, angle and the gap left to the quay or hull.
-import { customers, terminals, land } from '../maps/index.mjs';
+import { customers, terminals, nearestQuay } from '../maps/index.mjs';
 const SHIP_HALF_BEAM = 13,
   OWN_HALF_BEAM = 5.5;
 const hdgErr = (a, b) => {
@@ -11,16 +11,11 @@ const hdgErr = (a, b) => {
 export function dockGap(s, to) {
   if (to.kind === 'ship') {
     const b = customers.find((c) => c.id === to.id);
-    const lateral = b.h ? Math.abs(s.z - b.shipZ) : Math.abs(s.x - b.shipX);
+    // Sideways off the ship's centre line (starboard of heading h = (cos h, sin h)).
+    const lateral = Math.abs((s.x - b.shipX) * Math.cos(b.h) + (s.z - b.shipZ) * Math.sin(b.h));
     return Math.max(0, lateral - SHIP_HALF_BEAM - OWN_HALF_BEAM);
   }
-  let best = Infinity;
-  for (const l of land) {
-    const qx = Math.max(l.x0, Math.min(l.x1, s.x)),
-      qz = Math.max(l.z0, Math.min(l.z1, s.z));
-    best = Math.min(best, Math.hypot(qx - s.x, qz - s.z));
-  }
-  return Math.max(0, best - OWN_HALF_BEAM);
+  return Math.max(0, (nearestQuay(s.x, s.z)?.d ?? Infinity) - OWN_HALF_BEAM);
 }
 export function dockRating(s, to) {
   const speed = Math.hypot(s.u, s.v) * 3.6;

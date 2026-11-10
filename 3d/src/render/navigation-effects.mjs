@@ -1,7 +1,8 @@
 import * as T from '../../vendor/three.js';
 import { target } from '../game/simulation.mjs';
 import { routePoints, customers, terminalOf } from '../game/harbor.mjs';
-import { land, currentAt, tideLevel } from '../maps/index.mjs';
+import { currentAt, tideLevel, nearestQuay } from '../maps/index.mjs';
+import { warpedRect, warpedOutline } from './warp-geometry.mjs';
 import { driftLines, currentArrow } from '../game/drift.mjs';
 import {
   wakePools,
@@ -15,11 +16,41 @@ import {
   createTrail,
 } from '../game/wake.mjs';
 // Target zone on the water, route, mooring lines, bunker hose and wake foam.
+// A flat strip of the given width along a polyline on the water; u runs with the
+// distance (one dash per 22 m), so the dashes keep their size on any route.
+export const ROUTE_WIDTH = 6;
+export function routeRibbon(points, width = ROUTE_WIDTH, y = 0.95) {
+  const pos = [],
+    uv = [],
+    index = [];
+  let run = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[Math.max(0, i - 1)],
+      b = points[Math.min(points.length - 1, i + 1)],
+      p = points[i];
+    let dx = b.x - a.x,
+      dz = b.z - a.z;
+    const len = Math.hypot(dx, dz) || 1;
+    dx /= len;
+    dz /= len;
+    if (i) run += Math.hypot(p.x - points[i - 1].x, p.z - points[i - 1].z);
+    pos.push(p.x - dz * width * 0.5, y, p.z + dx * width * 0.5);
+    pos.push(p.x + dz * width * 0.5, y, p.z - dx * width * 0.5);
+    uv.push(run / 22, 0, run / 22, 1);
+    if (i) index.push(i * 2 - 2, i * 2 - 1, i * 2, i * 2 - 1, i * 2 + 1, i * 2);
+  }
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+  g.setIndex(index);
+  return g;
+}
 export function createNavigationEffects(scene, mesh, vesselProfile) {
+  // A map rectangle (terminal strip, bunker zone) lying on the water of the warped
+  // world: it follows the bend of its quay.
   function zone(color) {
-    const geo = new T.PlaneGeometry(1, 1);
     const m = mesh(
-      geo,
+      new T.BufferGeometry(),
       new T.MeshBasicMaterial({
         color,
         transparent: true,
@@ -31,19 +62,26 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       0.6,
       0,
     );
-    m.rotation.x = -Math.PI / 2;
     m.castShadow = false;
-    const edge = new T.LineSegments(
-      new T.EdgesGeometry(geo),
+    const edge = new T.LineLoop(
+      new T.BufferGeometry(),
       new T.LineBasicMaterial({ color, transparent: true, opacity: 0.7 }),
     );
-    edge.rotation.x = -Math.PI / 2;
+    edge.position.y = 0.7;
     scene.add(edge);
+    let placed = null;
     const place = (r) => {
-      for (const o of [m, edge]) {
-        o.position.set((r.x0 + r.x1) / 2, o === m ? 0.6 : 0.7, (r.z0 + r.z1) / 2);
-        o.scale.set(r.x1 - r.x0, r.z1 - r.z0, 1);
-      }
+      // Warped with the quay, and lifted with the tide.
+      m.position.y = 0.6 + waterLevel;
+      edge.position.y = 0.7 + waterLevel;
+      if (placed === r) return;
+      placed = r;
+      m.geometry.dispose();
+      m.geometry = warpedRect(r, 0);
+      edge.geometry.dispose();
+      edge.geometry = new T.BufferGeometry().setFromPoints(
+        warpedOutline(r).map((p) => new T.Vector3(p.x, 0, p.z)),
+      );
     };
     return { m, edge, place, show: (v) => (m.visible = edge.visible = v) };
   }
@@ -158,7 +196,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       const t = target(s);
       beacon.visible = !!t && !s.moored && s.phase !== 'bunker';
       if (t) {
-        beacon.position.set(t.x, 0, t.z);
+        beacon.position.set(t.x, waterLevel, t.z);
         const col = t.kind === 'ship' ? '#7dffc4' : '#ffd84a';
         beamMat.color.set(col);
         flagMat.color.set(col);
@@ -170,16 +208,35 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
       if (t && t.kind === 'ship') deliverZone.place(t.zone);
     },
   };
-  const line = new T.Line(
+  // Route advice: a dashed cyan ribbon on the water, wide enough to read on a phone
+  // (a 1-pixel line vanished there). Rebuilt when the route changes.
+  const routeTex = (() => {
+    const cv = document.createElement('canvas');
+    cv.width = 32;
+    cv.height = 4;
+    const c = cv.getContext('2d');
+    if (c) {
+      c.fillStyle = '#fff';
+      c.fillRect(0, 0, 20, 4);
+    }
+    const t = new T.CanvasTexture(cv);
+    t.wrapS = T.RepeatWrapping;
+    return t;
+  })();
+  const line = new T.Mesh(
     new T.BufferGeometry(),
-    new T.LineDashedMaterial({
-      color: '#b8e8ca',
-      dashSize: 6,
-      gapSize: 6,
+    new T.MeshBasicMaterial({
+      color: '#63f2ff',
+      map: routeTex,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.9,
+      depthWrite: false,
+      fog: false,
+      side: T.DoubleSide,
     }),
   );
+  line.renderOrder = 1;
+  line.frustumCulled = false;
   scene.add(line);
   const mooring = new T.LineSegments(
     new T.BufferGeometry(),
@@ -267,7 +324,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
   scene.add(arrowLabel);
   let arrowText = '';
   const along = (m, x, z, dx, dz, len, width) => {
-    m.position.set(x, 0.95, z);
+    m.position.set(x, 0.95 + waterLevel, z);
     m.rotation.y = Math.atan2(-dz, dx);
     m.scale.set(len, 1, width);
   };
@@ -312,7 +369,7 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
         }
         arrowTex.needsUpdate = true;
       }
-      arrowLabel.position.set(ax, 7, az);
+      arrowLabel.position.set(ax, 7 + waterLevel, az);
       arrowLabel.scale.set(30, 7.5, 1);
     }
   }
@@ -726,34 +783,16 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
   }
   // Nearest point on a quay or the seagoing ship for each mooring line.
   function anchor(p, s) {
-    let best = null;
-    const rects =
-      s.mooredTo?.kind === 'ship'
-        ? customers
-            .filter((b) => b.id === s.mooredTo.id)
-            .map((b) =>
-              b.h
-                ? {
-                    x0: b.shipX - b.length / 2,
-                    x1: b.shipX + b.length / 2,
-                    z0: b.shipZ - 13,
-                    z1: b.shipZ + 13,
-                  }
-                : {
-                    x0: b.shipX - 13,
-                    x1: b.shipX + 13,
-                    z0: b.shipZ - b.length / 2,
-                    z1: b.shipZ + b.length / 2,
-                  },
-            )
-        : land;
-    for (const r of rects) {
-      const qx = Math.max(r.x0, Math.min(r.x1, p.x)),
-        qz = Math.max(r.z0, Math.min(r.z1, p.z)),
-        d = Math.hypot(qx - p.x, qz - p.z);
-      if (!best || d < best.d) best = { x: qx, z: qz, d };
-    }
-    return best || p;
+    const b = s.mooredTo?.kind === 'ship' && customers.find((b) => b.id === s.mooredTo.id);
+    if (!b) return nearestQuay(p.x, p.z) || p;
+    // The ship's rail: the nearest point of its rigid hull (26 m wide) in the world.
+    const tx = Math.sin(b.h),
+      tz = -Math.cos(b.h),
+      along = (p.x - b.shipX) * tx + (p.z - b.shipZ) * tz,
+      across = -(p.x - b.shipX) * tz + (p.z - b.shipZ) * tx,
+      a = Math.max(-b.length / 2, Math.min(b.length / 2, along)),
+      c = Math.max(-13, Math.min(13, across));
+    return { x: b.shipX + tx * a - tz * c, z: b.shipZ + tz * a + tx * c };
   }
   function updateRoute(s) {
     const t = target(s);
@@ -801,10 +840,8 @@ export function createNavigationEffects(scene, mesh, vesselProfile) {
     line.visible = !!t && !s.moored;
     if (line.visible) {
       line.geometry.dispose();
-      line.geometry = new T.BufferGeometry().setFromPoints(
-        routePoints(s, t).map((p) => new T.Vector3(p.x, 0.9, p.z)),
-      );
-      line.computeLineDistances();
+      line.geometry = routeRibbon(routePoints(s, t), ROUTE_WIDTH);
+      line.position.y = waterLevel; // the tide lifts the water up to 1,2 m: stay on top of it
     }
   }
   return { zones, updateWake, updateRoute };

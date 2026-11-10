@@ -1,5 +1,15 @@
 import * as T from '../../vendor/three.js';
-import { MAP, land, shoreSegments, basins, decor, roads, bridges } from '../maps/index.mjs';
+import {
+  MAP,
+  WARP,
+  land,
+  quayAxis,
+  shoreSegments,
+  basins,
+  decor,
+  roads,
+  bridges,
+} from '../maps/index.mjs';
 import { GeometryBatch } from './scene-batch.mjs';
 import { LANDMARKS, landmarkClear } from './landmarks.mjs';
 
@@ -128,6 +138,15 @@ class SceneBatch extends GeometryBatch {
           win.s,
         );
       }
+    }
+  }
+  // Loose triangles (already in the world): ground that follows the warp.
+  addTriangles(points, normal, color) {
+    const c = new T.Color(color);
+    for (let i = 0; i < points.length; i += 3) {
+      this.positions.push(points[i], points[i + 1], points[i + 2]);
+      this.normals.push(...normal);
+      this.colors.push(c.r, c.g, c.b);
     }
   }
   geometry() {
@@ -310,21 +329,71 @@ export function createHarborScenery(scene, quality = { light: false }) {
       });
     return tiles.get(key).batch;
   };
-  function shape(g, c, x, y, z, sx, sy, sz, rot = 0, detail = false, shade = 1, win = null) {
+  // The harbour is laid out on the straight map and built in the warped world
+  // (maps/warp.mjs). Everything below places things at map coordinates; a frame turns
+  // them into the world. What stands up (houses, tanks, cranes) keeps its shape and
+  // turns with the quay it belongs to: axis 'x' along the river, 'z' along a basin
+  // quay. What lies flat or runs along the water's edge (fields, roads, quay walls)
+  // follows the warp itself: axis 'affine'.
+  const placed = new T.Matrix4();
+  let frame = null, // set by inFrame: several parts that must stay one rigid object
+    axis = null; // default for the section being built; null = by the nearest quay
+  const makeFrame = (x, z, ax) => {
+    const f = WARP.frame(x, z, ax),
+      w = WARP.forward(x, z);
+    return { ...f, tx: w.x - f.a * x - f.b * z, tz: w.z - f.c * x - f.d * z };
+  };
+  const toW = (f, x, z) => ({ x: f.a * x + f.b * z + f.tx, z: f.c * x + f.d * z + f.tz });
+  const axisAt = quayAxis;
+  const frameAt = (x, z, ax) => frame || makeFrame(x, z, ax || axis || axisAt(x, z));
+  function inFrame(x, z, ax, build) {
+    if (WARP.identity || frame) return build();
+    frame = makeFrame(x, z, ax || axis || axisAt(x, z));
+    try {
+      return build();
+    } finally {
+      frame = null;
+    }
+  }
+  function withAxis(ax, build) {
+    const before = axis;
+    axis = ax;
+    try {
+      return build();
+    } finally {
+      axis = before;
+    }
+  }
+  // dummy.matrix holds a part at map coordinates; add it to its tile in the world.
+  function emit(g, c, x, z, detail, shade, win, ax) {
+    let m = dummy.matrix,
+      wx = x,
+      wz = z;
+    if (!WARP.identity) {
+      const f = frameAt(x, z, ax);
+      m = placed
+        .set(f.a, 0, f.b, f.tx, 0, 1, 0, 0, f.c, 0, f.d, f.tz, 0, 0, 0, 1)
+        .multiply(dummy.matrix);
+      wx = m.elements[12];
+      wz = m.elements[14];
+    }
+    tileFor(wx, wz, detail).add(g, m, c, shade, win);
+    stats.parts++;
+  }
+  function shape(g, c, x, y, z, sx, sy, sz, rot = 0, detail = false, shade = 1, win = null, ax) {
     dummy.position.set(x, y, z);
     dummy.rotation.set(0, rot, 0);
     dummy.scale.set(sx, sy, sz);
     dummy.updateMatrix();
     if (win) win = { ...win, w: sx, d: sz, h: sy };
-    tileFor(x, z, detail).add(g, dummy.matrix, c, shade, win);
-    stats.parts++;
+    emit(g, c, x, z, detail, shade, win, ax);
   }
   // Boxes that stand on the ground have no underside; raised ones (bridge decks,
   // crane girders) keep it, because you sail underneath.
   const box = (w, h, d, c, x, y, z, rot = 0, detail = false, shade = 1, win = null) =>
     shape(y - h / 2 > 6 ? fullBox : boxGeo, c, x, y, z, w, h, d, rot, detail, shade, win);
   const flat = (w, d, c, x, y, z, rot = 0, detail = false) =>
-    shape(flatGeo, c, x, y, z, w, 1, d, rot, detail);
+    shape(flatGeo, c, x, y, z, w, 1, d, rot, detail, 1, null, 'affine');
   const cylinder = (r, h, c, x, y, z, detail = false, shade = 1) =>
     shape(roundGeo, c, x, y, z, r, h, r, 0, detail, shade);
   function beam(a, b, r, c, detail = false) {
@@ -335,8 +404,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
     dummy.scale.set(r, delta.length(), r);
     dummy.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), delta.normalize());
     dummy.updateMatrix();
-    tileFor(dummy.position.x, dummy.position.z, detail).add(tubeGeo, dummy.matrix, c);
-    stats.parts++;
+    emit(tubeGeo, c, dummy.position.x, dummy.position.z, detail, 1, null);
   }
   // Soft dark rim on the ground round everything that stands on it: one transparent
   // mesh for the whole harbour. It is what makes a building sit instead of float.
@@ -345,11 +413,14 @@ export function createHarborScenery(scene, quality = { light: false }) {
     SHADE_Y = 4.62;
   // A fan from the middle (hidden under the building) fading out to the rim.
   function shadeFan(x, z, pts, a) {
-    const n = pts.length;
+    const n = pts.length,
+      f = WARP.identity ? null : frameAt(x, z),
+      at = (px, pz) => (f ? toW(f, px, pz) : { x: px, z: pz }),
+      o = at(x, z);
     for (let i = 0; i < n; i++) {
-      const [ax, az] = pts[i],
-        [bx, bz] = pts[(i + 1) % n];
-      shadeP.push(x, SHADE_Y, z, x + ax, SHADE_Y, z + az, x + bx, SHADE_Y, z + bz);
+      const p = at(x + pts[i][0], z + pts[i][1]),
+        q = at(x + pts[(i + 1) % n][0], z + pts[(i + 1) % n][1]);
+      shadeP.push(o.x, SHADE_Y, o.z, p.x, SHADE_Y, p.z, q.x, SHADE_Y, q.z);
       shadeC.push(0, 0, 0, a, 0, 0, 0, 0, 0, 0, 0, 0);
     }
   }
@@ -407,7 +478,8 @@ export function createHarborScenery(scene, quality = { light: false }) {
     bridges.some((b) => Math.abs(x - b.x) < 14 + m && z > b.z0 - 190 && z < b.z1 + 190);
   const open = (x, z, r) =>
     free(x, z, r) && !landmarkClear(x, z, r) && !roadNear(x, z, r) && !bridgeNear(x, z, r);
-  function tree(x, z, size = 1, kind = 0) {
+  const tree = (x, z, size = 1, kind = 0) => inFrame(x, z, null, () => tree0(x, z, size, kind));
+  function tree0(x, z, size, kind) {
     const leaf = kind === 2 ? C.leafDark : rnd() > 0.5 ? C.leaf : C.leafLight;
     shape(trunkGeo, C.trunk, x, 4 + 2.2 * size, z, 0.6 * size, 4.4 * size, 0.6 * size);
     if (kind === 2) {
@@ -479,7 +551,9 @@ export function createHarborScenery(scene, quality = { light: false }) {
   }
   // City block from the 2D map. The neighbourhood decides what it becomes: old town
   // in brick with gables, plastered flats, or glass offices that grow into towers.
-  function cityBlock(x, z, w, d, col, port) {
+  const cityBlock = (x, z, w, d, col, port) =>
+    inFrame(x, z, null, () => cityBlock0(x, z, w, d, col, port));
+  function cityBlock0(x, z, w, d, col, port) {
     const district = noise(x / 380 + 11.3, z / 380 + 4.7) + (hash2(x / 20, z / 20) - 0.5) * 0.16;
     if (port) return shed(x, z, Math.max(w, 15), Math.max(d, 14), 7 + rnd() * 5, pick(SHED));
     if (district < 0.4) {
@@ -538,12 +612,16 @@ export function createHarborScenery(scene, quality = { light: false }) {
     skirt(x, z, ww, dd, 0, 7, 0.4);
     claim(x, z, Math.max(ww, dd) * 0.6);
   }
-  const truckParts = (x, z, rot, col) => {
-    const c = Math.cos(rot),
-      s = Math.sin(rot);
-    box(2.8, 3.4, 9, col, x + s * 1.6, 6.1, z + c * 1.6, rot, true, 0.8);
-    box(2.7, 2.9, 2.6, C.cream, x - s * 4.5, 5.8, z - c * 4.5, rot, true, 0.8);
-  };
+  // A map point as the current frame (or the warp itself) puts it in the world.
+  const inWorld = (x, z) =>
+    WARP.identity ? { x, z } : frame ? toW(frame, x, z) : WARP.forward(x, z);
+  const truckParts = (x, z, rot, col) =>
+    inFrame(x, z, null, () => {
+      const c = Math.cos(rot),
+        s = Math.sin(rot);
+      box(2.8, 3.4, 9, col, x + s * 1.6, 6.1, z + c * 1.6, rot, true, 0.8);
+      box(2.7, 2.9, 2.6, C.cream, x - s * 4.5, 5.8, z - c * 4.5, rot, true, 0.8);
+    });
   const green = (k) => ['north', 'park', 'island', 'base', 'town', 'town2'].includes(k);
   // Decoration from the 2D map, thinned so phones stay smooth. Same seed → same harbour.
   const keep = { house: 0.62, tree: 0.5, container: 0.5, block: 0.86, tank: 0.56 };
@@ -640,6 +718,8 @@ export function createHarborScenery(scene, quality = { light: false }) {
         px = -fz,
         pz = fx,
         col = stsColors[cranes.length % stsColors.length];
+      // One rigid crane, square to its quay (the boom points at the water).
+      frame = WARP.identity ? null : makeFrame(x, z, Math.abs(fx) > Math.abs(fz) ? 'z' : 'x');
       for (const back of [2, -22])
         for (const side of [-1, 1]) {
           box(
@@ -669,7 +749,8 @@ export function createHarborScenery(scene, quality = { light: false }) {
       beam([x + fx * 2, 52, z + fz * 2], [x - fx * 4, 74, z - fz * 4], 1.1, col);
       beam([x - fx * 4, 74, z - fz * 4], [x + fx * 62, 53, z + fz * 62], 0.35, C.dark, true);
       beam([x - fx * 4, 74, z - fz * 4], [x - fx * 30, 53, z - fz * 30], 0.35, C.dark, true);
-      cranes.push({ x: x + fx * 34, z: z + fz * 34, phase: rnd() * 6, y: 38 });
+      cranes.push({ ...inWorld(x + fx * 34, z + fz * 34), phase: rnd() * 6, y: 38 });
+      frame = null;
       claim(x - fx * 10, z - fz * 10, 20);
     } else if (d.type === 'crane') {
       // Portal crane on the quay edge, boom over the water (yaw points at the water).
@@ -678,6 +759,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
         fz = -Math.cos(yaw),
         px = -fz,
         pz = fx;
+      frame = WARP.identity ? null : makeFrame(x, z, Math.abs(fx) > Math.abs(fz) ? 'z' : 'x');
       for (const side of [-1, 1]) {
         box(4, 2, 4, C.steel, x + px * side * 8, 5, z + pz * side * 8);
         beam(
@@ -693,7 +775,8 @@ export function createHarborScenery(scene, quality = { light: false }) {
       beam([x, 43, z], tip, 0.3, C.steel, true);
       beam([x, 33, z], [x, 43, z], 0.8, C.gold);
       box(5, 5, 5, C.cream, x + fx * 3, 35, z + fz * 3);
-      cranes.push({ x: tip[0], z: tip[2], phase: rnd() * 6 });
+      cranes.push({ ...inWorld(tip[0], tip[2]), phase: rnd() * 6 });
+      frame = null;
       claim(x, z, 12);
     }
     stats.parcels++;
@@ -754,6 +837,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
   // Drawn 0.3 m proud of the land, so the collision edge stays where it is.
   const edges = [];
   single = quays;
+  axis = 'affine'; // the wall and its coping follow the warped edge exactly
   for (const sg of shoreSegments) {
     const alongX = sg.nz !== 0,
       len = alongX ? sg.width : sg.depth,
@@ -791,11 +875,13 @@ export function createHarborScenery(scene, quality = { light: false }) {
         (quad[2] - quad[0]) * (quad[7] - quad[1]) - (quad[3] - quad[1]) * (quad[6] - quad[0]) < 0,
       order = up ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2];
     for (const i of order) {
-      shadeP.push(quad[i * 2], SHADE_Y, quad[i * 2 + 1]);
+      const p = WARP.forward(quad[i * 2], quad[i * 2 + 1]);
+      shadeP.push(p.x, SHADE_Y, p.z);
       shadeC.push(0, 0, 0, i < 2 ? a : 0);
     }
   }
   single = null;
+  axis = null;
   // Roads of the 2D map, on land only, with a centre line and trees along them.
   let roadStep = 0;
   for (const r of roads)
@@ -837,6 +923,8 @@ export function createHarborScenery(scene, quality = { light: false }) {
         P = (along, back) => [sg.x + tx * along - sg.nx * back, sg.z + tz * along - sg.nz * back],
         fits = (x, z, wAlong, wBack, r) =>
           landContains(x, z, alongX ? wAlong : wBack, alongX ? wBack : wAlong) && open(x, z, r);
+      // Everything along this stretch stands square to its own quay.
+      axis = alongX ? 'x' : 'z';
       if (kind === 'city') {
         if (hash2(sg.x / 150 + 3, sg.z / 150 + 9) < 0.82) {
           const count = Math.max(2, Math.round(len / 7.4)),
@@ -913,6 +1001,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
         }
       }
     }
+  axis = null;
   // What is still bare after all that gets something to look at: a small park in
   // town, a shed, a stack or a row of lorries on the port apron.
   if (!quality.light)
@@ -1015,10 +1104,49 @@ export function createHarborScenery(scene, quality = { light: false }) {
         ]);
     }
     const GX = 420,
-      GZ = 300;
-    for (const [x0, x1, z0, z1, hard] of pieces) {
+      GZ = 300,
+      Y = 3.7; // just under the land of the chart, which it runs in beneath
+    // A parcel as two triangles between its four warped corners (neighbours share
+    // them, so the polder has no cracks), with a bank where the piece ends.
+    const parcel = (ax, bx, az, bz, col, piece) => {
+      const p = [
+        [ax, az],
+        [bx, az],
+        [bx, bz],
+        [ax, bz],
+      ].map(([x, z]) => WARP.forward(x, z));
+      beyond.addTriangles(
+        [0, 3, 1, 1, 3, 2].flatMap((i) => [p[i].x, Y, p[i].z]),
+        [0, 1, 0],
+        col,
+      );
+      const [x0, x1, z0, z1] = piece;
+      for (const [i, j, edge] of [
+        [0, 1, az <= z0],
+        [1, 2, bx >= x1],
+        [2, 3, bz >= z1],
+        [3, 0, ax <= x0],
+      ]) {
+        if (!edge) continue;
+        const a = p[i],
+          b = p[j],
+          len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+        beyond.addTriangles(
+          [a.x, Y, a.z, b.x, Y, b.z, a.x, -3, a.z, b.x, Y, b.z, b.x, -3, b.z, a.x, -3, a.z],
+          [(b.z - a.z) / len, 0, -(b.x - a.x) / len],
+          '#6f9a58',
+        );
+      }
+      stats.parts++;
+    };
+    for (const piece of pieces) {
+      // Each piece runs 40 m in under the land it continues.
+      const hard = piece[4],
+        x0 = piece[0] <= -HW - FAR ? piece[0] : piece[0] >= HW ? piece[0] - 40 : piece[0],
+        x1 = piece[1] >= HW + FAR ? piece[1] : piece[1] <= -HW ? piece[1] + 40 : piece[1],
+        z0 = piece[2] >= MAP.zMax ? piece[2] - 40 : piece[2],
+        z1 = piece[3] <= MAP.zMin ? piece[3] + 40 : piece[3];
       if (x1 - x0 < 2 || z1 - z0 < 2) continue;
-      shape(wallGeo, '#6f9a58', (x0 + x1) / 2, 0.5, (z0 + z1) / 2, x1 - x0, 7, z1 - z0);
       for (let gx = Math.floor(x0 / GX); gx * GX < x1; gx++)
         for (let gz = Math.floor(z0 / GZ); gz * GZ < z1; gz++) {
           const ax = Math.max(x0, gx * GX),
@@ -1029,7 +1157,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
             cx = (ax + bx) / 2,
             cz = (az + bz) / 2,
             out = Math.max(Math.abs(cx) - HW, cz - MAP.zMax, MAP.zMin - cz);
-          flat(bx - ax, bz - az, fields[Math.floor(h * fields.length)], cx, 4, cz);
+          parcel(ax, bx, az, bz, fields[Math.floor(h * fields.length)], [x0, x1, z0, z1]);
           if (quality.light || bx - ax < 200 || bz - az < 160 || out > 1500) continue;
           const h2 = hash2(gx + 71, gz + 13);
           if (h2 < 0.55) {
@@ -1104,6 +1232,8 @@ export function createHarborScenery(scene, quality = { light: false }) {
       x = br.x,
       name = br.name || '',
       lift = /Hef/.test(name);
+    // One rigid bridge, straight across where it stands on the map.
+    frame = WARP.identity ? null : makeFrame(x, zc, 'z');
     // Road deck in asphalt, the girders in the bridge's own colour.
     const dl = lift ? span - 14 : span + 60,
       dy = lift ? 58 : 34;
@@ -1120,8 +1250,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
         dummy.rotation.set(-dir * Math.atan2(dy - 4, 150), 0, 0);
         dummy.scale.set(24, 2.4, Math.hypot(150, dy - 4));
         dummy.updateMatrix();
-        tileFor(x, (za + zb) / 2, false).add(boxGeo, dummy.matrix, C.asphalt);
-        stats.parts++;
+        emit(boxGeo, C.asphalt, x, (za + zb) / 2, false, 1, null);
         for (const t of [0.3, 0.62])
           box(
             6,
@@ -1206,6 +1335,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
         }
       }
     }
+    frame = null;
   }
   // Flush and release construction arrays; retain only the GPU geometry.
   for (const tile of tiles.values()) {
@@ -1307,7 +1437,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
   root.add(birds);
   const flockCenters = basins
     .slice(0, 6)
-    .map((b) => ({ x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 }));
+    .map((b) => WARP.forward((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2));
   if (!flockCenters.length) flockCenters.push({ x: 0, z: 0 });
 
   const cloudGeometry = actorGeometry([

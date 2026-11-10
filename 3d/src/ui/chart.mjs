@@ -1,18 +1,50 @@
-import { MAP, land, basins, terminals, waits, customers } from '../maps/index.mjs';
+import {
+  MAP,
+  land,
+  basins,
+  terminals,
+  waits,
+  customers,
+  toWorld,
+  WARP,
+  rectOutline,
+  worldBounds,
+} from '../maps/index.mjs';
 import { routePoints } from '../game/harbor.mjs';
 import { target } from '../game/simulation.mjs';
 // Harbour chart: land, route, traffic, rivals, gates, terminals (T), waiting places
-// (P, W = yard) and seagoing ships. North up, cropped to the water.
-const zs = basins.flatMap((b) => [b.z0, b.z1]).concat([-MAP.riverHalf, MAP.riverHalf]);
-const Z0 = Math.max(MAP.zMin, Math.min(...zs) - 120),
-  Z1 = Math.min(MAP.zMax, Math.max(...zs) + 120);
+// (P, W = yard) and seagoing ships. North up, cropped to the water. It shows the
+// world as you sail it: the river with its bends, the basins at their angle.
+const water = [
+  { x0: -MAP.halfWidth, x1: MAP.halfWidth, z0: -MAP.riverHalf, z1: MAP.riverHalf },
+  ...basins,
+].flatMap(rectOutline);
+const X0 = Math.min(...water.map((p) => p.x)),
+  X1 = Math.max(...water.map((p) => p.x)),
+  Z0 = Math.max(worldBounds.z0, Math.min(...water.map((p) => p.z)) - 120),
+  Z1 = Math.min(worldBounds.z1, Math.max(...water.map((p) => p.z)) + 120);
+const WARPED = !WARP.identity;
 export function createChart(canvas) {
-  const W = MAP.halfWidth;
   const map = canvas.getContext('2d');
-  const scale = Math.min(192 / (W * 2), 94 / (Z1 - Z0)),
-    ox = 100 - 0,
+  const scale = Math.min(192 / (X1 - X0), 94 / (Z1 - Z0)),
+    ox = 100 - ((X0 + X1) / 2) * scale,
     oz = 50 - ((Z0 + Z1) / 2) * scale;
   const project = (x, z) => [ox + x * scale, oz + z * scale];
+  const onChart = (x, z) => {
+    const p = toWorld(x, z);
+    return project(p.x, p.z);
+  };
+  const edge = rectOutline({
+    x0: -MAP.halfWidth,
+    x1: MAP.halfWidth,
+    z0: MAP.zMin,
+    z1: MAP.zMax,
+  }).map((p) => project(p.x, p.z));
+  // Land outlines in chart units, made once.
+  const shapes = land.map((l) => ({
+    l,
+    pts: l.kind === 'pillar' ? null : rectOutline(l).map((p) => project(p.x, p.z)),
+  }));
   // Strategy layer (fase 3): open jobs on their ships, where the rivals are heading.
   let hits = [];
   function chart(s, world) {
@@ -22,32 +54,48 @@ export function createChart(canvas) {
     const k = canvas.width / 200;
     map.setTransform(k, 0, 0, k, 0, 0);
     map.clearRect(0, 0, 200, 100);
-    map.fillStyle = '#21434a';
+    // Outside the chart: land that is not on it. Then the water of the warped map.
+    map.fillStyle = WARPED ? '#3a4f4a' : '#21434a';
     map.fillRect(0, 0, 200, 100);
-    for (const l of land) {
-      const [x, y] = project(l.x0, l.z0);
+    if (WARPED) {
+      map.fillStyle = '#21434a';
+      map.beginPath();
+      edge.forEach(([x, y], i) => (i ? map.lineTo(x, y) : map.moveTo(x, y)));
+      map.closePath();
+      map.fill();
+    }
+    for (const { l, pts } of shapes) {
       map.fillStyle =
         l.kind === 'pillar'
           ? '#c8c8c8'
           : ['north', 'park', 'island', 'base'].includes(l.kind)
             ? '#657d65'
             : '#829084';
-      map.fillRect(
-        x,
-        y,
-        Math.max(0.5, (l.x1 - l.x0) * scale),
-        Math.max(0.5, (l.z1 - l.z0) * scale),
-      );
+      if (!pts) {
+        const [x, y] = onChart(l.x0, l.z0);
+        map.fillRect(
+          x,
+          y,
+          Math.max(0.5, (l.x1 - l.x0) * scale),
+          Math.max(0.5, (l.z1 - l.z0) * scale),
+        );
+        continue;
+      }
+      map.beginPath();
+      pts.forEach(([x, y], i) => (i ? map.lineTo(x, y) : map.moveTo(x, y)));
+      map.closePath();
+      map.fill();
+      // a hairline in the same colour closes the seams between neighbouring land
+      map.strokeStyle = map.fillStyle;
+      map.lineWidth = 0.3;
+      map.stroke();
     }
     for (const g of world.gates) {
-      const [x, y] = project(g.x0, g.z0);
+      const [x, y] = onChart((g.x0 + g.x1) / 2, (g.z0 + g.z1) / 2),
+        w = Math.max(1.2, (g.x1 - g.x0) * scale),
+        h = Math.max(1.2, (g.z1 - g.z0) * scale);
       map.fillStyle = g.state === 'open' ? '#2ecc71' : g.state === 'prep' ? '#f1c40f' : '#e74c3c';
-      map.fillRect(
-        x - 0.5,
-        y - 0.5,
-        Math.max(1.2, (g.x1 - g.x0) * scale),
-        Math.max(1.2, (g.z1 - g.z0) * scale),
-      );
+      map.fillRect(x - w / 2, y - h / 2, w, h);
     }
     const t = target(s);
     if (t && !s.moored) {
@@ -65,10 +113,12 @@ export function createChart(canvas) {
     map.font = '3.6px sans-serif';
     map.textAlign = 'center';
     for (const b of basins) {
-      const [x, y] = project((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
+      const [x, y] = onChart((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
       map.save();
       map.translate(x, y);
-      map.rotate(-Math.PI / 2);
+      // along the basin, which leans in the warped world
+      const ax = WARP.tangent((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 0, -1);
+      map.rotate(Math.atan2(ax.z, ax.x));
       map.fillStyle = 'rgba(220,231,220,.75)';
       map.fillText(b.name, 0, 1);
       map.restore();
@@ -78,8 +128,12 @@ export function createChart(canvas) {
       map.fillStyle = b === t ? '#8ae5c2' : b.color;
       const L = b.length * scale,
         B = 2.2;
-      if (b.h) map.fillRect(x - L / 2, y - B / 2, L, B);
-      else map.fillRect(x - B / 2, y - L / 2, B, L);
+      // The hull lies along its heading (0 = north = up the chart).
+      map.save();
+      map.translate(x, y);
+      map.rotate(b.h);
+      map.fillRect(-B / 2, -L / 2, B, L);
+      map.restore();
     }
     // Where each rival is going: a dashed line in its colour.
     map.lineWidth = 0.5;
@@ -87,7 +141,7 @@ export function createChart(canvas) {
     for (const r of world.rivals) {
       const d = r.mode !== 'idle' && r.mode !== 'sunk' ? customers[r.target] : null;
       if (!d) continue;
-      const [ax, ay] = project(r.x, r.z),
+      const [ax, ay] = project(r.wx ?? r.x, r.wz ?? r.z),
         [bx, by] = project(d.shipX, d.shipZ);
       map.strokeStyle = r.color;
       map.beginPath();
@@ -131,7 +185,7 @@ export function createChart(canvas) {
     for (const tm of terminals) tag(tm, 'T', tm === t ? '#ffe46b' : '#d6c48a');
     for (const w of waits) tag(w, w.yard ? 'W' : 'P', w.yard ? '#ffd54a' : '#9fd0ff');
     for (const b of world.traffic) {
-      const [x, y] = project(b.x, b.z);
+      const [x, y] = project(b.wx ?? b.x, b.wz ?? b.z);
       map.fillStyle = '#e9ab76';
       map.beginPath();
       map.arc(x, y, 1.2, 0, 7);
@@ -139,7 +193,7 @@ export function createChart(canvas) {
     }
     for (const r of world.rivals) {
       if (r.mode === 'sunk') continue;
-      const [x, y] = project(r.x, r.z);
+      const [x, y] = project(r.wx ?? r.x, r.wz ?? r.z);
       map.fillStyle = r.color;
       map.beginPath();
       if (r.own) {

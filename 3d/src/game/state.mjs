@@ -1,9 +1,11 @@
 import { DEFAULT_TEMPO, TEMPOS } from './time-scale.mjs';
 import { MAP, terminals, waits } from './harbor.mjs';
-import { waterAt } from '../maps/index.mjs';
+import { waterAt, worldPose } from '../maps/index.mjs';
 import { clamp } from './math.mjs';
 import { restoreEquipment } from './vessel-equipment.mjs';
-export const STATE_VERSION = 5;
+// 6: the position is saved in the warped world (bends, leaning basins). A version 5
+// save holds the same place on the straight map and is carried over.
+export const STATE_VERSION = 6;
 // One career, saved per browser. Position belongs to the map it was saved on.
 export function fresh() {
   const st = MAP.start;
@@ -66,7 +68,7 @@ export function fresh() {
   };
 }
 function startBerth() {
-  const st = MAP.start;
+  const st = MAP.mstart;
   const w = waits.find((w) => st.x > w.x0 && st.x < w.x1 && st.z > w.z0 && st.z < w.z1);
   if (w) return { kind: 'wait', id: w.id };
   const t = terminals.find((w) => st.x > w.x0 && st.x < w.x1 && st.z > w.z0 && st.z < w.z1);
@@ -110,15 +112,20 @@ export function restore(raw) {
     };
   if (isNum(raw.rudderCmd)) s.rudderCmd = clamp(raw.rudderCmd, -1, 1);
   s.rudder = isNum(raw.rudder) ? clamp(raw.rudder, -1, 1) : s.rudderCmd;
-  // Voyage state only on the same map and save version.
+  // Voyage state only on the same map and save version. A version 5 voyage was sailed
+  // on the straight map: the boat is put at the same spot in the warped harbour.
+  const at =
+    raw.version === 5 && isNum(raw.x) && isNum(raw.z)
+      ? worldPose({ x: raw.x, z: raw.z, h: isNum(raw.h) ? raw.h : MAP.mstart.h })
+      : { x: raw.x, z: raw.z, h: isNum(raw.h) ? raw.h : s.h };
   if (
-    raw.version === STATE_VERSION &&
+    (raw.version === STATE_VERSION || raw.version === 5) &&
     raw.mapId === MAP.id &&
-    isNum(raw.x) &&
-    isNum(raw.z) &&
-    waterAt(raw.x, raw.z, 4)
+    isNum(at.x) &&
+    isNum(at.z) &&
+    waterAt(at.x, at.z, 4)
   ) {
-    Object.assign(s, { x: raw.x, z: raw.z, h: isNum(raw.h) ? raw.h : s.h });
+    Object.assign(s, { x: at.x, z: at.z, h: at.h });
     for (const k of [
       'cargo',
       'target',

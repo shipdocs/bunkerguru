@@ -3,6 +3,7 @@
 // z = across (n < 0 = north = −z). The river is drawn straight (TH ignored).
 // Exactly as in the 2D game, K enlarges the world while ships keep their size and
 // berths, terminals and waiting places stay against their quay.
+import { createWarp, warpParams } from './warp.mjs';
 const SCALE = 2, // pixels per metre in the 2D game
   SH = 52; // seagoing ship beam in pixels (26 m)
 const COLS = ['#e67e22', '#27ae60', '#2980b9', '#e74c3c', '#f1c40f'];
@@ -171,6 +172,11 @@ export function buildClassic(def) {
     zMin = Math.min(...zs, -M(def.RIVER_HALF * K) - 200),
     zMax = Math.max(...zs, M(def.RIVER_HALF * K) + 200);
   const riverHalf = M(def.RIVER_HALF * K);
+  // The warped world: everything below keeps its map rectangle (x0…z1) for the rules,
+  // and gets a world position and heading (x, z, h) next to the map ones (mx, mz, mh).
+  const warp = createWarp(warpParams(def.id), riverHalf);
+  const landAtM = (x, z, m = 0) =>
+    land.some((l) => x > l.x0 - m && x < l.x1 + m && z > l.z0 - m && z < l.z1 + m);
   const basins = (m.basins || []).map((b) => ({
     name: b.name,
     ...rect(b),
@@ -184,10 +190,10 @@ export function buildClassic(def) {
     // Wall side: the edge of the strip that touches land.
     const mx = (r.x0 + r.x1) / 2,
       mz = (r.z0 + r.z1) / 2;
-    const landAt = (x, z) => land.some((l) => x > l.x0 && x < l.x1 && z > l.z0 && z < l.z1);
     let wall;
-    if (alongZ) wall = landAt(r.x0 - 8, mz) ? -1 : landAt(r.x1 + 8, mz) ? 1 : 0;
-    else wall = landAt(mx, r.z0 - 8) ? -1 : landAt(mx, r.z1 + 8) ? 1 : 0;
+    if (alongZ) wall = landAtM(r.x0 - 8, mz) ? -1 : landAtM(r.x1 + 8, mz) ? 1 : 0;
+    else wall = landAtM(mx, r.z0 - 8) ? -1 : landAtM(mx, r.z1 + 8) ? 1 : 0;
+    const mh = alongZ ? 0 : Math.PI / 2;
     return {
       id: kind + '-' + i,
       kind,
@@ -195,11 +201,13 @@ export function buildClassic(def) {
       yard: !!t.yard,
       gate: t.gate,
       ...r,
-      x: mx,
-      z: mz,
+      ...warp.forward(mx, mz),
+      h: warp.heading(mx, mz, mh),
+      mx,
+      mz,
+      mh,
       alongZ,
       wall,
-      h: alongZ ? 0 : Math.PI / 2,
     };
   };
   const terminals = m.terminals.map((t, i) => strip(t, 'terminal', i));
@@ -208,14 +216,42 @@ export function buildClassic(def) {
     const alongX = b.axis === 's',
       len = M(b.a1 - b.a0),
       mid = (b.a0 + b.a1) / 2;
-    const shipX = alongX ? X(mid) : X(b.c),
-      shipZ = alongX ? Z(b.c) : Z(mid);
+    const shipMX = alongX ? X(mid) : X(b.c),
+      shipMZ = alongX ? Z(b.c) : Z(mid),
+      mh = alongX ? Math.PI / 2 : 0,
+      beam = M(SH);
     const d0 = b.c + b.side * (SH / 2 + 2),
       d1 = b.c + b.side * (SH / 2 + 44);
     const zone = alongX
       ? { x0: X(b.a0 - 10), x1: X(b.a1 + 10), z0: Z(Math.min(d0, d1)), z1: Z(Math.max(d0, d1)) }
       : { x0: X(Math.min(d0, d1)), x1: X(Math.max(d0, d1)), z0: Z(b.a0 - 10), z1: Z(b.a1 + 10) };
-    const off = b.side * (M(SH) / 2 + 7);
+    // A seagoing ship is rigid: it lies along the warped quay at its middle, and is
+    // moved off just far enough that neither end sticks into a curved quay wall.
+    const h = warp.heading(shipMX, shipMZ, mh),
+      tx = Math.sin(h),
+      tz = -Math.cos(h),
+      n = warp.normal(shipMX, shipMZ, alongX ? 0 : b.side, alongX ? b.side : 0),
+      c0 = warp.forward(shipMX, shipMZ);
+    const touches = (off) => {
+      for (let u = -len / 2; u <= len / 2 + 1e-6; u += len / 40) {
+        const p = warp.inverse(
+          c0.x + n.x * (off - beam / 2) + tx * u,
+          c0.z + n.z * (off - beam / 2) + tz * u,
+        );
+        if (landAtM(p.x, p.z, 0.4)) return true;
+      }
+      return false;
+    };
+    let clear = 0;
+    if (!warp.identity) {
+      while (clear < 12 && touches(clear)) clear += 0.25;
+      if (clear >= 12) clear = 0;
+    }
+    const shipX = c0.x + n.x * clear,
+      shipZ = c0.z + n.z * clear,
+      spot = { x: shipX + n.x * (beam / 2 + 7), z: shipZ + n.z * (beam / 2 + 7) },
+      mship = warp.inverse(shipX, shipZ),
+      mspot = warp.inverse(spot.x, spot.z);
     return {
       id: def.id + '-' + i,
       kind: 'ship',
@@ -224,14 +260,24 @@ export function buildClassic(def) {
       color: b.col,
       gate: b.gate,
       length: len,
-      beam: M(SH),
+      beam,
+      alongX,
+      // World: the rigid hull and the spot where a bunker boat lies alongside.
       shipX,
       shipZ,
-      h: alongX ? Math.PI / 2 : 0,
+      h,
+      x: spot.x,
+      z: spot.z,
+      away: { x: n.x, z: n.z },
+      // Map: the same, for route planning and the boats that sail on the map.
+      shipMX: mship.x,
+      shipMZ: mship.z,
+      mh,
+      mx: mspot.x,
+      mz: mspot.z,
+      clear,
       zone,
       side: b.side,
-      x: shipX + (alongX ? 0 : off),
-      z: shipZ + (alongX ? off : 0),
     };
   });
   const traffic = (m.traffic || []).map((t, i) => ({
@@ -293,13 +339,15 @@ export function buildClassic(def) {
     // 2D angle → 3D heading of the crane boom (towards the water).
     if (d.ang !== undefined) d.yaw = heading(d.ang);
   }
-  const start = { x: X(m.start.s), z: Z(m.start.n), h: heading(m.start.hdgOff || 0) };
+  const mstart = { x: X(m.start.s), z: Z(m.start.n), h: heading(m.start.hdgOff || 0) },
+    start = warp.poseForward(mstart);
   const rivals = (m.rivals || []).map((r) => ({ x: X(r.s), z: Z(r.n), h: heading(r.hdgOff || 0) }));
   const lanes = def.lanes
     ? { down: M(def.lanes.down * K), up: M(def.lanes.up * K), mouth: M(def.lanes.mouth * K) }
     : null;
   return {
     id: def.id,
+    warp,
     name: def.name,
     icon: def.icon,
     desc: def.desc,
@@ -326,6 +374,7 @@ export function buildClassic(def) {
     roads,
     decor,
     start,
+    mstart,
     rivals,
     lanes,
     current: { base: def.currentSpeed || 0, tide: def.tide || null },

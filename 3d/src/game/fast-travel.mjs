@@ -2,12 +2,12 @@
 // route advice to an approach point short of the destination (or of a closed bridge or
 // lock); time, tide, traffic and rivals move on as if you had sailed it. Manoeuvring,
 // berthing and every interesting decision stay with the player.
-import { waterAt, currentAt, tideSpeed } from '../maps/index.mjs';
+import { waterAt, currentAt, tideSpeed, inRectW, toMap } from '../maps/index.mjs';
 import { routePoints, LOGIC, CLOCK_RATE, MAP } from './harbor.mjs';
 import { updateTraffic } from './traffic.mjs';
 import { updateGates } from './gates.mjs';
 import { updateRivals } from './rivals.mjs';
-import { target } from './simulation.mjs';
+import { target, playerOnMap, publishPoses } from './simulation.mjs';
 import { berthOf } from './harbor.mjs';
 export const FAST_MIN_DISTANCE = 450, // closer than this: just sail
   APPROACH = 280, // stop this far (along the route) before the destination
@@ -19,7 +19,7 @@ function crossesGate(a, b, g) {
   for (let i = 0; i <= n; i++) {
     const x = a.x + ((b.x - a.x) * i) / n,
       z = a.z + ((b.z - a.z) * i) / n;
-    if (x > g.x0 - 5 && x < g.x1 + 5 && z > g.z0 - 5 && z < g.z1 + 5) return i / n;
+    if (inRectW(g, x, z, 5)) return i / n;
   }
   return -1;
 }
@@ -64,13 +64,16 @@ export function planFastTravel(s, world) {
       sternX = x - Math.sin(h) * 55,
       sternZ = z + Math.cos(h) * 55;
     const busy = [...world.traffic, ...world.rivals.filter((r) => r.mode !== 'sunk')].some(
-      (o) => Math.hypot(o.x - x, o.z - z) < 70 + (o.length || 110) / 2,
+      (o) => Math.hypot((o.wx ?? o.x) - x, (o.wz ?? o.z) - z) < 70 + (o.length || 110) / 2,
     );
     // A destination inside a basin: stop on the river in front of the mouth, so the
     // turn into the basin (with the current on the beam) is the player's own.
-    const inBasinTarget = Math.abs(t.z) > MAP.riverHalf,
-      onRiver = Math.abs(z) < MAP.riverHalf - 20;
-    const sameBasin = Math.abs(s.z) > MAP.riverHalf && Math.abs(s.x - t.x) < 400;
+    // (River and basins are told apart on the map.)
+    const tm = toMap(t.x, t.z),
+      sm = toMap(s.x, s.z);
+    const inBasinTarget = Math.abs(tm.z) > MAP.riverHalf,
+      onRiver = Math.abs(toMap(x, z).z) < MAP.riverHalf - 20;
+    const sameBasin = Math.abs(sm.z) > MAP.riverHalf && Math.abs(sm.x - tm.x) < 400;
     if (inBasinTarget && !onRiver && !sameBasin) continue;
     if (!busy && waterAt(x, z, 20) && waterAt(bowX, bowZ, 12) && waterAt(sternX, sternZ, 12))
       return { ok: true, x, z, h, dist, target: t, gateName };
@@ -83,7 +86,7 @@ export function fastTravel(s, world, fx = {}) {
   if (!p.ok) return p.why;
   const simSeconds = p.dist / CRUISE;
   // The world keeps turning: traffic, bridges, locks and the rivals.
-  const boats = () => [s, ...world.rivals.filter((r) => r.mode !== 'sunk')];
+  const boats = () => [playerOnMap(s), ...world.rivals.filter((r) => r.mode !== 'sunk')];
   let stolen = null;
   for (let t = 0; t < simSeconds; ) {
     const dt = Math.min(0.25, simSeconds - t);
@@ -92,9 +95,11 @@ export function fastTravel(s, world, fx = {}) {
     s.z += ((p.z - s.z) * dt) / (simSeconds - t);
     updateTraffic(world.traffic, dt, boats());
     updateGates(world.gates, dt, boats());
-    stolen = updateRivals(world.rivals, dt, s, world.traffic, {}, world.gates) || stolen;
+    stolen =
+      updateRivals(world.rivals, dt, playerOnMap(s), world.traffic, {}, world.gates) || stolen;
     t += dt;
   }
+  publishPoses(world);
   const logic = simSeconds * LOGIC;
   s.clock = (s.clock || 0) + simSeconds;
   s.tideSpeed = tideSpeed(s.clock, s.tidePhase); // the tide turned on the way, perhaps

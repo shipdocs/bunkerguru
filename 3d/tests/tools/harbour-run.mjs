@@ -8,6 +8,8 @@ import {
   waterAt,
   waterRoute,
   landAt,
+  stripSpot,
+  worldPose,
 } from '../../src/maps/index.mjs';
 import { fresh, step, createWorldState, mooringCandidate } from '../../src/game/simulation.mjs';
 import { hullContacts } from '../../src/game/collisions.mjs';
@@ -73,15 +75,7 @@ for (const [i, b] of customers.entries()) {
   if (!mooringCandidate(p).ok) bad(b.name + ': cannot make fast (' + mooringCandidate(p).why + ')');
 }
 for (const t of [...terminals, ...waits]) {
-  const off = t.wall * ((t.alongZ ? t.x1 - t.x0 : t.z1 - t.z0) / 2 - 7);
-  const p = {
-    ...fresh(),
-    x: t.alongZ ? t.x + off : t.x,
-    z: t.alongZ ? t.z : t.z + off,
-    h: t.h,
-    moored: false,
-    phase: 'free',
-  };
+  const p = { ...fresh(), ...worldPose(stripSpot(t)), moored: false, phase: 'free' };
   const x0 = p.x,
     z0 = p.z;
   hullContacts(p, 0);
@@ -111,15 +105,30 @@ for (let i = 0; i < 60 * 600; i++) {
     }
   for (const r of world.rivals) {
     if (![r.x, r.z, r.h, r.cur].every(Number.isFinite)) bad(r.name + ' NaN');
-    if (r.mode !== 'sunk' && !waterAt(r.x, r.z, 0))
-      bad(r.name + ' on land at ' + Math.round(r.x) + ',' + Math.round(r.z));
+    // Where the boat is drawn and can be hit: its published world pose.
+    if (![r.wx, r.wz, r.wh].every(Number.isFinite)) bad(r.name + ' has no world pose');
+    if (r.mode !== 'sunk' && !waterAt(r.wx, r.wz, 0))
+      bad(r.name + ' on land at ' + Math.round(r.wx) + ',' + Math.round(r.wz));
     if (r.stuckT > 44 * 3) out.rivalTows++;
   }
   if (world.rivals.length === 2 && !withFleet) {
     const [a, b] = world.rivals;
     out.minRivalGap = Math.min(out.minRivalGap, Math.hypot(a.x - b.x, a.z - b.z));
   }
-  for (const t of world.traffic) if (![t.x, t.z].every(Number.isFinite)) bad(t.name + ' NaN');
+  for (const t of world.traffic) {
+    if (![t.x, t.z, t.wx, t.wz, t.wh].every(Number.isFinite)) bad(t.name + ' NaN');
+    // Traffic on water: the rigid hull as drawn in the world (bow, midships, stern,
+    // both sides) must lie clear of every quay. Past the chart edge a ship wraps round.
+    if (Math.abs(t.x) > MAP.halfWidth - t.length / 2 - 5) continue;
+    const fx = Math.sin(t.wh),
+      fz = -Math.cos(t.wh);
+    for (const a of [-0.46, -0.23, 0, 0.23, 0.46])
+      for (const side of [-0.5, 0.5]) {
+        const x = t.wx + fx * a * t.length - fz * side * t.beam,
+          z = t.wz + fz * a * t.length + fx * side * t.beam;
+        if (landAt(x, z)) bad(t.name + ' hull over land at ' + Math.round(x) + ',' + Math.round(z));
+      }
+  }
 }
 out.rivalJobs = world.rivals.reduce((n, r, i) => n + (r.own ? 0 : r.jobs - before[i]), 0);
 out.fleetJobs = fleetOf(world).reduce((n, r) => n + r.jobs, 0);

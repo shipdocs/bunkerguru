@@ -6,7 +6,7 @@ import { vesselStep, stopShip } from '../src/game/vessel.mjs';
 function setup() {
   const target = new EventTarget(),
     keys = {},
-    s = { ...fresh(), handling: 'arcade', timeScale: 2, x: 0, z: 0, moored: false };
+    s = { ...fresh(), handling: 'arcade', timeScale: 2, x: 0, z: 0, h: 0, moored: false };
   const actions = {
     ahead: () => (s.teleIdx = nextTelegraph(s.teleIdx, 1)),
     astern: () => (s.teleIdx = nextTelegraph(s.teleIdx, -1)),

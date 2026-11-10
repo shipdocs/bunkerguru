@@ -78,6 +78,7 @@ test('1x and 3x remain distinct, while new careers default to playable 2x', () =
       moored: false,
       x: 0,
       z: 0,
+      h: 0,
       u: 4,
       rudder: 1,
       rudderCmd: 1,

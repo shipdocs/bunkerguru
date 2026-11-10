@@ -1047,3 +1047,146 @@
     font-size: 22px;
   }
 }
+
+/* Messages on a phone must never hide the water ahead. VHF becomes a one-line ticker,
+   cards lose their portrait and keep two lines, the toast keeps two lines. */
+@media (max-width: 800px), (max-height: 550px) and (pointer: coarse) {
+  :root #radio {
+    padding: 4px 10px;
+    font-size: 11px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-width: 1px;
+    background: rgba(14, 30, 22, 0.78);
+    max-width: min(70vw, 420px);
+  }
+  :root #radio .radioFace,
+  :root #radio br {
+    display: none;
+  }
+  :root #radio b::after {
+    content: ' · ';
+  }
+  :root #toast {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    padding: 5px 12px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  :root .momentCard {
+    padding: 6px 10px;
+    gap: 0;
+  }
+  :root .momentCard .cardFace {
+    display: none;
+  }
+  :root .momentCard .cardText {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+}
+/* Landscape: the ship sails up the screen, so the strip below her, between the two
+   thumb clusters and above the speed, is the place that hides least. The toast stays
+   as one short line under the job strip. */
+@media (max-height: 500px) and (max-width: 800px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  :root #radio {
+    top: auto;
+    bottom: calc(50px + var(--sb));
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    max-width: calc(100vw - 520px - var(--sl) - var(--sr));
+    min-width: 150px;
+  }
+  :root .momentCard {
+    top: auto;
+    bottom: calc(78px + var(--sb));
+    left: 50%;
+    right: auto;
+    width: calc(100vw - 520px - var(--sl) - var(--sr));
+    min-width: 170px;
+    margin-left: calc((100vw - 520px - var(--sl) - var(--sr)) / -2);
+  }
+  :root .momentCard:not(.show) {
+    transform: translateY(250%);
+  }
+  :root #toast {
+    -webkit-line-clamp: 1;
+    max-width: min(52vw, calc(100vw - 420px));
+  }
+}
+@media (max-height: 500px) and (max-width: 800px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  :root .momentCard .cardText b {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+  :root .momentCard .cardText small {
+    font-size: 9px;
+  }
+  :root .momentCard .cardText {
+    -webkit-line-clamp: 2;
+  }
+}
+/* A phone on its side is wider than 800 px, so the desktop "step back while under way"
+   rules (narrow, faded job panel) reached it and squeezed the job strip. Not here. */
+@media (max-height: 500px) and (max-width: 800px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  :root body.underway .mission,
+  :root body.underway .mission:not(:hover) {
+    width: auto;
+    padding: 5px 4px 6px 12px;
+    opacity: 1;
+  }
+  :root body.underway .mission h1 {
+    font-size: 14px;
+  }
+  :root body.underway footer:not(:hover) {
+    opacity: 1;
+  }
+}
+/* VHF ticker: the box is a flex row, so the text itself carries the ellipsis. */
+@media (max-width: 800px), (max-height: 550px) and (pointer: coarse) {
+  :root #radio > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+@media (max-height: 500px) and (max-width: 800px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  /* Two lines: the title and the start of what happened; the speaker's name goes. */
+  :root .momentCard .cardText small {
+    display: none;
+  }
+}
+/* Small phones on their side (under 700 px wide): no room between the thumb clusters,
+   so the ticker and the card go under the job strip instead of over the controls. */
+@media (max-height: 500px) and (max-width: 699px) and (orientation: landscape) {
+  :root #radio,
+  :root .momentCard {
+    bottom: auto;
+    top: calc(64px + var(--st));
+    width: auto;
+    min-width: 0;
+    max-width: min(60vw, 320px);
+    margin-left: 0;
+    transform: translateX(-50%);
+  }
+  :root .momentCard {
+    top: calc(92px + var(--st));
+  }
+  :root .momentCard:not(.show) {
+    transform: translate(-50%, -400%);
+  }
+}

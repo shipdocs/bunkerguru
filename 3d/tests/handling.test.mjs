@@ -11,6 +11,7 @@ const boat = (patch) => ({
   moored: false,
   x: 0,
   z: 0,
+  h: 0, // the start berth may lie at any angle (leaning basins)
   cargo: 1200,
   ...patch,
 });

@@ -68,16 +68,26 @@ test('a rival under way sounds the horn once when the player is close ahead', ()
 });
 
 test('current in 3D is half the 2D map value, on the river and at the peak of the tide', async () => {
-  const { MAP, tideSpeed, currentAt, CURRENT_FEEL } = await import('../src/maps/index.mjs');
+  const { MAP, WARP, toWorld, tideSpeed, currentAt, CURRENT_FEEL } = await import(
+    '../src/maps/index.mjs'
+  );
   assert.equal(CURRENT_FEEL, 0.5);
   const td = MAP.current.tide;
   // Peak ebb: a quarter period after slack (period in 2D seconds, ×3 simulated).
   const peak = tideSpeed((td.period * 3) / 4, 0);
   assert(Math.abs(peak - td.ebbMax * 0.5) < 1e-9, 'Rotterdam: 1,5 m/s instead of 3');
   assert(Math.abs(tideSpeed((td.period * 3 * 3) / 4, 0) + td.floodMax * 0.5) < 1e-9);
-  // Mid-river the water runs at that speed towards the sea (−x); nothing on land.
-  const c = currentAt(0, 0, peak);
-  assert(Math.abs(c.x + peak) < 1e-9 && c.z === 0);
+  // Mid-river the water runs at that speed towards the sea: −x on the map, along
+  // the bend of the river in the world.
+  const mid = toWorld(0, 0),
+    c = currentAt(mid.x, mid.z, peak),
+    sea = WARP.tangent(0, 0, -1, 0),
+    len = Math.hypot(sea.x, sea.z);
+  assert(Math.abs(Math.hypot(c.x, c.z) - peak) < 1e-9, 'same strength in a bend');
+  assert(
+    Math.abs(c.x - (sea.x / len) * peak) < 1e-9 && Math.abs(c.z - (sea.z / len) * peak) < 1e-9,
+  );
+  if (WARP.identity) assert(Math.abs(c.x + peak) < 1e-9 && c.z === 0);
   // A new career starts near slack water.
   const { fresh } = await import('../src/game/state.mjs');
   assert(Math.abs(tideSpeed(0, fresh().tidePhase)) < 0.3);

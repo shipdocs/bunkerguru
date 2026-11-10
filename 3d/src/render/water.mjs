@@ -1,27 +1,59 @@
 import * as T from '../../vendor/three.js';
-import { MAP, land } from '../maps/index.mjs';
+import { MAP, WARP, land, worldBounds } from '../maps/index.mjs';
 // Distance to the nearest shore, baked once into a small texture (metres, signed:
 // negative under the land). The shader reads it for the shallows, the dark foot of
 // the quay wall and the foam that laps against it.
 const REACH = 56,
   UNDER = 8;
+// The texture covers the warped world; every texel is looked up on the straight map
+// (maps/warp.mjs), where the land is rectangles. Distances are map metres: within a
+// few per cent of the world, plenty for foam and shallows.
 function shoreField(cell) {
-  const x0 = -MAP.halfWidth - 64,
-    z0 = MAP.zMin - 64,
-    w = Math.ceil((MAP.halfWidth * 2 + 128) / cell),
-    h = Math.ceil((MAP.zMax - MAP.zMin + 128) / cell),
+  const x0 = worldBounds.x0 - 64,
+    z0 = worldBounds.z0 - 64,
+    w = Math.ceil((worldBounds.x1 - worldBounds.x0 + 128) / cell),
+    h = Math.ceil((worldBounds.z1 - worldBounds.z0 + 128) / cell),
     out = new Float32Array(w * h).fill(REACH),
     inside = new Float32Array(w * h).fill(-1);
   const wet = (x, z) => !land.some((l) => x > l.x0 && x < l.x1 && z > l.z0 && z < l.z1);
+  // Inverse warp per texel: z = Z − f(X), x = X − g(z); f only depends on the column.
+  const fcol = new Float32Array(w);
+  for (let i = 0; i < w; i++) fcol[i] = WARP.f(x0 + (i + 0.5) * cell);
+  const W = MAP.halfWidth + 64;
   for (const l of land) {
-    const i0 = Math.max(0, Math.floor((l.x0 - REACH - x0) / cell)),
-      i1 = Math.min(w - 1, Math.ceil((l.x1 + REACH - x0) / cell)),
-      j0 = Math.max(0, Math.floor((l.z0 - REACH - z0) / cell)),
-      j1 = Math.min(h - 1, Math.ceil((l.z1 + REACH - z0) / cell));
+    // The box round the warped rectangle (cut off at the chart edge).
+    const c = {
+      x0: Math.max(l.x0, -W),
+      x1: Math.min(l.x1, W),
+      z0: Math.max(l.z0, MAP.zMin - 64),
+      z1: Math.min(l.z1, MAP.zMax + 64),
+    };
+    let bx0 = Infinity,
+      bx1 = -Infinity,
+      bz0 = Infinity,
+      bz1 = -Infinity;
+    for (let k = 0; k <= 40; k++)
+      for (const [x, z] of [
+        [c.x0 + ((c.x1 - c.x0) * k) / 40, c.z0],
+        [c.x0 + ((c.x1 - c.x0) * k) / 40, c.z1],
+        [c.x0, c.z0 + ((c.z1 - c.z0) * k) / 40],
+        [c.x1, c.z0 + ((c.z1 - c.z0) * k) / 40],
+      ]) {
+        const p = WARP.forward(x, z);
+        bx0 = Math.min(bx0, p.x);
+        bx1 = Math.max(bx1, p.x);
+        bz0 = Math.min(bz0, p.z);
+        bz1 = Math.max(bz1, p.z);
+      }
+    const reach = REACH * 1.2 + 4;
+    const i0 = Math.max(0, Math.floor((bx0 - reach - x0) / cell)),
+      i1 = Math.min(w - 1, Math.ceil((bx1 + reach - x0) / cell)),
+      j0 = Math.max(0, Math.floor((bz0 - reach - z0) / cell)),
+      j1 = Math.min(h - 1, Math.ceil((bz1 + reach - z0) / cell));
     for (let j = j0; j <= j1; j++)
       for (let i = i0; i <= i1; i++) {
-        const x = x0 + (i + 0.5) * cell,
-          z = z0 + (j + 0.5) * cell,
+        const z = z0 + (j + 0.5) * cell - fcol[i],
+          x = x0 + (i + 0.5) * cell - WARP.g(z),
           dx = Math.max(l.x0 - x, 0, x - l.x1),
           dz = Math.max(l.z0 - z, 0, z - l.z1),
           k = j * w + i;

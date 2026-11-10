@@ -3,7 +3,14 @@
 import { timeScaleOf } from './time-scale.mjs';
 import { hullContacts } from './collisions.mjs';
 import { vesselStep } from './vessel.mjs';
-import { currentAt, tideSpeed } from '../maps/index.mjs';
+import {
+  currentAt,
+  tideSpeed,
+  stripSpot,
+  worldPose,
+  mapPose,
+  publishPose,
+} from '../maps/index.mjs';
 import { createTraffic, updateTraffic } from './traffic.mjs';
 import { createGates, updateGates } from './gates.mjs';
 import { createRivals, updateRivals, rivalStartJob, saveRivals } from './rivals.mjs';
@@ -33,12 +40,23 @@ export const MOOR_KMH = 4; // relative to the quay/ship; you may hold against th
 const noFx = { say() {}, sound() {}, radio() {}, board() {} };
 
 export function createWorldState(s) {
-  return {
+  return publishPoses({
     traffic: createTraffic(),
     gates: createGates(),
     rivals: [...createRivals(s.rivals), ...createFleet(s.fleet, MAP.id, s.fleetMap)],
     events: createEvents(),
-  };
+  });
+}
+// Traffic, rivals and your own fleet sail on the straight map (x, z, h). After every
+// update their place in the warped world is published as wx, wz, wh.
+export function publishPoses(world) {
+  for (const t of world.traffic) publishPose(t);
+  for (const r of world.rivals) publishPose(r);
+  return world;
+}
+// The player as those boats see it: the same boat, at its place on the map.
+export function playerOnMap(s) {
+  return Object.assign(Object.create(s), mapPose(s));
 }
 export const speedKmh = (s) => Math.hypot(s.u, s.v) * 3.6;
 const hdgErr = (a, b) => {
@@ -168,10 +186,12 @@ export function step(s, world, dt, keys = {}, fx = noFx, onClutch) {
       onClutch,
       { env },
     );
-  const boats = [s, ...world.rivals.filter((r) => r.mode !== 'sunk')];
+  const onMap = playerOnMap(s),
+    boats = [onMap, ...world.rivals.filter((r) => r.mode !== 'sunk')];
   updateTraffic(world.traffic, sim, boats);
   updateGates(world.gates, sim, boats, fx.say);
-  const stolen = updateRivals(world.rivals, sim, s, world.traffic, fx, world.gates);
+  const stolen = updateRivals(world.rivals, sim, onMap, world.traffic, fx, world.gates);
+  publishPoses(world);
   if (stolen && s.job && s.phase !== 'done') {
     fx.say('📻 ' + stolen.rival.name + ' was eerder bij ' + berthOf(s).name + ' – klus kwijt!', 6);
     addNews(
@@ -329,16 +349,7 @@ function logicStep(s, world, dt, fx) {
     if (s.sinkT > 5) {
       // Raised and towed to the yard (W): lying there, still damaged, repairs start.
       const yard = waits.find((w) => w.yard);
-      const off = yard
-        ? yard.wall * ((yard.alongZ ? yard.x1 - yard.x0 : yard.z1 - yard.z0) / 2 - 7)
-        : 0;
-      const spot = yard
-        ? {
-            x: yard.alongZ ? yard.x + off : yard.x,
-            z: yard.alongZ ? yard.z : yard.z + off,
-            h: yard.h,
-          }
-        : MAP.start;
+      const spot = yard ? worldPose(stripSpot(yard)) : MAP.start;
       Object.assign(s, {
         x: spot.x,
         z: spot.z,
