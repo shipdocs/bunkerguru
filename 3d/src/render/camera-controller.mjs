@@ -10,6 +10,7 @@ import {
   BRIDGE_LOOKS,
   bridgeEye,
   bridgeDir,
+  autoZoomFactor,
 } from './camera.mjs';
 const FOV = 44;
 export function createCameraController({ $, camera, zoomLimits, state: s, toast, boat }) {
@@ -17,7 +18,8 @@ export function createCameraController({ $, camera, zoomLimits, state: s, toast,
     elevation = 0.65,
     distance = zoomLimits.initial,
     cameraMode = 'follow',
-    dragging = null;
+    dragging = null,
+    zoomFactor = 1; // auto-zoom, eased towards autoZoomFactor(speed)
   // Wheelhouse: which window (−1 port wing, 0 front, +1 starboard wing), a head turn
   // on top of it (drag), and binoculars (wheel = field of view).
   const bridge = { look: 0, yaw: 0, pitch: -0.04, fov: 55, eye: null };
@@ -153,7 +155,13 @@ export function createCameraController({ $, camera, zoomLimits, state: s, toast,
     update(s, dt) {
       if (cameraMode === 'bridge' && boat) return updateBridge(s, dt);
       if (cameraMode === 'follow') yaw = followYaw(yaw, s.h, dt);
-      const pose = cameraPose(s, cameraMode, yaw, elevation, distance);
+      // Auto-zoom (setting, on by default) in the follow camera only; it eases over a
+      // few seconds so a burst of speed does not make the view pump.
+      const want =
+        cameraMode === 'follow' && s.autoZoom !== false ? autoZoomFactor(Math.hypot(s.u, s.v)) : 1;
+      zoomFactor += (want - zoomFactor) * (1 - Math.exp(-dt * 0.6));
+      const d = clamp(distance * zoomFactor, zoomLimits.min, zoomLimits.max);
+      const pose = cameraPose(s, cameraMode, yaw, elevation, d);
       focus.lerp(new T.Vector3(pose.focus.x, pose.focus.y, pose.focus.z), 1 - Math.exp(-dt * 4));
       const desired = new T.Vector3(pose.position.x, pose.position.y, pose.position.z);
       camera.position.lerp(desired, 1 - Math.exp(-dt * 5));

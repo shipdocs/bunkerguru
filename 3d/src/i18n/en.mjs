@@ -116,6 +116,8 @@ export const PHRASES = [
   ['Stroom: zwak', 'Current: weak'],
   ['Stroom: normaal', 'Current: normal'],
   ['Stroom: sterk', 'Current: strong'],
+  ['Auto-zoom: aan', 'Auto zoom: on'],
+  ['Auto-zoom: uit', 'Auto zoom: off'],
   ['schipper', 'skipper'],
   ['Beeld: automatisch', 'Graphics: automatic'],
   ['Beeld: zuinig', 'Graphics: light'],

@@ -30,6 +30,13 @@ export function bridgeDir(yaw, pitch) {
     z: -Math.cos(yaw) * Math.cos(pitch),
   };
 }
+// Auto-zoom of the follow camera: slow = close in (for berthing), at speed further out
+// (to see what comes). A factor on the distance the player chose, by speed over ground:
+// 0,6 × when lying still, 1 × at 3 m/s, up to 1,3 × from 7 m/s (25 km/h).
+export function autoZoomFactor(speed) {
+  const v = Math.max(0, Math.min(7, Math.abs(speed) || 0));
+  return v < 3 ? 0.6 + (0.4 * v) / 3 : 1 + (0.3 * (v - 3)) / 4;
+}
 export function nextCamera(mode) {
   return CAMERA_MODES[(CAMERA_MODES.indexOf(mode) + 1) % CAMERA_MODES.length];
 }

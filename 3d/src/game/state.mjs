@@ -33,6 +33,7 @@ export function fresh() {
     handling: 'schipper',
     inertia: DEFAULT_INERTIA,
     currentFeel: DEFAULT_CURRENT,
+    autoZoom: true,
     shipId: 'legacy',
     equipment: restoreEquipment(),
     timeScale: DEFAULT_TEMPO,
@@ -99,6 +100,7 @@ export function restore(raw) {
   if (['schipper', 'arcade'].includes(raw.handling)) s.handling = raw.handling;
   if (INERTIA.some((o) => o.id === raw.inertia)) s.inertia = raw.inertia;
   if (CURRENTS.some((o) => o.id === raw.currentFeel)) s.currentFeel = raw.currentFeel;
+  if (typeof raw.autoZoom === 'boolean') s.autoZoom = raw.autoZoom;
   if (TEMPOS.includes(raw.timeScale)) s.timeScale = raw.timeScale;
   if (typeof raw.trainingDone === 'boolean') s.trainingDone = raw.trainingDone;
   // Career (fase 2). Careers from before get points for the jobs they already did.
