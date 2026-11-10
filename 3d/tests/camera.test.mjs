@@ -55,3 +55,14 @@ test('wheelhouse labels stay modest: never wider than their own size, small up c
   assert.equal(bridgeLabelScale(40, 2000), 40);
   assert.equal(bridgeLabelScale(40, 5), 3);
 });
+
+test('follow camera auto-zoom: close in when slow, further out at speed', async () => {
+  const { autoZoomFactor } = await import('../src/render/camera.mjs');
+  assert(Math.abs(autoZoomFactor(0) - 0.6) < 1e-9);
+  assert(Math.abs(autoZoomFactor(3) - 1) < 1e-9);
+  assert(Math.abs(autoZoomFactor(20) - 1.3) < 1e-9);
+  for (let v = 0; v < 8; v += 0.5) assert(autoZoomFactor(v + 0.5) >= autoZoomFactor(v));
+  const { fresh, restore } = await import('../src/game/state.mjs');
+  assert.equal(fresh().autoZoom, true);
+  assert.equal(restore({ ...fresh(), autoZoom: false }).autoZoom, false);
+});

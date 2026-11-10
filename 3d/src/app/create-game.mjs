@@ -357,6 +357,12 @@ export function createGame({ createRenderer } = {}) {
   const feelButtons = () => {
     $('inertia').textContent = inertiaLabel(s);
     $('currentFeel').textContent = currentLabel(s);
+    $('autoZoom').textContent = 'Auto-zoom: ' + (s.autoZoom !== false ? 'aan' : 'uit');
+  };
+  $('autoZoom').onclick = () => {
+    s.autoZoom = s.autoZoom === false;
+    feelButtons();
+    save();
   };
   $('inertia').onclick = () => {
     s.inertia = nextInertia(s);
@@ -387,6 +393,7 @@ export function createGame({ createRenderer } = {}) {
         timeScale: s.timeScale,
         inertia: s.inertia,
         currentFeel: s.currentFeel,
+        autoZoom: s.autoZoom,
       };
       s = Object.assign(fresh(), keep);
       clearFleet(sim);
@@ -487,6 +494,7 @@ export function createGame({ createRenderer } = {}) {
       timeScale: s.timeScale,
       inertia: s.inertia,
       currentFeel: s.currentFeel,
+      autoZoom: s.autoZoom,
       trainingDone: true,
     };
     s = Object.assign(fresh(), keep);
