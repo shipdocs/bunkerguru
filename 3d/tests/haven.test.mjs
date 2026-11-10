@@ -79,15 +79,17 @@ test('current in 3D is half the 2D map value, on the river and at the peak of th
   assert(Math.abs(tideSpeed((td.period * 3 * 3) / 4, 0) + td.floodMax * 0.5) < 1e-9);
   // Mid-river the water runs at that speed towards the sea: −x on the map, along
   // the bend of the river in the world.
-  const mid = toWorld(0, 0),
+  // On a real outline (MAP.river) mid-river is the middle of its fairway.
+  const fair = MAP.river?.at(MAP.river.length / 2),
+    mid = fair || toWorld(0, 0),
     c = currentAt(mid.x, mid.z, peak),
-    sea = WARP.tangent(0, 0, -1, 0),
+    sea = fair ? { x: -fair.tx, z: -fair.tz } : WARP.tangent(0, 0, -1, 0),
     len = Math.hypot(sea.x, sea.z);
   assert(Math.abs(Math.hypot(c.x, c.z) - peak) < 1e-9, 'same strength in a bend');
   assert(
     Math.abs(c.x - (sea.x / len) * peak) < 1e-9 && Math.abs(c.z - (sea.z / len) * peak) < 1e-9,
   );
-  if (WARP.identity) assert(Math.abs(c.x + peak) < 1e-9 && c.z === 0);
+  if (WARP.identity && !MAP.river) assert(Math.abs(c.x + peak) < 1e-9 && c.z === 0);
   // A new career starts near slack water.
   const { fresh } = await import('../src/game/state.mjs');
   assert(Math.abs(tideSpeed(0, fresh().tidePhase)) < 0.3);

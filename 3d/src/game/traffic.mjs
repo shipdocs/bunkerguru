@@ -70,7 +70,54 @@ export function withBarges(list, halfWidth, only = 0) {
     }),
   ];
 }
+// On a real map (maps/real-map.mjs) every ship follows a path: a lane along the
+// fairway, or, for a tug, a shuttle line inside its basin. s = metres along it.
+function placeOnPath(t) {
+  const p = t.path.at(t.s),
+    dir = Math.sign(t.v) || 1;
+  t.x = p.x;
+  t.z = p.z;
+  t.ph = dir > 0 ? p.h : p.h + Math.PI;
+  t.vx = p.tx * t.v * t.k;
+  t.vz = p.tz * t.v * t.k;
+}
+// Barges for a real map: a companion per direction on the same lane, half a river on.
+function pathBarges(list) {
+  const out = [];
+  for (const dir of [1, -1]) {
+    const mates = list.filter((t) => !t.shuttle && Math.sign(t.v) === dir);
+    if (!mates.length) continue;
+    const L = mates[0].path.length,
+      ss = mates.map((t) => t.s).sort((a, b) => a - b);
+    let s = ss[0] + L / 2,
+      widest = -1;
+    for (let k = 0; k < ss.length; k++) {
+      const gap = (k + 1 < ss.length ? ss[k + 1] : ss[0] + L) - ss[k];
+      if (gap > widest) [widest, s] = [gap, (ss[k] + gap / 2) % L];
+    }
+    const [name, color] = BARGES[out.length];
+    out.push({
+      ...mates[0],
+      id: list.length + out.length,
+      name,
+      color,
+      s,
+      v: dir * Math.min(...mates.map((t) => Math.abs(t.v))),
+      length: 110 + out.length * 25,
+      beam: 11.4,
+      barge: true,
+    });
+  }
+  return [...list, ...out];
+}
 export function createTraffic() {
+  if (MAP.real)
+    return pathBarges(MAP.traffic).map((t) => {
+      const o = { ...t, axis: t.shuttle ? 'z' : 'x', k: 1, blockT: 0, speed: Math.abs(t.v) };
+      placeOnPath(o);
+      o.h = o.ph;
+      return o;
+    });
   const list =
     MAP.id === 'training'
       ? MAP.traffic
@@ -95,6 +142,38 @@ export function updateTraffic(traffic, dt, boats = []) {
   void SIM_PER_LOGIC;
   for (const t of traffic) {
     const dir = Math.sign(t.v);
+    if (t.path) {
+      // Look out along the heading, as the lane ships and tugs below do.
+      const fx = Math.sin(t.ph),
+        fz = -Math.cos(t.ph);
+      let k = 1;
+      for (const b of boats) {
+        const ahead = (b.x - t.x) * fx + (b.z - t.z) * fz - t.length / 2,
+          lat = Math.abs((b.x - t.x) * -fz + (b.z - t.z) * fx);
+        if (ahead > -10 && ahead < Math.max(t.length * 1.2, 150) && lat < 13 + 35)
+          k = Math.min(k, t.shuttle ? 0 : ahead < 60 ? 0.1 : 0.3);
+      }
+      t.slow = k < 1;
+      if (t.shuttle) {
+        t.blockT = k === 0 ? t.blockT + dt : 0;
+        if (t.blockT > 18) {
+          t.v = -t.v;
+          t.blockT = 0;
+        }
+      }
+      t.k += (k - t.k) * Math.min(1, dt * (t.shuttle ? 0.6 : 0.3));
+      t.s += t.v * t.k * dt;
+      const L = t.path.length;
+      if (t.shuttle) {
+        if (t.s < 0) [t.s, t.v] = [0, Math.abs(t.v)];
+        if (t.s > L) [t.s, t.v] = [L, -Math.abs(t.v)];
+      } else t.s = ((t.s % L) + L) % L;
+      placeOnPath(t);
+      // A lane ship follows the fairway; the tug turns round visibly at its ends.
+      t.h = t.shuttle ? turnTo(t.h, t.ph, dt * 0.35) : t.ph;
+      t.speed = Math.abs(t.v * t.k);
+      continue;
+    }
     if (t.axis === 'z') {
       let kn = 1;
       for (const b of boats) {
@@ -131,7 +210,10 @@ export function updateTraffic(traffic, dt, boats = []) {
   return traffic;
 }
 // Velocity along its heading for collision response.
-export const trafficVelocity = (t) => ({
-  x: t.axis === 'z' ? 0 : t.v * t.k,
-  z: t.axis === 'z' ? t.v * t.k : 0,
-});
+export const trafficVelocity = (t) =>
+  t.path
+    ? { x: t.vx, z: t.vz }
+    : {
+        x: t.axis === 'z' ? 0 : t.v * t.k,
+        z: t.axis === 'z' ? t.v * t.k : 0,
+      };

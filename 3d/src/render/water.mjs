@@ -1,5 +1,5 @@
 import * as T from '../../vendor/three.js';
-import { MAP, WARP, land, worldBounds } from '../maps/index.mjs';
+import { MAP, WARP, SHAPE, land, worldBounds } from '../maps/index.mjs';
 // Distance to the nearest shore, baked once into a small texture (metres, signed:
 // negative under the land). The shader reads it for the shallows, the dark foot of
 // the quay wall and the foam that laps against it.
@@ -8,6 +8,56 @@ const REACH = 56,
 // The texture covers the warped world; every texel is looked up on the straight map
 // (maps/warp.mjs), where the land is rectangles. Distances are map metres: within a
 // few per cent of the world, plenty for foam and shallows.
+// A real outline (maps/shape.mjs): rows filled from the crossings of the outline,
+// distances from every stretch of wall to the texels within reach of it.
+function shapeField(cell, x0, z0, w, h) {
+  const water = new Uint8Array(w * h),
+    d = new Float32Array(w * h).fill(Infinity);
+  for (let j = 0; j < h; j++) {
+    const z = z0 + (j + 0.5) * cell,
+      xs = [];
+    for (const r of SHAPE.rings)
+      for (let i = 0, k = r.length - 1; i < r.length; k = i++) {
+        const a = r[i],
+          b = r[k];
+        if (a.z > z !== b.z > z) xs.push(a.x + ((z - a.z) / (b.z - a.z)) * (b.x - a.x));
+      }
+    xs.sort((a, b) => a - b);
+    for (let q = 0; q + 1 < xs.length; q += 2) {
+      const i0 = Math.max(0, Math.ceil((xs[q] - x0) / cell - 0.5)),
+        i1 = Math.min(w - 1, Math.floor((xs[q + 1] - x0) / cell - 0.5));
+      for (let i = i0; i <= i1; i++) water[j * w + i] = 1;
+    }
+  }
+  const reach = REACH + 4;
+  for (const r of SHAPE.rings)
+    for (let i = 0, k = r.length - 1; i < r.length; k = i++) {
+      const a = r[k],
+        b = r[i],
+        dx = b.x - a.x,
+        dz = b.z - a.z,
+        l2 = dx * dx + dz * dz || 1;
+      const i0 = Math.max(0, Math.floor((Math.min(a.x, b.x) - reach - x0) / cell)),
+        i1 = Math.min(w - 1, Math.ceil((Math.max(a.x, b.x) + reach - x0) / cell)),
+        j0 = Math.max(0, Math.floor((Math.min(a.z, b.z) - reach - z0) / cell)),
+        j1 = Math.min(h - 1, Math.ceil((Math.max(a.z, b.z) + reach - z0) / cell));
+      for (let j = j0; j <= j1; j++)
+        for (let ii = i0; ii <= i1; ii++) {
+          const x = x0 + (ii + 0.5) * cell,
+            z = z0 + (j + 0.5) * cell,
+            t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / l2)),
+            e = Math.hypot(x - a.x - dx * t, z - a.z - dz * t),
+            q = j * w + ii;
+          if (e < d[q]) d[q] = e;
+        }
+    }
+  const data = new Uint8Array(w * h * 4);
+  for (let q = 0; q < w * h; q++) {
+    const sd = water[q] ? Math.min(REACH, d[q]) : -Math.min(UNDER, d[q]);
+    data[q * 4] = Math.round(((sd + UNDER) / (REACH + UNDER)) * 255);
+  }
+  return data;
+}
 function shoreField(cell) {
   const x0 = worldBounds.x0 - 64,
     z0 = worldBounds.z0 - 64,
@@ -15,6 +65,18 @@ function shoreField(cell) {
     h = Math.ceil((worldBounds.z1 - worldBounds.z0 + 128) / cell),
     out = new Float32Array(w * h).fill(REACH),
     inside = new Float32Array(w * h).fill(-1);
+  if (SHAPE) {
+    const tex = new T.DataTexture(
+      shapeField(cell, x0, z0, w, h),
+      w,
+      h,
+      T.RGBAFormat,
+      T.UnsignedByteType,
+    );
+    tex.magFilter = tex.minFilter = T.LinearFilter;
+    tex.needsUpdate = true;
+    return { tex, min: new T.Vector2(x0, z0), size: new T.Vector2(w * cell, h * cell) };
+  }
   const wet = (x, z) => !land.some((l) => x > l.x0 && x < l.x1 && z > l.z0 && z < l.z1);
   // Inverse warp per texel: z = Z − f(X), x = X − g(z); f only depends on the column.
   const fcol = new Float32Array(w);

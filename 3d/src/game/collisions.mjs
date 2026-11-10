@@ -7,7 +7,7 @@
 // along its curved quay, other vessels are taken at their world pose. The boats that
 // sail on the MAP itself (rivals, own fleet) call with ctx.space = 'map' and get the
 // plain rectangles of the 2D game.
-import { MAP, WARP, land, customers } from '../maps/index.mjs';
+import { MAP, WARP, SHAPE, land, customers } from '../maps/index.mjs';
 import { profileOf, toWorld, hullSamples } from './ship-profile.mjs';
 const W = MAP.halfWidth;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -28,7 +28,8 @@ const shipWallsM = customers.map((b) => ({
   z0: b.shipMZ - (b.alongX ? b.beam / 2 : b.length / 2),
   z1: b.shipMZ + (b.alongX ? b.beam / 2 : b.length / 2),
 }));
-export const staticWalls = [...landWalls, ...shipWallsM];
+// On a real outline (SHAPE) the ships lie at an angle: they are boxes, as in the world.
+export const staticWalls = SHAPE ? landWalls : [...landWalls, ...shipWallsM];
 // …and in the world: a rigid box in its own frame (x along the hull, z to starboard).
 export const shipBoxes = customers.map((b) => ({
   ship: true,
@@ -140,8 +141,21 @@ export function hullContacts(s, dt, ctx = {}) {
       }
     }
   }
+  // A real outline: every hull probe against the nearest stretch of quay wall.
+  if (SHAPE)
+    for (const f of samples) {
+      const x = s.x + sn * profile.length * f,
+        z = s.z - cs * profile.length * f,
+        w = SHAPE.wall(x, z, rad + 4);
+      if (!w) continue;
+      if (w.wet) {
+        if (w.d >= rad || w.d < 1e-9) continue;
+        bounce((x - w.qx) / w.d, (z - w.qz) / w.d, rad - w.d + 0.25);
+      } else if (w.d < 1e-9) bounce(w.nx, w.nz, rad + 0.25);
+      else bounce((w.qx - x) / w.d, (w.qz - z) / w.d, w.d + rad + 0.25);
+    }
   // Moored seagoing ships in the world: rigid boxes along their quay.
-  if (!onMap)
+  if (!onMap || SHAPE)
     for (const b of shipBoxes) {
       if (Math.hypot(s.x - b.cx, s.z - b.cz) > b.reach + reach) continue;
       // Into the ship's frame: x along its hull (tx, tz), z to its starboard (−tz, tx).
@@ -170,7 +184,9 @@ export function hullContacts(s, dt, ctx = {}) {
   const movers = [
     ...(ctx.traffic || []).map((t) => ({
       o: t,
-      v: velocity(t, t.axis === 'z' ? 0 : t.v * t.k, t.axis === 'z' ? t.v * t.k : 0),
+      v: t.path
+        ? { x: t.vx, z: t.vz }
+        : velocity(t, t.axis === 'z' ? 0 : t.v * t.k, t.axis === 'z' ? t.v * t.k : 0),
     })),
     ...(ctx.rivals || [])
       .filter((r) => r.mode !== 'sunk')

@@ -9,16 +9,20 @@ import {
   WARP,
   rectOutline,
   worldBounds,
+  SHAPE,
 } from '../maps/index.mjs';
 import { routePoints } from '../game/harbor.mjs';
+import { tr } from '../i18n/index.mjs';
 import { target } from '../game/simulation.mjs';
 // Harbour chart: land, route, traffic, rivals, gates, terminals (T), waiting places
 // (P, W = yard) and seagoing ships. North up, cropped to the water. It shows the
 // world as you sail it: the river with its bends, the basins at their angle.
-const water = [
-  { x0: -MAP.halfWidth, x1: MAP.halfWidth, z0: -MAP.riverHalf, z1: MAP.riverHalf },
-  ...basins,
-].flatMap(rectOutline);
+const water = SHAPE
+  ? SHAPE.rings.flat()
+  : [
+      { x0: -MAP.halfWidth, x1: MAP.halfWidth, z0: -MAP.riverHalf, z1: MAP.riverHalf },
+      ...basins,
+    ].flatMap(rectOutline);
 const X0 = Math.min(...water.map((p) => p.x)),
   X1 = Math.max(...water.map((p) => p.x)),
   Z0 = Math.max(worldBounds.z0, Math.min(...water.map((p) => p.z)) - 120),
@@ -57,7 +61,20 @@ export function createChart(canvas) {
     // Outside the chart: land that is not on it. Then the water of the warped map.
     map.fillStyle = WARPED ? '#3a4f4a' : '#21434a';
     map.fillRect(0, 0, 200, 100);
-    if (WARPED) {
+    if (SHAPE) {
+      // A real outline: land all round, the water cut out of it.
+      map.fillStyle = '#829084';
+      map.fillRect(0, 0, 200, 100);
+      map.fillStyle = '#21434a';
+      map.beginPath();
+      for (const r of SHAPE.rings)
+        r.forEach((p, i) => {
+          const [x, y] = project(p.x, p.z);
+          i ? map.lineTo(x, y) : map.moveTo(x, y);
+        });
+      map.closePath();
+      map.fill('evenodd');
+    } else if (WARPED) {
       map.fillStyle = '#21434a';
       map.beginPath();
       edge.forEach(([x, y], i) => (i ? map.lineTo(x, y) : map.moveTo(x, y)));
@@ -110,15 +127,26 @@ export function createChart(canvas) {
       map.stroke();
       map.setLineDash([]);
     }
+    // The outline of a real harbour comes from OpenStreetMap (ODbL): credit on the chart.
+    if (SHAPE) {
+      map.font = '2.4px sans-serif';
+      map.textAlign = 'right';
+      map.fillStyle = 'rgba(230,236,226,.7)';
+      map.fillText(tr('© OpenStreetMap-bijdragers'), 198, 98.5);
+    }
     map.font = '3.6px sans-serif';
     map.textAlign = 'center';
     for (const b of basins) {
-      const [x, y] = onChart((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
+      const [x, y] = b.label
+        ? project(b.label.x, b.label.z)
+        : onChart((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
       map.save();
       map.translate(x, y);
       // along the basin, which leans in the warped world
-      const ax = WARP.tangent((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 0, -1);
-      map.rotate(Math.atan2(ax.z, ax.x));
+      const ax = b.label
+        ? { x: 1, z: 0 }
+        : WARP.tangent((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 0, -1);
+      map.rotate(b.label ? 0 : Math.atan2(ax.z, ax.x));
       map.fillStyle = 'rgba(220,231,220,.75)';
       map.fillText(b.name, 0, 1);
       map.restore();

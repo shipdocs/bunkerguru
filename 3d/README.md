@@ -82,7 +82,7 @@ Zoals in 2D zie je drift op het water: wit doorgetrokken is waar de kop heen wij
 
 ## Havens
 
-De indeling is die van de 2D-kaart (rechtgetrokken rivier, bekkens als rechthoeken). Wat erop staat is cartoon, maar staat waar het in het echt staat. `src/render/landmarks.mjs` bevat per haven de herkenningspunten in de s/n-eenheden van `../maps/*.js`, zodat een plek naast de kaart te leggen is:
+**Rotterdam Stad** ligt op de echte kaart: de waterlijn van de Nieuwe Maas van de Eemhaven tot de Van Brienenoordbrug komt uit OpenStreetMap (© OpenStreetMap-bijdragers, ODbL), met de Waalhaven en haar pieren, Eemhaven, Merwehaven, Maashaven, Rijnhaven en de S-bocht om het Noordereiland. Ligplaatsen, terminals, bruggen en herkenningspunten staan op hun echte plek; noord is boven. Zie "Echte havens" in `docs/ARCHITECTURE.md`. Bij de andere havens is de indeling die van de 2D-kaart (rechtgetrokken rivier, bekkens als rechthoeken). Wat erop staat is cartoon, maar staat waar het in het echt staat. `src/render/landmarks.mjs` bevat per haven de herkenningspunten in de s/n-eenheden van `../maps/*.js`, zodat een plek naast de kaart te leggen is:
 
 - **Rotterdam Stad**: Euromast, Depot Boijmans, Zalmhaventoren, Witte Huis, Kubuswoningen, Markthal, Laurenskerk, De Rotterdam, Hotel New York, Maastoren, Maassilo, De Kuip; Erasmusbrug, Willemsbrug, De Hef en Van Brienenoordbrug met hun eigen silhouet.
 - **Nieuwe Waterweg · Botlek**: Maeslantkering, windpark op de Landtong, Groote Kerk Maassluis, verkeerspost, raffinaderijen Europoort, Botlek en Shell Pernis met fakkels, Botlekbrug, Schiedamse molens, Wilton-Fijenoord.

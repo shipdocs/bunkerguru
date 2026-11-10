@@ -10,4 +10,4 @@ Read README.md and docs/ARCHITECTURE.md before restructuring modules. Read VESSE
 - Use npm run check after relevant changes; it includes source tests, build validation and the integration test against built files.
 - Use npm run format and npm run format:check for authored files. Keep vendor code and original reference sources intact.
 - GitHub Pages serves this folder directly as /3d/ (no build needed).
-- Two coordinate frames: the straight 2D MAP (rectangles, routes, traffic, rivals: `…M` functions, `mx/mz/mh`) and the warped WORLD (player, physics, rendering). Read "Kaart en wereld" in docs/ARCHITECTURE.md before using a position; run `BUNKERGURU_WARP=stress npm test` after changes that touch positions.
+- Two coordinate frames: the straight 2D MAP (rectangles, routes, traffic, rivals: `…M` functions, `mx/mz/mh`) and the warped WORLD (player, physics, rendering). Read "Kaart en wereld" in docs/ARCHITECTURE.md before using a position; Rotterdam is built on its real OSM outline instead ("Echte havens"): no rectangles there, use the SHAPE/riverFrame helpers; run `BUNKERGURU_WARP=stress npm test` after changes that touch positions.

@@ -150,8 +150,16 @@ export const LANDMARKS = {
 };
 const toX = (s) => s * MAP.sn.k - MAP.sn.cx,
   toZ = (n) => n * MAP.sn.k;
+// A real map (maps/real-map.mjs) carries its own landmarks in world metres.
 const list = (id) =>
-  (LANDMARKS[id] || []).map((l) => ({ ...l, x: toX(l.s), z: toZ(l.n), r: (l.r || 0) * MAP.sn.k }));
+  id === MAP.id && MAP.real
+    ? MAP.landmarks.map((l) => ({ ...l, r: l.r || 0 }))
+    : (LANDMARKS[id] || []).map((l) => ({
+        ...l,
+        x: toX(l.s),
+        z: toZ(l.n),
+        r: (l.r || 0) * MAP.sn.k,
+      }));
 // A landmark is one rigid object in the warped world (maps/warp.mjs): it stands at the
 // warped spot of its map position and turns with the quay it belongs to.
 function seat(l) {

@@ -12,6 +12,9 @@ export function fresh() {
   return {
     version: STATE_VERSION,
     mapId: MAP.id,
+    // A harbour rebuilt on its real outline has a new layout: older voyages there
+    // (berths, positions) do not carry over.
+    ...(MAP.layout ? { layout: MAP.layout } : {}),
     x: st.x,
     z: st.z,
     h: st.h,
@@ -97,9 +100,12 @@ export function restore(raw) {
   s.xp = isNum(raw.xp) ? Math.max(0, raw.xp) : s.jobs * 150;
   if (Array.isArray(raw.news)) s.news = raw.news.slice(-40);
   for (const k of ['paperJobs', 'paperIssue']) if (isNum(raw[k])) s[k] = raw[k];
+  const sameLayout = (raw.layout || null) === (MAP.layout || null);
   // Rivals keep their money everywhere, their position only on the same map.
   if (Array.isArray(raw.rivals))
-    s.rivals = raw.rivals.map((r) => (raw.mapId === MAP.id ? r : { gold: r?.gold, jobs: r?.jobs }));
+    s.rivals = raw.rivals.map((r) =>
+      raw.mapId === MAP.id && sameLayout ? r : { gold: r?.gold, jobs: r?.jobs },
+    );
   // Your own boats (fase 4) belong to the career: kept on every map.
   if (Array.isArray(raw.fleet))
     s.fleet = raw.fleet.filter((b) => b && typeof b === 'object').slice(0, 2);
@@ -125,6 +131,7 @@ export function restore(raw) {
   if (
     (raw.version === STATE_VERSION || raw.version === 5) &&
     raw.mapId === MAP.id &&
+    sameLayout &&
     isNum(at.x) &&
     isNum(at.z) &&
     waterAt(at.x, at.z, 4)

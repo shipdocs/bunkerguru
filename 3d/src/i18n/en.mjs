@@ -316,6 +316,8 @@ export const PHRASES = [
   ['O motor', 'O engine'],
   ['JOUW SCHIP', 'YOUR SHIP'],
   ['KAARTGRENS', 'CHART LIMIT'],
+  ['OpenStreetMap-bijdragers', 'OpenStreetMap contributors'],
+  ['· shipdocs/bunkerguru · kaart Rotterdam ©', '· shipdocs/bunkerguru · Rotterdam chart ©'],
   // ---- mission panel and docking
   ['Klus klaar!', 'Job done!'],
   ['Laden…', 'Loading…'],
