@@ -281,7 +281,8 @@ function riverCurrent(x, z, speed) {
   if (!q) return { x: 0, z: 0 };
   const half = MAP.riverHalfAt(q.s),
     r = Math.abs(q.n) / half;
-  if (r >= 1.15 || !SHAPE.inside(x, z)) return { x: 0, z: 0 };
+  if (r >= 1.15 || !SHAPE.inside(x, z) || basins.some((b) => b.poly && inBasin(b, x, z)))
+    return { x: 0, z: 0 };
   const f = r < 1 ? 1 - Math.pow(r, 2.5) * 0.7 : (0.3 * (1.15 - r)) / 0.15,
     p = MAP.river.at(q.s);
   // speed > 0 = ebb, towards the sea: against the direction of the fairway (west → east).

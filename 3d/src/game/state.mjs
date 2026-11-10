@@ -113,7 +113,11 @@ export function restore(raw) {
     );
   // Your own boats (fase 4) belong to the career: kept on every map.
   if (Array.isArray(raw.fleet))
-    s.fleet = raw.fleet.filter((b) => b && typeof b === 'object').slice(0, 2);
+    s.fleet = raw.fleet
+      .filter((b) => b && typeof b === 'object')
+      .slice(0, 2)
+      // A harbour with a new layout: the boats keep their record, not their place.
+      .map((b) => (sameLayout ? b : { jobs: b.jobs, earned: b.earned }));
   if (typeof raw.fleetMap === 'string') s.fleetMap = raw.fleetMap;
   // Careers from before this field keep their 6:00 start: their clock must not jump.
   s.startHour = isNum(raw.startHour) ? raw.startHour : 6 * 3600;

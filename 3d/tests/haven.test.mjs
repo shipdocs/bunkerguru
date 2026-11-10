@@ -195,3 +195,22 @@ test('a new career starts between 6:00 and 13:00 as in 2D; an older save keeps 6
   assert.equal(restore({ ...old, startHour: 11 * 3600 }).startHour, 11 * 3600);
   assert.equal(dayClock({ clock: 0 }), 6 * 3600, 'state without the field');
 });
+
+test('real Rotterdam: an old Rotterdam save keeps the fleet record but not its places; basins lie still', async () => {
+  const { restore, fresh } = await import('../src/game/state.mjs');
+  const { MAP, basins, currentAt } = await import('../src/maps/index.mjs');
+  assert.ok(MAP.real && MAP.layout);
+  const old = restore({
+    ...fresh(),
+    layout: undefined,
+    fleet: [{ jobs: 3, earned: 900, x: 10, z: 20, h: 1 }],
+    fleetMap: MAP.id,
+  });
+  assert.deepEqual(old.fleet, [{ jobs: 3, earned: 900 }]);
+  const same = restore({ ...fresh(), fleet: [{ jobs: 3, earned: 900, x: 10, z: 20 }] });
+  assert.equal(same.fleet[0].x, 10);
+  for (const b of basins) {
+    const c = currentAt(b.label.x, b.label.z, 1.5);
+    assert.equal(Math.hypot(c.x, c.z), 0, b.name + ' lies still');
+  }
+});
