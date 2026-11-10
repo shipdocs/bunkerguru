@@ -127,8 +127,8 @@ color+=vec3(.2,.26,.24)*ripple*.22*fade*calm;
 // the quay: a dark foot under the wall, then foam washing against it
 color*=mix(.62,1.,smoothstep(.0,7.,d));
 float wob=sin(p.x*.37+time*.9)*sin(p.y*.33-time*.7);
-float lap=smoothstep(.55,1.,sin(d*.95-time*1.3+wob*1.1))*smoothstep(12.,2.,d)*.26;
-float edge=smoothstep(1.7+wob*.5,.5,d)*.85;
+float lap=smoothstep(.55,1.,sin(d*.95-time*1.3+wob*1.1))*(1.-smoothstep(2.,12.,d))*.26;
+float edge=(1.-smoothstep(.5,1.7+wob*.5,d))*.85;
 float foam=max(lap,edge)*step(-.4,d);
 color=mix(color,vec3(.86,.95,.94),foam*(.75+.25*vnoise(p*1.7+time*.3)));
 color*=mix(1.,.26,night);

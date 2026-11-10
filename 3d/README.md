@@ -66,6 +66,10 @@ Nederlands is de taal van de code, zoals in 2D. Engels (knop **English** op het 
 
 Havenmenu → **Geluid · volume per kanaal**: totaal, motor en effecten, muziek en marifoon, bewaard per browser; muziek aan/uit met de knop of P.
 
+## Miniatuurbeeld (tilt-shift)
+
+In de uitgebreide beeldstand wordt het beeld als miniatuur getoond: scherp in een band over je schip, naar boven en beneden steeds waziger, met iets meer kleur (`src/render/tilt-shift.mjs`). Het is één extra schermvullende stap; het bespaart op zichzelf geen tekenwerk. In de zuinige stand (telefoons) en in het stuurhuis staat het uit.
+
 ## Ranglijst per haven
 
 Onder de planning staat de ranglijst van de haven: de vijf beste diensten in deze browser (`src/game/ranking.mjs`, opslag `bunkerguru3d-rank-<kaart>`). Een dienst is één verblijf in een haven binnen één carrière; elke afgeronde klus telt erbij. Score per klus zoals in 2D: 1000, plus 3 punten per seconde die je voor de ETA klaar bent (hooguit 900), min 10 per punt schade, plus VTS-punten. De 2D-versie telde de tijd onder vijf minuten; hier telt de marge op de ETA, omdat klussen in 3D een eigen deadline hebben.

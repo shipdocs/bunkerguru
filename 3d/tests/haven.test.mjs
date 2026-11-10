@@ -110,3 +110,16 @@ test('drift lines from 3° between heading and course over ground; current arrow
   assert.equal(a.text, '1,5 m/s');
   assert(a.dx === -1 && a.dz === 0 && a.length === 16 + 1.5 * 18);
 });
+
+test('tilt-shift: sharp across the ship, blur growing to the top and bottom of the screen', async () => {
+  const { blurAt, TILT, createTiltShift } = await import('../src/render/tilt-shift.mjs');
+  assert.equal(blurAt(0.5, 0.5), 0);
+  assert(blurAt(0.5 + TILT.band, 0.5) < 1e-9, 'the whole band is sharp');
+  assert(blurAt(0.85, 0.5) > blurAt(0.75, 0.5) && blurAt(0.15, 0.5) > 0);
+  assert.equal(blurAt(1.2, 0.5), 1);
+  assert(
+    blurAt(0.3, 0.3) === 0 && blurAt(0.9, 0.3) > blurAt(0.9, 0.5),
+    'the band follows the ship',
+  );
+  assert.equal(createTiltShift({}), null, 'no pass without a real renderer');
+});

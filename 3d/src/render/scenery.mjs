@@ -186,12 +186,12 @@ if (vWin.z > .5) {
   float street = step(cell.y, .5) * step(style, 3.5);
   lo = mix(lo, vec2(.1, .12), street); hi = mix(hi, vec2(.9, .74), street);
   float e = .04;
-  vec2 a = smoothstep(lo - e, lo + e, f) * smoothstep(hi + e, hi - e, f);
-  vec2 b = smoothstep(lo - .11, lo - .05, f) * smoothstep(hi + .11, hi + .05, f);
+  vec2 a = smoothstep(lo - e, lo + e, f) * (1. - smoothstep(hi - e, hi + e, f));
+  vec2 b = smoothstep(lo - .11, lo - .05, f) * (1. - smoothstep(hi + .05, hi + .11, f));
   float far = smoothstep(700., 2200., length(vViewPosition));
   float m = mix(a.x * a.y, (hi.x - lo.x) * (hi.y - lo.y), far);
   float frame = (b.x * b.y - a.x * a.y) * step(2.5, style) * step(style, 3.5) * (1. - far);
-  diffuseColor.rgb *= 1. - .25 * smoothstep(.2, .08, vWin.y);
+  diffuseColor.rgb *= 1. - .25 * (1. - smoothstep(.08, .2, vWin.y));
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.86, .8, .66), frame * .85);
   vec3 glass = mix(vec3(.07, .15, .22), vec3(.3, .5, .62), r1 * .5 + f.y * .5);
   glass = mix(glass, vec3(.62, .6, .5), step(.86, r2) * .7);
