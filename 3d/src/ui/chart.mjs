@@ -6,6 +6,7 @@ import {
   waits,
   customers,
   toWorld,
+  WARP,
   rectOutline,
   worldBounds,
 } from '../maps/index.mjs';
@@ -22,6 +23,7 @@ const X0 = Math.min(...water.map((p) => p.x)),
   X1 = Math.max(...water.map((p) => p.x)),
   Z0 = Math.max(worldBounds.z0, Math.min(...water.map((p) => p.z)) - 120),
   Z1 = Math.min(worldBounds.z1, Math.max(...water.map((p) => p.z)) + 120);
+const WARPED = !WARP.identity;
 export function createChart(canvas) {
   const map = canvas.getContext('2d');
   const scale = Math.min(192 / (X1 - X0), 94 / (Z1 - Z0)),
@@ -32,6 +34,12 @@ export function createChart(canvas) {
     const p = toWorld(x, z);
     return project(p.x, p.z);
   };
+  const edge = rectOutline({
+    x0: -MAP.halfWidth,
+    x1: MAP.halfWidth,
+    z0: MAP.zMin,
+    z1: MAP.zMax,
+  }).map((p) => project(p.x, p.z));
   // Land outlines in chart units, made once.
   const shapes = land.map((l) => ({
     l,
@@ -46,8 +54,16 @@ export function createChart(canvas) {
     const k = canvas.width / 200;
     map.setTransform(k, 0, 0, k, 0, 0);
     map.clearRect(0, 0, 200, 100);
-    map.fillStyle = '#21434a';
+    // Outside the chart: land that is not on it. Then the water of the warped map.
+    map.fillStyle = WARPED ? '#3a4f4a' : '#21434a';
     map.fillRect(0, 0, 200, 100);
+    if (WARPED) {
+      map.fillStyle = '#21434a';
+      map.beginPath();
+      edge.forEach(([x, y], i) => (i ? map.lineTo(x, y) : map.moveTo(x, y)));
+      map.closePath();
+      map.fill();
+    }
     for (const { l, pts } of shapes) {
       map.fillStyle =
         l.kind === 'pillar'
@@ -69,6 +85,10 @@ export function createChart(canvas) {
       pts.forEach(([x, y], i) => (i ? map.lineTo(x, y) : map.moveTo(x, y)));
       map.closePath();
       map.fill();
+      // a hairline in the same colour closes the seams between neighbouring land
+      map.strokeStyle = map.fillStyle;
+      map.lineWidth = 0.3;
+      map.stroke();
     }
     for (const g of world.gates) {
       const [x, y] = onChart((g.x0 + g.x1) / 2, (g.z0 + g.z1) / 2),
@@ -96,7 +116,9 @@ export function createChart(canvas) {
       const [x, y] = onChart((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2);
       map.save();
       map.translate(x, y);
-      map.rotate(-Math.PI / 2);
+      // along the basin, which leans in the warped world
+      const ax = WARP.tangent((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 0, -1);
+      map.rotate(Math.atan2(ax.z, ax.x));
       map.fillStyle = 'rgba(220,231,220,.75)';
       map.fillText(b.name, 0, 1);
       map.restore();
