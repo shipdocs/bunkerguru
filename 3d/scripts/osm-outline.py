@@ -47,7 +47,12 @@ def build(d, out, lat0, lon0, xw, xe, zmin, zmax):
     sz = nd.sum(m, lab, range(1, n + 1))
     keep = np.isin(lab, 1 + np.nonzero(sz > 8000)[0])
     w = nd.binary_closing(keep, structure=np.ones((3, 3)), iterations=8) | keep
-    w = nd.binary_fill_holes(w)
+    # Fill only small holes (labels, buoys, bridge piers): real islands stay land.
+    holes = nd.binary_fill_holes(w) & ~w
+    lab, n = nd.label(holes)
+    if n:
+        sz = nd.sum(holes, lab, range(1, n + 1))
+        w = w | np.isin(lab, 1 + np.nonzero(sz < 3000)[0])
     w = nd.binary_opening(w, iterations=4)
     lab, n = nd.label(w)
     sz = nd.sum(w, lab, range(1, n + 1))

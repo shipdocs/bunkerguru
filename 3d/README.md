@@ -78,6 +78,8 @@ Onder de planning staat de ranglijst van de haven: de vijf beste diensten in dez
 
 De stroom is in 3D de helft van de waarde op de 2D-kaart (`CURRENT_FEEL = 0.5` in `src/maps/index.mjs`): op de piek 1,5 m/s in Rotterdam, 1,75 m/s op de Schelde en 2 m/s op de Waterweg, dicht bij de echte rivier. De factor geldt voor rivier, neren voor de havenmonden en zijkanalen; het vaarmodel zelf blijft gelijk aan `engine.js`. Een nieuwe carrière begint rond de kentering, zodat de eb pas opkomt als je onderweg bent.
 
+Op het startscherm stel je het water zelf bij (`src/game/feel-settings.mjs`, bewaard bij de carrière). **Traagheid** bepaalt hoe lang de romp erover doet om vaart te maken en te verliezen; kracht en topsnelheid blijven die van `engine.js`. Gemeten op tempo 3×, volle kracht vooruit vanuit stilstand en daarna STOP: licht (het oude 3D-gevoel) 25 km/u na 5 s en 125 m uitlopen, normaal (standaard) 10 s en 270 m, zwaar 20 s en 400 m, echt (een beladen tanker) 35 s en 560 m. **Stroom** (zwak, normaal, sterk: ×0,5, ×1, ×1,5) geldt voor de rivier en de neren voor de havenmonden samen.
+
 Zoals in 2D zie je drift op het water: wit doorgetrokken is waar de kop heen wijst, geel gestippeld de koers over de grond (vanaf 3° verschil). Voor de boeg staat een cyaan pijl met de stroomrichting en -sterkte op die plek (`src/game/drift.mjs`, getekend in `navigation-effects.mjs`).
 
 ## Havens

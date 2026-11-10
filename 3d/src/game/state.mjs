@@ -2,6 +2,7 @@ import { DEFAULT_TEMPO, TEMPOS } from './time-scale.mjs';
 import { MAP, terminals, waits } from './harbor.mjs';
 import { waterAt, worldPose } from '../maps/index.mjs';
 import { clamp } from './math.mjs';
+import { INERTIA, CURRENTS, DEFAULT_INERTIA, DEFAULT_CURRENT } from './feel-settings.mjs';
 import { restoreEquipment } from './vessel-equipment.mjs';
 // 6: the position is saved in the warped world (bends, leaning basins). A version 5
 // save holds the same place on the straight map and is carried over.
@@ -30,6 +31,8 @@ export function fresh() {
     rudder: 0,
     braking: false,
     handling: 'schipper',
+    inertia: DEFAULT_INERTIA,
+    currentFeel: DEFAULT_CURRENT,
     shipId: 'legacy',
     equipment: restoreEquipment(),
     timeScale: DEFAULT_TEMPO,
@@ -94,6 +97,8 @@ export function restore(raw) {
   if (raw.rep && typeof raw.rep === 'object') s.rep = { ...raw.rep };
   if (raw.day && typeof raw.day === 'object') s.day = { ...s.day, ...raw.day };
   if (['schipper', 'arcade'].includes(raw.handling)) s.handling = raw.handling;
+  if (INERTIA.some((o) => o.id === raw.inertia)) s.inertia = raw.inertia;
+  if (CURRENTS.some((o) => o.id === raw.currentFeel)) s.currentFeel = raw.currentFeel;
   if (TEMPOS.includes(raw.timeScale)) s.timeScale = raw.timeScale;
   if (typeof raw.trainingDone === 'boolean') s.trainingDone = raw.trainingDone;
   // Career (fase 2). Careers from before get points for the jobs they already did.
