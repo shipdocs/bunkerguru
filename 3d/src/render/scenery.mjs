@@ -1105,7 +1105,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
     }
     const GX = 420,
       GZ = 300,
-      Y = 3.9; // just under the land of the chart, which it runs in beneath
+      Y = 3.7; // just under the land of the chart, which it runs in beneath
     // A parcel as two triangles between its four warped corners (neighbours share
     // them, so the polder has no cracks), with a bank where the piece ends.
     const parcel = (ax, bx, az, bz, col, piece) => {

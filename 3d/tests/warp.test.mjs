@@ -138,3 +138,26 @@ test('the river runs straight across under every bridge and lock', () => {
       );
   }
 });
+
+test('saves: an older career keeps money, jobs and upgrades; a version 5 position is carried into the warped harbour', async () => {
+  const { restore, fresh, STATE_VERSION } = await import('../src/game/state.mjs');
+  const { MAP, worldPose, waterAt } = await import('../src/maps/index.mjs');
+  assert.equal(STATE_VERSION, 6);
+  const career = { gold: 4321, jobs: 17, earned: 9000, xp: 2600, lvl: { motor: 2, boeg: 1 } };
+  // Version 5: sailed on the straight map. Same spot on the river, now in the world.
+  const at = { x: MAP.mstart.x, z: MAP.mstart.z, h: MAP.mstart.h },
+    v5 = restore({ ...career, version: 5, mapId: MAP.id, ...at, cargo: 300, phase: 'free' }),
+    w = worldPose(at);
+  assert.equal(v5.version, 6);
+  assert.deepEqual([v5.gold, v5.jobs, v5.lvl.motor, v5.lvl.boeg], [4321, 17, 2, 1]);
+  assert.ok(Math.hypot(v5.x - w.x, v5.z - w.z) < 1e-9 && Math.abs(v5.h - w.h) < 1e-9);
+  assert.equal(v5.cargo, 300);
+  assert.ok(waterAt(v5.x, v5.z, 4));
+  // Older still (or another map): the career survives, the boat starts at its berth.
+  const v4 = restore({ ...career, version: 4, mapId: MAP.id, x: 1, z: 2, cargo: 300 });
+  assert.deepEqual([v4.gold, v4.jobs, v4.lvl.motor], [4321, 17, 2]);
+  assert.deepEqual([v4.x, v4.z, v4.cargo], [fresh().x, fresh().z, 0]);
+  // Version 6 positions are world positions and come back as saved.
+  const v6 = restore({ ...career, version: 6, mapId: MAP.id, x: w.x, z: w.z, h: 1 });
+  assert.deepEqual([v6.x, v6.z, v6.h], [w.x, w.z, 1]);
+});

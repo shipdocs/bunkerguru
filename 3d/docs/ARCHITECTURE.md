@@ -12,6 +12,21 @@ De publicatie blijft statisch. `.openai/hosting.json` wijst naar `dist/`; de Sit
 
 De kaarten staan als kopie in `src/maps/classic/` (gemaakt door `scripts/sync-maps.mjs` uit `../maps/*.js`). `src/maps/classic-map.mjs` doet hetzelfde als `loadMap` in `engine.js`: K-schaal, terminals/wachtplaatsen/ligplaatsen tegen hun kade, en zet alles om naar meters (x langs de rivier, zee aan −x; z dwars, noord = −z). Eén kaart is actief per paginalading (`?map=`, of de laatst gekozen); wisselen herlaadt de pagina. `src/maps/index.mjs` levert water, stroom/getij en route-advies (A\* op 24 m).
 
+### Kaart en wereld (de warp)
+
+De 2D-kaart is recht: de rivier loopt langs x en elke haven is een rechthoek. De 3D-wereld is die kaart, vloeiend en exact omkeerbaar vervormd (`src/maps/warp.mjs`): de rivier krijgt bochten (`f`), de havenbekkens liggen schuin op de rivier (`g`, nul tussen de oevers). Per haven staan de parameters in `HARBOUR_WARPS`; de Oefenhaven blijft recht. `tests/warp.test.mjs` bewaakt de grenzen: helling van de bocht ≤ 0,25, scheefstand ≤ 0,35, samen ≤ 0,5, bochtstraal ≥ 3000 m, havenmond ≥ 55 m, en recht onder elke brug.
+
+Er zijn dus twee stelsels, en elk stuk code hoort in één ervan:
+
+- **Kaart** (rechthoeken, zones, vaarbanen, routeplanning, verkeer, concurrenten en eigen vloot): velden `x0…z1`, `mx`, `mz`, `mh`, `shipMX/MZ`, en functies met een M (`landAtM`, `waterAtM`, `waterRouteM`, `currentAtM`). `rivals.mjs`, `traffic.mjs` en `fleet.mjs` rekenen volledig op de kaart.
+- **Wereld** (de speler, de fysica, botsingen van de speler, alles wat getekend wordt): `s.x/z/h`, en van terminals, wachtplaatsen en zeeschepen `x`, `z`, `h`, `shipX/Z`. De functies zonder M (`landAt`, `waterAt`, `currentAt`, `waterRoute`, `inRectW`, `nearestQuay`) nemen wereldcoördinaten en zoeken die op de kaart op.
+
+Verkeer en concurrenten publiceren na elke stap hun wereldpositie (`wx`, `wz`, `wh`, via `publishPoses`); tekenen, kaart en de botsingen van de speler lezen die. De speler gaat hun logica in op zijn kaartpositie (`playerOnMap`). Richtingen gaan door de Jacobiaan (`WARP.heading`, `tangent`), normalen door `WARP.normal`. Een afgemeerd zeeschip is star: het ligt als gedraaide rechthoek langs zijn gebogen kade en wordt zo getekend én geraakt.
+
+Tekenen: land en zones zijn een vervormd raster (`render/warp-geometry.mjs`), kademuren en grondvlakken volgen de warp exact (affien), gebouwen, kranen en herkenningspunten blijven star en staan haaks op de dichtstbijzijnde kade (`WARP.frame`, `quayAxis`), bruggen en sluisdeuren zijn star tussen hun vervormde eindpunten. Wat je als kade ziet, is waar het schip stopt: beide komen uit dezelfde kaartrechthoek door dezelfde warp.
+
+Controleren: `BUNKERGURU_WARP=stress npm test` draait alles op een overdreven warp (alle grenzen tegelijk bereikt) en vangt zo code die kaart en wereld verwisselt; `BUNKERGURU_WARP=off` geeft de rechte kaart. In de browser: `?warp=stress` of `?warp=off`.
+
 Tijd: `s.clock` telt gesimuleerde seconden. De 2D-timers (laden, pompen, vermoeidheid, getij, deadlines) liepen op echte seconden terwijl de fysica 3× zo snel liep; daarom rekent `harbor.mjs` met `LOGIC = 1/3`. Op tempo 3× voelt alles precies als het 2D-spel.
 
 Runtime-wereld (`createWorldState`): verkeer, bruggen/sluizen, concurrenten en incidenten. Alleen geld en positie van de concurrenten worden bewaard.

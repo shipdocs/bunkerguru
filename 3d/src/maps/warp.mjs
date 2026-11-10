@@ -18,14 +18,17 @@ const RAMP = 60; // metres over which a basin swings from the bank to its full l
 //   { a, w, x }  one bend: the river shifts a metres sideways round x, over about 4·w
 // leanN / leanS: metres along the river per metre into a basin, north and south bank.
 export const HARBOUR_WARPS = {
+  // Noordzeekanaal: two lazy bends, the big southern basins raked towards the sea.
   amsterdam: {
     course: [
-      { a: 90, w: 520, x: -950 },
-      { a: -70, w: 480, x: 1250 },
+      { a: 110, w: 520, x: -950 },
+      { a: -100, w: 500, x: 1250 },
     ],
     leanN: 0.15,
     leanS: -0.25,
   },
+  // Nieuwe Maas: a wide bend past the Waalhaven, straight under the city bridges,
+  // a last turn before the Van Brienenoordbrug.
   rotterdam: {
     course: [
       { a: 125, w: 640, x: -1250 },
@@ -34,16 +37,15 @@ export const HARBOUR_WARPS = {
     leanN: 0.25,
     leanS: -0.3,
   },
+  // Nieuwe Waterweg: one long sweep, the petroleum harbours fanning out from it.
   europoort: {
-    course: [{ a: 120, l: 8000, x: 600 }],
+    course: [{ a: 170, l: 7000, x: 500 }],
     leanN: -0.2,
     leanS: 0.3,
   },
+  // Schelde: the river winds, the docks all lean upstream.
   antwerpen: {
-    course: [
-      { a: -160, w: 640, x: -700 },
-      { a: 120, w: 560, x: 1150 },
-    ],
+    course: [{ a: 185, l: 5200, x: -1490 }],
     leanN: 0.2,
     leanS: 0.2,
   },
@@ -52,7 +54,7 @@ export const HARBOUR_WARPS = {
 // map and world coordinates (BUNKERGURU_WARP=stress runs the whole suite on it).
 export const STRESS_WARP = { course: [{ a: 198, l: 5000, x: 300 }], leanN: 0.25, leanS: -0.25 };
 // Harbours that sail on their warp; the others keep the straight map.
-export const WARP_ENABLED = new Set([]);
+export const WARP_ENABLED = new Set(['amsterdam', 'rotterdam', 'europoort', 'antwerpen']);
 
 // '' = as enabled per harbour, 'off' = the straight map, 'stress' = the test warp.
 // Tests and tools set BUNKERGURU_WARP; in the browser ?warp=off|stress does the same.
