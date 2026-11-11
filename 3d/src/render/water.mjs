@@ -249,7 +249,10 @@ function createMirror(renderer, mesh, uniforms, scale = 0.5) {
     if (now - lastScan > 1000) {
       lastScan = now;
       sprites = [];
-      scene.traverse((o) => (o.isSprite || o.isPoints || o.name === 'cloud') && sprites.push(o));
+      scene.traverse(
+        (o) =>
+          (o.isSprite || o.isPoints || o.name === 'cloud' || o.name === 'rain') && sprites.push(o),
+      );
     }
     const shown = sprites.filter((o) => o.visible);
     for (const o of shown) o.visible = false;
@@ -287,7 +290,8 @@ export function createWater(mesh, map, quality = { light: false }, renderer = nu
     night: { value: 0 },
     fogCol: { value: new T.Vector3(0.68, 0.8, 0.77) },
     skyTop: { value: new T.Vector3(0.05, 0.3, 0.75) },
-    sun: { value: new T.Vector3(-0.4, 0.8, 0.3).normalize() },
+    // Towards the sun, as the scene's light stands: (−220, 220, 160) from the boat.
+    sun: { value: new T.Vector3(-220, 220, 160).normalize() },
     shore: { value: shore.tex },
     shoreMin: { value: shore.min },
     shoreSize: { value: shore.size },
