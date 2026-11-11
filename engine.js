@@ -997,12 +997,18 @@ function makeLandTile() { // fijne korrel voor het land
   return c;
 }
 const patLand = ctx.createPattern(makeLandTile(), 'repeat');
-function makeSwellTile() { // grote zachte deining voor parallax-diepte
-  const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
-  for (let i = 0; i < 9; i++) { const x = (i * 173) % 512, y = (i * 97 + 40) % 512; const rg = g.createRadialGradient(x, y, 0, x, y, 150); rg.addColorStop(0, 'rgba(255,255,255,.10)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; for (const dx of [-512, 0, 512]) for (const dy of [-512, 0, 512]) { g.beginPath(); g.arc(x + dx, y + dy, 150, 0, 7); g.fill(); } }
-  return c;
+function makeWaterTile(N) { // naadloze watertextuur: golfjes van hele golfgetallen (herhaalt zonder naad), lichte kammen en donkere dalen
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), img = g.createImageData(N, N), d = img.data;
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, waves = [];
+  for (let k = 0; k < 30; k++) { const f = 3 + k * .6, kx = Math.round((rnd() - .5) * 2 * f), ky = Math.round((rnd() - .5) * 2 * f) || 1; waves.push([kx, ky, rnd() * 6.283, 1 / Math.pow(Math.hypot(kx, ky) + 1, .9)]); }
+  const h = new Float32Array(N * N); let mn = 1e9, mx = -1e9;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { let v = 0; for (const [kx, ky, ph, a] of waves) v += a * Math.sin((kx * i + ky * j) / N * 6.283 + ph); h[j * N + i] = v; if (v < mn) mn = v; if (v > mx) mx = v; }
+  for (let k = 0; k < N * N; k++) { const v = (h[k] - mn) / (mx - mn), crest = Math.max(0, (v - .7) / .3);
+    const light = crest * crest; d[k * 4] = 255; d[k * 4 + 1] = 255; d[k * 4 + 2] = 255; d[k * 4 + 3] = Math.round(Math.min(1, light * .4) * 255);
+    if (v < .4) { d[k * 4] = 8; d[k * 4 + 1] = 40; d[k * 4 + 2] = 52; d[k * 4 + 3] = Math.round((.4 - v) / .4 * 60); } }
+  g.putImageData(img, 0, 0); return c;
 }
-const patSwell = ctx.createPattern(makeSwellTile(), 'repeat');
+const patWaterA = ctx.createPattern(makeWaterTile(256), 'repeat'), patWaterB = ctx.createPattern(makeWaterTile(192), 'repeat');
 // ---------- sprites (SpriteCook, map art/) ----------
 const ART = {}, ARTPAT = {}; let artLoaded = 0;
 const ART_NAMES = ['ship_tanker', 'ship_bulk', 'ship_ferry', 'water', 'grass', 'concrete', 'containers', 'crane', 'warehouse', 'chimney', 'fender', 'tank_l', 'tank_m', 'tank_s', 'house_red', 'house_slate', 'house_orange', 'tree_a', 'tree_b', 'church', 'office', 'bollard', 'buoy', 'ship_player', 'ship_rival', 'ship_sea', 'tug'];
@@ -1024,7 +1030,7 @@ const wrap = (v, m) => ((v % m) + m) % m;
 function drawWater(tReal) {
   const t = simClock; // golven lopen op de spelklok, zodat ze bij snelvaart gelijk blijven met de stroom
   const base = ctx.createLinearGradient(0, 0, W, H);
-  base.addColorStop(0, '#397d91'); base.addColorStop(.5, '#36768b'); base.addColorStop(1, '#438b98');
+  base.addColorStop(0, '#2f6f7f'); base.addColorStop(.5, '#2b6878'); base.addColorStop(1, '#357a84'); // rivierwater: groenig blauwgrijs
   ctx.fillStyle = base; ctx.fillRect(cam.x, cam.y, VW, VH);
   // diep vaarwater donkerder, met een zachte rand
   ctx.save(); path(riverPoly); ctx.clip(); ctx.fillStyle = 'rgba(17,50,70,.14)'; ctx.fillRect(cam.x, cam.y, VW, VH); ctx.restore();
@@ -1043,7 +1049,8 @@ function drawWater(tReal) {
   waveLayer(patRA, Math.sin(t * 0.7) * 3, wrap(t * flow, 256), riverPoly, false, RW);
   waveLayer(patRB, 0, wrap(t * flow * 0.6, 192), riverPoly, false, RW); ctx.globalAlpha = 1;
   // deining (grote zachte vlekken) die langzaam de andere kant op drijft: parallax
-  ctx.save(); ctx.translate(wrap(-t * 4, 512), wrap(t * 2.5, 512)); ctx.fillStyle = patSwell; ctx.fillRect(cam.x - 512, cam.y - 512, VW + 1024, VH + 1024); ctx.restore();
+  // fijne golfjes en lichtvlekjes in twee naadloze lagen die over elkaar heen schuiven (diepte zonder naden)
+  for (const [pat, sz, vx, vy, al] of [[patWaterA, 256, -5, 3, .55], [patWaterB, 192, 4, -2.5, .4]]) { ctx.save(); ctx.globalAlpha = al; ctx.translate(wrap(t * vx, sz), wrap(t * vy, sz)); ctx.fillStyle = pat; ctx.fillRect(cam.x - sz, cam.y - sz, VW + 2 * sz, VH + 2 * sz); ctx.restore(); }
   // stroomstrepen in de rivier: lange, zwakke vegen die met de stroom meelopen
   if (Math.abs(current.speed) > 0.3) { ctx.save(); path(riverPoly); ctx.clip(); ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.09, Math.abs(current.speed) * 0.03)})`; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.beginPath();
     const dsg = current.speed >= 0 ? 1 : -1, SP = 420; for (let n = -RIVER_HALF + 30; n <= RIVER_HALF - 30; n += 46) for (let s = S_MIN + wrap(-t * flow * 1.1 + n * 7, SP); s < S_MAX; s += SP) { const a = sn2w(s, n), b2 = sn2w(s - 120 * dsg, n); if (a.x < cam.x - 150 || a.x > cam.x + VW + 150 || a.y < cam.y - 150 || a.y > cam.y + VH + 150) continue; ctx.moveTo(a.x, a.y); ctx.lineTo(b2.x, b2.y); }
