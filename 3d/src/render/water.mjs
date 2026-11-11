@@ -258,18 +258,22 @@ function createMirror(renderer, mesh, uniforms, scale = 0.5) {
     const before = r.getRenderTarget(),
       xr = r.xr.enabled,
       shadows = r.shadowMap.autoUpdate;
-    r.xr.enabled = false;
-    r.shadowMap.autoUpdate = false;
-    r.setRenderTarget(target);
-    r.state.buffers.depth.setMask(true);
-    if (r.autoClear === false) r.clear();
-    r.render(scene, cam);
-    r.xr.enabled = xr;
-    r.shadowMap.autoUpdate = shadows;
-    r.setRenderTarget(before);
-    mesh.visible = true;
-    busy = false;
-    for (const o of shown) o.visible = true;
+    try {
+      r.xr.enabled = false;
+      r.shadowMap.autoUpdate = false;
+      r.setRenderTarget(target);
+      r.state.buffers.depth.setMask(true);
+      if (r.autoClear === false) r.clear();
+      r.render(scene, cam);
+    } finally {
+      // Whatever happens in the mirror render, the scene is put back as it was.
+      r.xr.enabled = xr;
+      r.shadowMap.autoUpdate = shadows;
+      r.setRenderTarget(before);
+      mesh.visible = true;
+      busy = false;
+      for (const o of shown) o.visible = true;
+    }
   };
   return target;
 }
