@@ -107,7 +107,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   scene.add(sun);
   const primitives = createPrimitives(scene);
   const { mesh, box, cyl, textSprite } = primitives;
-  const waterMat = createWater(mesh, MAP, quality);
+  const waterMat = createWater(mesh, MAP, quality, renderer);
   const ship = createShipFactory(scene, primitives);
   // Land: a block per map rectangle, sides in the district colour, and a top with a
   // painted ground pattern (paving, concrete slabs, meadow) in world-size tiles.
@@ -405,6 +405,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     // Linear, like the rest of the shader: colorspace_fragment encodes the result.
     tmp.copy(scene.fog.color);
     waterMat.uniforms.fogCol.value.set(tmp.r, tmp.g, tmp.b);
+    waterMat.uniforms.skyTop.value.set(skyCol.r, skyCol.g, skyCol.b);
     lampMat.opacity = mastMat.opacity = Math.max(0, (look.night - 0.25) / 0.75);
     lamps.visible = lampMat.opacity > 0.01;
     level = tideLevel(st.clock, st.tidePhase);
