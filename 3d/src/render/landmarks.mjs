@@ -10,10 +10,11 @@ import { model, MODEL_NAMES } from './models.mjs';
 export const LANDMARKS = {
   rotterdam: [
     { kind: 'euromast', name: 'Euromast', s: 1540, n: -400, r: 40 },
-    { kind: 'depot', name: 'Depot Boijmans', s: 1800, n: -640, r: 45 },
+    { kind: 'depot', model: 'depot', name: 'Depot Boijmans', s: 1800, n: -640, r: 45 },
     { kind: 'mill', name: 'Delfshaven', s: 1110, n: -700, r: 22, body: '#6b4a38' },
     {
       kind: 'highrise',
+      model: 'zalmhaventoren',
       name: 'Zalmhaventoren',
       s: 2130,
       n: -340,
@@ -29,6 +30,7 @@ export const LANDMARKS = {
     { kind: 'markthal', name: 'Markthal', s: 2540, n: -560, r: 62 },
     {
       kind: 'church',
+      model: 'laurenskerk',
       name: 'Laurenskerk',
       s: 2440,
       n: -700,
@@ -65,8 +67,8 @@ export const LANDMARKS = {
     },
     { kind: 'highrise', name: '', s: 2440, n: 450, r: 22, h: 124, w: 22, c: '#a9553f' },
     { kind: 'highrise', name: '', s: 2530, n: 560, r: 22, h: 95, w: 24, c: '#d9d2c2' },
-    { kind: 'silo', name: 'Maassilo', s: 1660, n: 700, r: 45 },
-    { kind: 'stadium', name: 'De Kuip', s: 3900, n: 850, r: 85 },
+    { kind: 'silo', model: 'maassilo', name: 'Maassilo', s: 1660, n: 700, r: 45 },
+    { kind: 'stadium', model: 'dekuip', name: 'De Kuip', s: 3900, n: 850, r: 85 },
   ],
   europoort: [
     { kind: 'barrier', name: 'Maeslantkering', s: -500, n: 0 },
@@ -165,8 +167,9 @@ const list = (id) =>
 export const modelsNeeded = (id = MAP.id) =>
   MODEL_NAMES.filter(
     (n) =>
-      list(id).some((l) => l.kind === n) ||
-      (n === 'erasmusbrug' && (MAP.bridges || []).some((b) => /Erasmus/.test(b.name || ''))),
+      list(id).some((l) => (l.model || l.kind) === n) ||
+      (/^(erasmus|willems)brug$/.test(n) &&
+        (MAP.bridges || []).some((b) => new RegExp(n.slice(0, -4), 'i').test(b.name || ''))),
   );
 // A landmark is one rigid object in the warped world (maps/warp.mjs): it stands at the
 // warped spot of its map position and turns with the quay it belongs to.
@@ -561,7 +564,8 @@ export function createLandmarks(scene, { mesh, textSprite }) {
     const f = z < 0 ? 1 : -1, // towards the river
       k = new Kit();
     let top = 40;
-    const made = l.kind !== 'highrise' && model(l.kind);
+    // A landmark names its Blender model (`model`), or its kind is one (euromast).
+    const made = model(l.model || l.kind);
     if (made) {
       // Modelled in Blender (render/models.mjs): one mesh, its windows light up at night.
       const m = new T.Mesh(made.body, kitMaterial);

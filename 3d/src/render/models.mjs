@@ -20,6 +20,12 @@ export const MODEL_NAMES = [
   'cubes',
   'markthal',
   'whitehouse',
+  'dekuip',
+  'maassilo',
+  'depot',
+  'laurenskerk',
+  'zalmhaventoren',
+  'willemsbrug',
 ];
 const folder = new URL('../../assets/landmarks/', import.meta.url);
 
