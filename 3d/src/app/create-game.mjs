@@ -691,7 +691,10 @@ export function createGame({ createRenderer } = {}) {
     $('radarBar').hidden = !on;
     $('radarBtn').hidden = true;
     document.body?.classList?.toggle?.('radarOn', on);
-    if (on) setChartBig(false);
+    if (on) {
+      setChartBig(false);
+      mobilePanels.close(); // the phone's harbour menu must not hang over the radar
+    }
     if (on && !s.equipment.radar) {
       s.equipment.radar = true;
       equipment.render();
