@@ -29,6 +29,7 @@ import { skyLook, sunDirection } from './daylight.mjs';
 import { createLandmarks } from './landmarks.mjs';
 import { createFleetWake, vesselWake } from './fleet-wake.mjs';
 import { createShipSmoke } from './ship-smoke.mjs';
+import { createQuayLife, flag } from './quay-life.mjs';
 import { tr } from '../i18n/index.mjs';
 import { dayClock } from '../game/harbor.mjs';
 import { profileOf } from '../game/ship-profile.mjs';
@@ -149,6 +150,29 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   scene.add(terrain);
   const scenery = createHarborScenery(scene, quality);
   const landmarks = createLandmarks(scene, primitives);
+  // Flags on the ships that lie there for good (at the stern, +x is the bow) and on
+  // Hotel New York, the old Holland America Line office.
+  for (const g of landmarks.floating) flag(g, -g.userData.liner.length / 2 + 6, 16, 0, 4.5);
+  const hny = (MAP.landmarks || []).find((l) => l.kind === 'hotelny');
+  if (hny) flag(scene, hny.x, 29, hny.z, 5, 8);
+  // People along the water where the city comes to look: the old HAL office, De Rotterdam,
+  // the Euromast, and beside the two big ships.
+  const strollSpots = SHAPE
+    ? [
+        ...(MAP.landmarks || []).filter((l) =>
+          ['hotelny', 'derotterdam', 'euromast'].includes(l.kind),
+        ),
+        ...landmarks.floating.map((g) => ({
+          x: g.userData.liner.shipX,
+          z: g.userData.liner.shipZ,
+        })),
+      ]
+        .map((p) => SHAPE.wall(p.x, p.z, 400))
+        .filter(Boolean)
+        .map((w) => ({ x: w.qx, z: w.qz, tx: w.tx, tz: w.tz, nx: w.nx, nz: w.nz }))
+    : [];
+  const quayLife = createQuayLife(scene, { strollers: strollSpots, light: quality.light });
+  let nightNow = 0;
   // Names stand where their place lies in the world.
   const nameAt = (text, x, y, z, ...rest) => {
     const p = toWorld(x, z);
@@ -232,6 +256,8 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   const trafficMeshes = sim.traffic.map((b) => {
     const m = ship(b.length, b.beam, b.color, b.length < 80);
     textSprite(b.name, 0, 14, 0, 22, '#e8e3bd', m);
+    // the ensign at the stern (bow is −z)
+    flag(m, 0, b.length < 30 ? 2 : 4, b.length / 2 - 1.5, b.length < 30 ? 1.2 : 2.6);
     return m;
   });
   // Rivals and your own fleet: meshes per boat, made on first sight (a boat bought
@@ -359,7 +385,8 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       tx = (b.x - a.x) / L,
       tz = (b.z - a.z) / L,
       at = (u, v, y) => [a.x + tx * u - tz * v, y, a.z + tz * u + tx * v];
-    for (let u = 12; u < L - 12; u += 24) for (const v of [-13, 13]) bulb(mat, ...at(u, v, dy + 3), 10);
+    for (let u = 12; u < L - 12; u += 24)
+      for (const v of [-13, 13]) bulb(mat, ...at(u, v, dy + 3), 10);
     if (br.ax === undefined) continue; // pylons only where the real map knows them
     if (erasmus && br.pylon !== null) {
       // the swan: up the legs to the knee (86 m), then the neck leaning back to the head
@@ -467,6 +494,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     hemi.intensity = look.hemi * (1 - gloom * 0.15);
     renderer.toneMappingExposure = look.exposure;
     waterMat.uniforms.night.value = look.night;
+    nightNow = look.night;
     const lit = Math.max(0, (look.night - 0.2) / 0.8);
     scenery.setNight(lit);
     landmarks.setNight(lit);
@@ -522,6 +550,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     // Colour materials are shared through primitives' cache; only textured ones are per boat.
     fleetWake.update(wakeList, level, time);
     shipSmoke.update(wakeList, dt, level, wx.wind);
+    quayLife.update(time, dt, nightNow, level);
     if (meshOf.size > world.rivals.length) {
       const live = new Set(world.rivals);
       for (const [r, m] of meshOf) {

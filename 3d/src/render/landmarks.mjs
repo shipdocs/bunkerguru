@@ -1016,6 +1016,7 @@ export function createLandmarks(scene, { mesh, textSprite }) {
     grp.position.set(l.shipX, 0, l.shipZ);
     grp.rotation.y = Math.PI / 2 - l.h;
     grp.name = 'liner';
+    grp.userData.liner = l;
     if (made) {
       const m = new T.Mesh(made.body, kitMaterial);
       m.castShadow = m.receiveShadow = true;
