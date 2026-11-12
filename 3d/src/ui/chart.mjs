@@ -10,6 +10,7 @@ import {
   rectOutline,
   worldBounds,
   SHAPE,
+  liners,
 } from '../maps/index.mjs';
 import { routePoints } from '../game/harbor.mjs';
 import { tr } from '../i18n/index.mjs';
@@ -149,6 +150,16 @@ export function createChart(canvas) {
       map.rotate(b.label ? 0 : Math.atan2(ax.z, ax.x));
       map.fillStyle = 'rgba(220,231,220,.75)';
       map.fillText(b.name, 0, 1);
+      map.restore();
+    }
+    // Ships that lie there for good: quiet white hulls.
+    for (const b of liners) {
+      const [x, y] = project(b.shipX, b.shipZ);
+      map.save();
+      map.translate(x, y);
+      map.rotate(b.h);
+      map.fillStyle = '#e9edf0';
+      map.fillRect(-1.3, (-b.length * scale) / 2, 2.6, b.length * scale);
       map.restore();
     }
     for (const b of customers) {

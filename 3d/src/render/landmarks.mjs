@@ -1,5 +1,5 @@
 import * as T from '../../vendor/three.js';
-import { MAP, WARP, landAt, quayAxis } from '../maps/index.mjs';
+import { MAP, WARP, landAt, quayAxis, liners } from '../maps/index.mjs';
 import { GeometryBatch } from './scene-batch.mjs';
 import { model, MODEL_NAMES } from './models.mjs';
 // Landmarks: the shapes you steer by in the real port. Cartoon models, but each one
@@ -168,6 +168,7 @@ export const modelsNeeded = (id = MAP.id) =>
   MODEL_NAMES.filter(
     (n) =>
       list(id).some((l) => (l.model || l.kind) === n) ||
+      (id === MAP.id && liners.some((l) => l.model === n)) ||
       (/^(erasmus|willems)brug$/.test(n) &&
         (MAP.bridges || []).some((b) => new RegExp(n.slice(0, -4), 'i').test(b.name || ''))),
   );
@@ -1006,9 +1007,39 @@ export function createLandmarks(scene, { mesh, textSprite }) {
     stats.count++;
     stats.parts += k.n;
   }
+  // Ships that lie there for good (MAP.liners): afloat, so world.mjs lifts them with the
+  // tide. A Blender model (+x = bow) turned to her heading, her portholes lit at night;
+  // without it a plain white ship.
+  const floating = liners.map((l) => {
+    const grp = new T.Group(),
+      made = model(l.model);
+    grp.position.set(l.shipX, 0, l.shipZ);
+    grp.rotation.y = Math.PI / 2 - l.h;
+    grp.name = 'liner';
+    if (made) {
+      const m = new T.Mesh(made.body, kitMaterial);
+      m.castShadow = m.receiveShadow = true;
+      grp.add(m);
+      if (made.glow) {
+        const lights = new T.Mesh(made.glow, lightsMaterial);
+        lights.visible = false;
+        m.add(lights);
+        lightMeshes.push(lights);
+      }
+    } else {
+      const k = new Kit();
+      k.box(l.length, 12, l.beam, '#3a4047', 0, 0, 0);
+      k.box(l.length * 0.7, 14, l.beam * 0.86, '#f2f1ec', -l.length * 0.05, 12, 0);
+      k.mesh(grp);
+    }
+    root.add(grp);
+    label(l.name, l.shipX, 52, l.shipZ);
+    return grp;
+  });
   return {
     root,
     stats,
+    floating,
     update(time, wind = { x: 0.35, z: 0.12 }) {
       for (const sp of spinners) sp.o.rotation[sp.axis] = time * sp.speed + sp.ph;
       for (const p of puffs) {

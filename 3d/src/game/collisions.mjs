@@ -7,7 +7,7 @@
 // along its curved quay, other vessels are taken at their world pose. The boats that
 // sail on the MAP itself (rivals, own fleet) call with ctx.space = 'map' and get the
 // plain rectangles of the 2D game.
-import { MAP, WARP, SHAPE, land, customers } from '../maps/index.mjs';
+import { MAP, WARP, SHAPE, land, customers, liners } from '../maps/index.mjs';
 import { profileOf, toWorld, hullSamples } from './ship-profile.mjs';
 const W = MAP.halfWidth;
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -31,7 +31,7 @@ const shipWallsM = customers.map((b) => ({
 // On a real outline (SHAPE) the ships lie at an angle: they are boxes, as in the world.
 export const staticWalls = SHAPE ? landWalls : [...landWalls, ...shipWallsM];
 // …and in the world: a rigid box in its own frame (x along the hull, z to starboard).
-export const shipBoxes = customers.map((b) => ({
+export const shipBoxes = [...customers, ...liners].map((b) => ({
   ship: true,
   cx: b.shipX,
   cz: b.shipZ,

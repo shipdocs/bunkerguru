@@ -423,6 +423,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     if (waterMat.userData.mesh) waterMat.userData.mesh.position.y = level;
     for (const m of customerMeshes) m.position.y = level;
     for (const m of stripMeshes) m.position.y = level;
+    for (const m of landmarks.floating) m.position.y = level;
     return level;
   }
   function updateDynamic(world, time) {

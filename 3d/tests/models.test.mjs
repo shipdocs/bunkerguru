@@ -52,3 +52,28 @@ test('a map only waits for the buildings it shows', async () => {
   // the Amsterdam grain silo keeps its own shape: the Maassilo model is Rotterdam's
   assert.ok(!modelsNeeded('amsterdam').includes('maassilo'));
 });
+
+test('the cruise ships lie against their quay and block the water', async () => {
+  const { MAP } = await import('../src/maps/index.mjs');
+  const real = (await import('../src/maps/real-map.mjs')).buildReal;
+  const def = (await import('../src/maps/real/rotterdam.mjs')).default;
+  const map = MAP.id === 'rotterdam' ? MAP : real(def);
+  assert.equal(map.liners.length, 2);
+  for (const l of map.liners) {
+    assert.ok(map.shape.inside(l.shipX, l.shipZ), `${l.name} afloat`);
+    // the quay is half a beam away, the far side of the hull is open water
+    assert.ok(map.shape.sdist(l.shipX, l.shipZ) < l.beam, `${l.name} alongside`);
+    for (const t of [-0.45, 0, 0.45]) {
+      const x = l.shipX + Math.sin(l.h) * l.length * t,
+        z = l.shipZ - Math.cos(l.h) * l.length * t;
+      assert.ok(map.shape.inside(x, z), `${l.name} lies in the water over her whole length`);
+    }
+  }
+  // the moored customer of the Merwehaven keeps clear of the cruise ship
+  const opvang = map.liners[0],
+    merwe = map.customers.find((b) => b.name === 'MV MERWEHAVEN');
+  assert.ok(
+    Math.hypot(opvang.shipX - merwe.shipX, opvang.shipZ - merwe.shipZ) >
+      (opvang.length + merwe.length) / 2,
+  );
+});

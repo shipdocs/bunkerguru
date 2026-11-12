@@ -1,4 +1,4 @@
-import { SHAPE, land, bridges, customers, rectOutline, toWorld } from '../maps/index.mjs';
+import { SHAPE, land, bridges, customers, liners, rectOutline, toWorld } from '../maps/index.mjs';
 import { tr } from '../i18n/index.mjs';
 // Sailing on radar in fog: a full-screen, heading-up radar picture instead of the 3D
 // view. Quays and bridges echo, every vessel shows as a blip with its AIS name, a
@@ -125,7 +125,8 @@ export function createRadar(canvas, { insets = () => ({ top: 0, bottom: 0 }) } =
         vessel(b.wx ?? b.x, b.wz ?? b.z, b.wh ?? b.h, b.length, b.beam, b.name);
       for (const r of world.rivals)
         if (r.mode !== 'sunk') vessel(r.wx ?? r.x, r.wz ?? r.z, r.wh ?? r.h, 110, 11, r.name);
-      for (const b of customers) vessel(b.shipX, b.shipZ, b.h, b.length, b.beam, b.name);
+      for (const b of [...customers, ...liners])
+        vessel(b.shipX, b.shipZ, b.h, b.length, b.beam, b.name);
       e.shadowBlur = 0;
       if (e.createConicGradient) {
         const glow = e.createConicGradient(sweep - Math.PI / 2, cx, cy);

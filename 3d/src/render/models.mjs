@@ -27,6 +27,8 @@ export const MODEL_NAMES = [
   'zalmhaventoren',
   'willemsbrug',
   'maeslantkering',
+  'ssrotterdam',
+  'opvangschip',
 ];
 const folder = new URL('../../assets/landmarks/', import.meta.url);
 

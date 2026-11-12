@@ -156,6 +156,21 @@ export function buildReal(def) {
       },
     };
   });
+  // Ships that lie there for good (a cruise ship, a hotel ship): against the wall like a
+  // berth, a box for collisions, a Blender model in the world (render/world.mjs).
+  const liners = (def.liners || []).map((l) => {
+    const w = quay(l.at[0], l.at[1], l.name),
+      bow = l.bow === -1 ? -1 : 1;
+    return {
+      name: l.name,
+      model: l.model,
+      length: l.length,
+      beam: l.beam,
+      shipX: w.qx + w.nx * (l.beam / 2 + 1),
+      shipZ: w.qz + w.nz * (l.beam / 2 + 1),
+      h: headingOf(w.tx * bow, w.tz * bow),
+    };
+  });
   // Fixed bridges: from a point on the water straight across (angle = deck direction),
   // to 30 m onto the land on either side.
   const bridges = def.bridges.map((b) => {
@@ -265,15 +280,20 @@ export function buildReal(def) {
       s: t.s,
       v: t.v,
       length: t.len,
-      beam: t.len >= 150 ? SHIP_BEAM : t.len >= 80 ? 10 : 8,
+      beam: t.len >= 150 ? SHIP_BEAM : t.len >= 80 ? 10 : t.len >= 30 ? 8 : 4,
       shuttle: !!t.path,
     })),
     gates: [],
+    liners,
     bridges,
     channels: [],
     labels: def.labels.map((l) => ({ x: l.at[0], z: l.at[1], text: l.text, size: l.size })),
     roads: [],
-    decor: makeDecor(shape, useAt, bounds, def.landmarks || []),
+    // no crane, shed or house on the quay beside a cruise ship
+    decor: makeDecor(shape, useAt, bounds, [
+      ...(def.landmarks || []),
+      ...liners.map((l) => ({ x: l.shipX, z: l.shipZ, r: l.length / 2 + 15 })),
+    ]),
     landmarks: def.landmarks || [],
     start,
     mstart: start,
