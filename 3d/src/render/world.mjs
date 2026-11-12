@@ -18,6 +18,8 @@ import {
   terminals,
   waits,
   customers,
+  bridges,
+  liners,
   tideLevel,
   SHAPE,
   riverAt,
@@ -27,6 +29,9 @@ import {
 import { skyLook, sunDirection } from './daylight.mjs';
 import { createLandmarks } from './landmarks.mjs';
 import { createFleetWake, vesselWake } from './fleet-wake.mjs';
+import { createShipSmoke } from './ship-smoke.mjs';
+import { createQuayLife, flag } from './quay-life.mjs';
+import { createWorkingCranes } from './quay-crane.mjs';
 import { tr } from '../i18n/index.mjs';
 import { dayClock } from '../game/harbor.mjs';
 import { profileOf } from '../game/ship-profile.mjs';
@@ -147,6 +152,32 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   scene.add(terrain);
   const scenery = createHarborScenery(scene, quality);
   const landmarks = createLandmarks(scene, primitives);
+  // Flags on the ships that lie there for good (at the stern, +x is the bow) and on
+  // Hotel New York, the old Holland America Line office.
+  for (const g of landmarks.floating) flag(g, -g.userData.liner.length / 2 + 6, 16, 0, 4.5);
+  const hny = (MAP.landmarks || []).find((l) => l.kind === 'hotelny');
+  if (hny) flag(scene, hny.x, 29, hny.z, 5, 8);
+  // People along the water where the city comes to look: the old HAL office, De Rotterdam,
+  // the Euromast, and beside the two big ships.
+  const strollSpots = SHAPE
+    ? [
+        ...(MAP.landmarks || []).filter((l) =>
+          ['hotelny', 'derotterdam', 'euromast'].includes(l.kind),
+        ),
+        ...landmarks.floating.map((g) => ({
+          x: g.userData.liner.shipX,
+          z: g.userData.liner.shipZ,
+        })),
+      ]
+        .map((p) => SHAPE.wall(p.x, p.z, 400))
+        .filter(Boolean)
+        .map((w) => ({ x: w.qx, z: w.qz, tx: w.tx, tz: w.tz, nx: w.nx, nz: w.nz }))
+    : [];
+  const quayLife = createQuayLife(scene, { strollers: strollSpots, light: quality.light });
+  let nightNow = 0;
+  // A crane unloading every moored customer ship onto a lorry (render/quay-crane.mjs).
+  const workingCranes = createWorkingCranes(scene, customers),
+    playerAt = { x: 0, z: 0 };
   // Names stand where their place lies in the world.
   const nameAt = (text, x, y, z, ...rest) => {
     const p = toWorld(x, z);
@@ -227,9 +258,21 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     m.rotation.y = renderYaw(b.h);
     textSprite(b.name, b.shipX, 22, b.shipZ, 40, '#e9edda', scene, 0.11);
   }
+  // Barges and yachts made fast along the quays (maps 'moored'): plain ships, no label.
+  const mooredMeshes = liners
+    .filter((l) => !l.model)
+    .map((l) => {
+      const m = ship(l.length, l.beam, l.color, l.length < 30);
+      m.position.set(l.shipX, 0, l.shipZ);
+      m.rotation.y = renderYaw(l.h);
+      if (l.length >= 30) flag(m, 0, 4, l.length / 2 - 1.5, 2);
+      return m;
+    });
   const trafficMeshes = sim.traffic.map((b) => {
     const m = ship(b.length, b.beam, b.color, b.length < 80);
     textSprite(b.name, 0, 14, 0, 22, '#e8e3bd', m);
+    // the ensign at the stern (bow is −z)
+    flag(m, 0, b.length < 30 ? 2 : 4, b.length / 2 - 1.5, b.length < 30 ? 1.2 : 2.6);
     return m;
   });
   // Rivals and your own fleet: meshes per boat, made on first sight (a boat bought
@@ -243,6 +286,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   const meshOf = new Map(sim.rivals.map((r) => [r, vesselMesh(r)]));
   // Bow wave and wake of every other vessel (render/fleet-wake.mjs).
   const fleetWake = createFleetWake(scene),
+    shipSmoke = createShipSmoke(scene, quality.light),
     wakeList = [];
   const rivalMeshes = [...meshOf.values()];
   // Movable bridges and lock gates: a coloured barrier that slides away when open.
@@ -322,6 +366,61 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   }
   lamps.visible = false;
   scene.add(lamps);
+  // Bridges lit at night: the Erasmusbrug in cool white along her deck and up the swan's
+  // neck, the Willemsbrug red along her deck and both pylons, the others a warm row of
+  // deck lights. The water mirror (rich graphics) doubles them.
+  const tint = (c) => {
+    const m = lampMat.clone();
+    m.color.set(c);
+    return m;
+  };
+  const bridgeMats = [tint('#cfe6ff'), tint('#ff5a4a'), tint('#ffe2b0')];
+  const bridgeLights = new T.Group();
+  bridgeLights.name = 'bridge lights';
+  const bulb = (mat, x, y, z, size = 14) => {
+    const sp = new T.Sprite(mat);
+    sp.position.set(x, y, z);
+    sp.scale.set(size, size, 1);
+    bridgeLights.add(sp);
+  };
+  for (const br of bridges) {
+    const erasmus = /Erasmus/.test(br.name || ''),
+      willems = /Willems/.test(br.name || ''),
+      mat = bridgeMats[erasmus ? 0 : willems ? 1 : 2];
+    // the deck from bank to bank, its two edges, at deck height
+    const [a, b] =
+      br.ax !== undefined
+        ? [
+            { x: br.ax, z: br.az },
+            { x: br.bx, z: br.bz },
+          ]
+        : [toWorld(br.x, br.z0), toWorld(br.x, br.z1)];
+    const dy = br.ax !== undefined ? (br.height || 30) + 4 : 34,
+      L = Math.hypot(b.x - a.x, b.z - a.z),
+      tx = (b.x - a.x) / L,
+      tz = (b.z - a.z) / L,
+      at = (u, v, y) => [a.x + tx * u - tz * v, y, a.z + tz * u + tx * v];
+    for (let u = 12; u < L - 12; u += 24)
+      for (const v of [-13, 13]) bulb(mat, ...at(u, v, dy + 3), 10);
+    if (br.ax === undefined) continue; // pylons only where the real map knows them
+    if (erasmus && br.pylon !== null) {
+      // the swan: up the legs to the knee (86 m), then the neck leaning back to the head
+      const u0 = br.pylon * L;
+      for (let k = 0; k <= 8; k++)
+        bulb(mat, ...at(u0 + 10 + 24 * (k / 8), 0, 86 + 53 * (k / 8)), 12);
+      for (const v of [-1, 1])
+        for (let y = 40; y < 86; y += 15)
+          bulb(mat, ...at(u0 + (10 * (y - 2)) / 84, v * (15 - (10.5 * (y - 2)) / 84), y), 10);
+    }
+    if (willems)
+      for (const p of br.pillars) {
+        const u = (p.x - a.x) * tx + (p.z - a.z) * tz;
+        for (const v of [-13.6, 13.6])
+          for (let y = 40; y <= 92; y += 13) bulb(mat, ...at(u, v, y), 11);
+      }
+  }
+  bridgeLights.visible = false;
+  scene.add(bridgeLights);
   // Masthead light on every vessel at night (own boat, traffic, rivals).
   const mastMat = lampMat.clone();
   const mastLight = (parent, h = 22) => {
@@ -392,6 +491,8 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   // The sun follows the clock; create-game keeps the light this far from the boat.
   const sunOffset = new T.Vector3(-220, 220, 160);
   function updateAmbient(st) {
+    playerAt.x = st.x;
+    playerAt.z = st.z;
     const look = skyLook(dayClock(st));
     const sd = sunDirection(dayClock(st));
     sunOffset.set(sd.x, sd.y, sd.z).multiplyScalar(330);
@@ -410,6 +511,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     hemi.intensity = look.hemi * (1 - gloom * 0.15);
     renderer.toneMappingExposure = look.exposure;
     waterMat.uniforms.night.value = look.night;
+    nightNow = look.night;
     const lit = Math.max(0, (look.night - 0.2) / 0.8);
     scenery.setNight(lit);
     landmarks.setNight(lit);
@@ -419,11 +521,14 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     waterMat.uniforms.skyTop.value.set(skyCol.r, skyCol.g, skyCol.b);
     lampMat.opacity = mastMat.opacity = Math.max(0, (look.night - 0.25) / 0.75);
     lamps.visible = lampMat.opacity > 0.01;
+    for (const m of bridgeMats) m.opacity = lampMat.opacity;
+    bridgeLights.visible = lamps.visible;
     level = tideLevel(st.clock, st.tidePhase);
     if (waterMat.userData.mesh) waterMat.userData.mesh.position.y = level;
     for (const m of customerMeshes) m.position.y = level;
     for (const m of stripMeshes) m.position.y = level;
     for (const m of landmarks.floating) m.position.y = level;
+    for (const m of mooredMeshes) m.position.y = level;
     return level;
   }
   function updateDynamic(world, time) {
@@ -435,12 +540,12 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     // Smoke and steam lean with the wind, a light breeze when it is calm.
     landmarks.update(time, { x: 0.3 + wx.wind.x * 1.6, z: 0.1 + wx.wind.z * 1.6 });
     wakeList.length = 0;
-    const wake = (x, z, h, speed, length, beam) =>
-      wakeList.push(vesselWake(x, z, h, speed, length, beam));
+    const wake = (key, x, z, h, speed, length, beam) =>
+      wakeList.push({ ...vesselWake(x, z, h, speed, length, beam), key });
     for (const [i, b] of world.traffic.entries()) {
       trafficMeshes[i].position.set(b.wx ?? b.x, level, b.wz ?? b.z);
       trafficMeshes[i].rotation.y = renderYaw(b.wh ?? b.h);
-      wake(b.wx ?? b.x, b.wz ?? b.z, b.wh ?? b.h, b.speed || 0, b.length, b.beam);
+      wake(b, b.wx ?? b.x, b.wz ?? b.z, b.wh ?? b.h, b.speed || 0, b.length, b.beam);
     }
     for (const m of meshOf.values()) m.visible = false;
     for (const [i, r] of world.rivals.entries()) {
@@ -457,11 +562,14 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       );
       m.rotation.set(sinking * 0.3, renderYaw(r.wh ?? r.h), 0);
       m.visible = sinking < 1;
-      if (!sinking) wake(r.wx ?? r.x, r.wz ?? r.z, r.wh ?? r.h, r.cur || 0, 110, 11);
+      if (!sinking) wake(r, r.wx ?? r.x, r.wz ?? r.z, r.wh ?? r.h, r.cur || 0, 110, 11);
     }
     // A boat that left the list (new career) takes its mesh and name textures with it.
     // Colour materials are shared through primitives' cache; only textured ones are per boat.
     fleetWake.update(wakeList, level, time);
+    shipSmoke.update(wakeList, dt, level, wx.wind);
+    quayLife.update(time, dt, nightNow, level);
+    workingCranes.update(time, playerAt);
     if (meshOf.size > world.rivals.length) {
       const live = new Set(world.rivals);
       for (const [r, m] of meshOf) {

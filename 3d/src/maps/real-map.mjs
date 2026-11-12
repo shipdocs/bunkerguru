@@ -158,12 +158,13 @@ export function buildReal(def) {
   });
   // Ships that lie there for good (a cruise ship, a hotel ship): against the wall like a
   // berth, a box for collisions, a Blender model in the world (render/world.mjs).
-  const liners = (def.liners || []).map((l) => {
+  const liners = [...(def.liners || []), ...(def.moored || [])].map((l) => {
     const w = quay(l.at[0], l.at[1], l.name),
       bow = l.bow === -1 ? -1 : 1;
     return {
-      name: l.name,
-      model: l.model,
+      name: l.name || '',
+      model: l.model || null,
+      color: l.col || '#eeeeee',
       length: l.length,
       beam: l.beam,
       shipX: w.qx + w.nx * (l.beam / 2 + 1),
@@ -282,6 +283,7 @@ export function buildReal(def) {
       length: t.len,
       beam: t.len >= 150 ? SHIP_BEAM : t.len >= 80 ? 10 : t.len >= 30 ? 8 : 4,
       shuttle: !!t.path,
+      escort: t.escort || null,
     })),
     gates: [],
     liners,

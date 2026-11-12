@@ -193,6 +193,11 @@ export function createLegacySound() {
     setActive(value) { active = !!value; if (!active) engOn = 0; if (ac) master.gain.setTargetAtTime(gMaster(), ac.currentTime, 0.05); },
     hit(power) { burst(300, 0.4 + power * 0.03, Math.min(1, 0.3 + power * 0.04)); tone('triangle', 90, 40, 0.35, Math.min(0.8, 0.2 + power * 0.03)); },
     horn() { tyfoon(2.6, 0); },
+    // 3D harbour ambience (audio/ambience.mjs decides when and how loud, 0…1).
+    gull(v) { const k = 0.9 + Math.random() * 0.25; [0, 0.2, 0.42].forEach((d, i) => tone('sine', 1750 * k, 1050 * k, 0.17 + i * 0.03, v * (1 - i * 0.2), d)); },
+    distantHorn(v) { tone('sine', 108, 106, 2.4, v); tone('sine', 162, 160, 2.4, v * 0.45); tone('sine', 216, 214, 2.2, v * 0.2); },
+    clank(v) { burst(2400, 0.07, v, 'bandpass'); tone('triangle', 520, 300, 0.25, v * 0.6); tone('square', 180, 120, 0.1, v * 0.3, 0.05); },
+    bell(v) { tone('sine', 1320, 1318, 0.8, v); tone('sine', 2640, 2630, 0.45, v * 0.35); },
     horn5() { for (let i = 0; i < 5; i++) tyfoon(0.45, i * 0.65); }, // attentiesein: 5 korte stoten
     rope() { burst(1800, 0.12, 0.25, 'highpass'); tone('square', 220, 140, 0.12, 0.08, 0.05); },
     alarm(n) { // kort machinekameralarm: 3 (of n) dubbele piepen, zodat je weet dat er iets mis is

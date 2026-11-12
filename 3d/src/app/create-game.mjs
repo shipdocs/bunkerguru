@@ -5,6 +5,8 @@ import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs
 import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/graphics.mjs';
 import { MAP, quickJob, planTick, LOGIC, up } from '../game/harbor.mjs';
 import { HarborAudio } from '../audio/harbor-audio.mjs';
+import { createAmbience } from '../audio/ambience.mjs';
+import { SHAPE, decor, toWorld } from '../maps/index.mjs';
 import { createRadio } from '../audio/radio.mjs';
 import { tr, getLang, setLang } from '../i18n/index.mjs';
 // VHF lines are spoken, not only shown: translate them before they reach the voice.
@@ -43,6 +45,15 @@ export function createGame({ createRenderer } = {}) {
   const $ = (id) => document.getElementById(id);
   let s = loadCareer();
   const sim = createWorldState(s);
+  // The harbour's own sounds round the ship (audio/ambience.mjs): gulls by the quays,
+  // a distant horn, cranes, a bridge bell.
+  const ambience = createAmbience(),
+    ambientPlaces = {
+      shoreDist: SHAPE ? (x, z) => Math.abs(SHAPE.sdist(x, z, 400)) : null,
+      cranes: decor
+        .filter((d) => d.type === 'crane')
+        .map((d) => (SHAPE ? { x: d.x, z: d.z } : toWorld(d.x, d.z))),
+    };
   const sound = new HarborAudio();
   const radio = createRadio(
     {
@@ -789,6 +800,7 @@ export function createGame({ createRenderer } = {}) {
       step(s, sim, delta, keys, fx, (reversing) => sound.clutch(reversing)),
     );
     if (playing) {
+      for (const e of ambience.tick(dt, s, sim, ambientPlaces)) sound.fx(e.kind, e.vol);
       saveTimer += dt;
       if (saveTimer > 3) {
         saveTimer = 0;

@@ -141,6 +141,7 @@ const turnTo = (h, target, max) => {
 export function updateTraffic(traffic, dt, boats = []) {
   void SIM_PER_LOGIC;
   for (const t of traffic) {
+    if (t.escort) continue; // placed after its ship, below
     const dir = Math.sign(t.v);
     if (t.path) {
       // Look out along the heading, as the lane ships and tugs below do.
@@ -206,6 +207,22 @@ export function updateTraffic(traffic, dt, boats = []) {
     // Tugs turn round visibly instead of flipping in one frame.
     t.h = turnTo(t.h, headingOf(t, Math.sign(t.v)), dt * 0.35);
     t.speed = Math.abs(t.v * t.k);
+  }
+  // A tug keeps station close astern of the ship it assists, on her heading, at her speed.
+  for (const t of traffic) {
+    if (!t.escort) continue;
+    const lead = traffic.find((o) => o.name === t.escort);
+    if (!lead) continue;
+    const back = lead.length / 2 + t.length / 2 + 22,
+      fx = Math.sin(lead.h),
+      fz = -Math.cos(lead.h);
+    t.x = lead.x - fx * back;
+    t.z = lead.z - fz * back;
+    t.h = lead.h;
+    t.ph = lead.ph ?? lead.h;
+    t.vx = lead.vx ?? 0;
+    t.vz = lead.vz ?? 0;
+    t.speed = lead.speed;
   }
   return traffic;
 }
