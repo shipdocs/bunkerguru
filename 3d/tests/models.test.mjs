@@ -37,4 +37,5 @@ test('a map only waits for the buildings it shows', async () => {
   const need = modelsNeeded();
   if (MAP.id === 'rotterdam') assert.ok(need.includes('euromast') && need.includes('erasmusbrug'));
   assert.deepEqual(modelsNeeded('europoort'), []);
+  assert.ok(modelsNeeded('rotterdam').includes('euromast'));
 });
