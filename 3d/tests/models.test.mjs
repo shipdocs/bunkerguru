@@ -58,7 +58,9 @@ test('the cruise ships lie against their quay and block the water', async () => 
   const real = (await import('../src/maps/real-map.mjs')).buildReal;
   const def = (await import('../src/maps/real/rotterdam.mjs')).default;
   const map = MAP.id === 'rotterdam' ? MAP : real(def);
-  assert.equal(map.liners.length, 2);
+  // two big ships with their own model, and the barges and yachts along the quays
+  assert.equal(map.liners.filter((l) => l.model).length, 2);
+  assert.ok(map.liners.length >= 10);
   for (const l of map.liners) {
     assert.ok(map.shape.inside(l.shipX, l.shipZ), `${l.name} afloat`);
     // the quay is half a beam away, the far side of the hull is open water
@@ -77,7 +79,7 @@ test('the cruise ships lie against their quay and block the water', async () => 
         c.shipZ - Math.cos(h) * L * t + Math.sin(h) * B * w,
       ]),
     );
-  const opvang = map.liners[0],
+  const opvang = map.liners.find((l) => l.model === 'opvangschip'),
     merwe = map.customers.find((b) => b.name === 'MV MERWEHAVEN'),
     a1 = hull(opvang, opvang.length, opvang.beam, opvang.h),
     a2 = hull(merwe, merwe.length, merwe.beam + 30, merwe.h); // with the bunker boat alongside

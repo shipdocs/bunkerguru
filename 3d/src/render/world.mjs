@@ -19,6 +19,7 @@ import {
   waits,
   customers,
   bridges,
+  liners,
   tideLevel,
   SHAPE,
   riverAt,
@@ -253,6 +254,16 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     m.rotation.y = renderYaw(b.h);
     textSprite(b.name, b.shipX, 22, b.shipZ, 40, '#e9edda', scene, 0.11);
   }
+  // Barges and yachts made fast along the quays (maps 'moored'): plain ships, no label.
+  const mooredMeshes = liners
+    .filter((l) => !l.model)
+    .map((l) => {
+      const m = ship(l.length, l.beam, l.color, l.length < 30);
+      m.position.set(l.shipX, 0, l.shipZ);
+      m.rotation.y = renderYaw(l.h);
+      if (l.length >= 30) flag(m, 0, 4, l.length / 2 - 1.5, 2);
+      return m;
+    });
   const trafficMeshes = sim.traffic.map((b) => {
     const m = ship(b.length, b.beam, b.color, b.length < 80);
     textSprite(b.name, 0, 14, 0, 22, '#e8e3bd', m);
@@ -511,6 +522,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     for (const m of customerMeshes) m.position.y = level;
     for (const m of stripMeshes) m.position.y = level;
     for (const m of landmarks.floating) m.position.y = level;
+    for (const m of mooredMeshes) m.position.y = level;
     return level;
   }
   function updateDynamic(world, time) {

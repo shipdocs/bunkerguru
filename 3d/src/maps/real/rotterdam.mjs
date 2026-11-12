@@ -196,6 +196,34 @@ export default {
     // Hoofd (51.8980 N, 4.4735 E, the map fitted to the OSM Maashaven), bow to the east.
     { name: 'SS Rotterdam', model: 'ssrotterdam', at: [275, 1222], length: 228, beam: 29, bow: -1 },
   ],
+  // Barges and yachts made fast along the quays: no job, just harbour life. Spots picked
+  // where the whole hull lies in open water, clear of berths, terminals and waits.
+  moored: [
+    ...[
+      [312, 1473],
+      [696, 1620],
+      [1319, 1409],
+      [1091, 737],
+      [1524, 736],
+      [1675, 566],
+      [-2440, 1214],
+      [-2626, 1301],
+      [-4898, 1847],
+      [-4757, 1971],
+    ].map((at, i) => ({
+      at,
+      length: 110,
+      beam: 11.4,
+      col: ['#2c3e50', '#7f1d1d', '#1f4e79', '#145a32', '#4a4a4a'][i % 5],
+      bow: i % 2 ? 1 : -1,
+    })),
+    ...[
+      [-56, 728],
+      [-131, 619],
+      [1811, -964],
+      [1939, -717],
+    ].map((at, i) => ({ at, length: 18, beam: 5, col: '#f4f4f0', bow: i % 2 ? 1 : -1 })),
+  ],
   // dir: the direction of the deck (heading), from the first bank to the second.
   bridges: [
     {
@@ -222,6 +250,26 @@ export default {
     { name: 'MV TRAAG', col: '#16a085', lane: -55, s: 9000, v: -3.5, len: 260 },
     { name: 'RONDVAART 1', col: '#f5f5f5', lane: -55, s: 6500, v: -2.5, len: 120 },
     { name: 'MT HAAST', col: '#d35400', lane: 55, s: 600, v: 3.0, len: 220 },
+    // The Spido round trip: from the Willemsplein under the Erasmusbrug to the Euromast
+    // and back.
+    {
+      name: 'SPIDO',
+      col: '#eef3f7',
+      path: [
+        [1290, -300],
+        [1200, -100],
+        [1100, 250],
+        [900, 450],
+        [500, 700],
+        [150, 860],
+        [-60, 870],
+      ],
+      s: 900,
+      v: 4.0,
+      len: 52,
+    },
+    // A harbour tug that keeps station astern of the outbound tanker.
+    { name: 'SLB ASSIST', col: '#c0392b', escort: 'MT HAAST', lane: 55, s: 0, v: 0, len: 32 },
     // Water taxis between their stops (Veerhaven, Hotel New York, Boompjes, Oude Haven,
     // Parkhaven/Euromast, SS Rotterdam/Katendrecht, Feijenoord): small, quick, to and fro.
     {
