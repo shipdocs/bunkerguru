@@ -34,9 +34,19 @@ export function createLegacySound() {
     turboOsc = ac.createOscillator(); turboOsc.type = 'sine'; turboOsc2 = ac.createOscillator(); turboOsc2.type = 'sine'; turboGain = ac.createGain(); turboGain.gain.value = 0; const t2g = ac.createGain(); t2g.gain.value = 0.5;
     turboOsc.connect(turboGain); turboOsc2.connect(t2g); t2g.connect(turboGain); turboGain.connect(sfx); turboOsc.start(); turboOsc2.start(); // turbofluit, alleen bovenin het toerenbereik, nauwelijks hoorbaar
     engTimer = null; // oude slagen-planner uit: de diesel hieronder is de motor
-    diesel = createDiesel(); dieselGain = ac.createGain(); dieselGain.gain.value = 0.9;
-    const dp = ac.createScriptProcessor(1024, 0, 1); dp.onaudioprocess = (e) => diesel.render(e.outputBuffer.getChannelData(0), ac.sampleRate);
-    dp.connect(dieselGain); dieselGain.connect(sfx);
+    dieselGain = ac.createGain(); dieselGain.gain.value = 0.9; dieselGain.connect(sfx);
+    // The diesel runs on the audio thread (AudioWorklet), so a busy main thread cannot
+    // make it crackle. Old browsers without worklets: a ScriptProcessor with a large
+    // buffer (4096 samples, ~85 ms of slack) on the main thread, as before.
+    const scriptDiesel = () => { const d = createDiesel(); const dp = ac.createScriptProcessor(4096, 0, 1); dp.onaudioprocess = (e) => d.render(e.outputBuffer.getChannelData(0), ac.sampleRate); dp.connect(dieselGain); diesel = { set: (on, pw) => d.set(on, pw) }; };
+    if (ac.audioWorklet && typeof AudioWorkletNode !== 'undefined')
+      ac.audioWorklet.addModule(new URL('./diesel-worklet.mjs', import.meta.url)).then(() => {
+        const node = new AudioWorkletNode(ac, 'bunkerguru-diesel', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
+        node.connect(dieselGain);
+        let last = '';
+        diesel = { set: (on, pw) => { const key = (on ? 1 : 0) + ':' + Math.round(pw * 200); if (key !== last) { last = key; node.port.postMessage({ on, power: pw }); } } };
+      }).catch(scriptDiesel);
+    else scriptDiesel();
     const b = loopNoise('bandpass', 900, 1.5); bowGain = b.g;
     const w = loopNoise('lowpass', 600, 0.5); washGain = w.g;
     pumpGain = loopNoise('lowpass', 180, 0.7).g;

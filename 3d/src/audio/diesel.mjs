@@ -2,7 +2,7 @@
 // compressed-air start. Chosen in the Motorlab (engine 1 + start A): 150 rpm at idle,
 // 420 rpm at full power, every cylinder a pof of its own (tok… tok… tok).
 // Pure DSP, no Web Audio: render(out, sampleRate) fills a Float32Array, so it runs in
-// a ScriptProcessorNode in the game and directly in the tests.
+// an AudioWorklet in the game (diesel-worklet.mjs) and directly in the tests.
 export const DIESEL = {
   cyl: 3,
   idle: 150,
