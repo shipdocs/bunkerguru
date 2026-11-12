@@ -1,4 +1,4 @@
-import { timeScaleOf } from './time-scale.mjs';
+import { timeScaleOf, warpHelm } from './time-scale.mjs';
 import { profileOf } from './ship-profile.mjs';
 import { clamp } from './math.mjs';
 const approach = (x, target, amount) => x + clamp(target - x, -amount, amount);
@@ -24,9 +24,9 @@ export function playStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 
     // Arrow/button holds adjust the set angle; releasing input keeps that angle.
     s.rudderCmd = Number.isFinite(keys.helm)
       ? clamp(keys.helm, -1, 1)
-      : clamp((s.rudderCmd ?? s.rudder ?? 0) + helmDirection * 2.5 * h, -1, 1);
+      : clamp((s.rudderCmd ?? s.rudder ?? 0) + helmDirection * 2.5 * h * warpHelm(s), -1, 1);
     const command = s.rudderCmd;
-    s.rudder += (s.rudderCmd - s.rudder) * (1 - Math.exp(-h * 6));
+    s.rudder += (s.rudderCmd - s.rudder) * (1 - Math.exp(-h * 6 * warpHelm(s)));
     if (s.moored) {
       s.u = s.v = s.r = s.rpm = 0;
       s.braking = false;
@@ -55,7 +55,7 @@ export function playStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 
     const bow = (keys.bowR ? 1 : 0) - (keys.bowL ? 1 : 0),
       bowPower = Math.max(0, 1 - Math.abs(s.u) / 3.5);
     const flow = clamp(Math.abs(s.u) / 2.4 + Math.max(0, s.rpm) * 0.25, 0, 1);
-    const helm = s.rudder * (0.5 + 0.5 * Math.abs(s.rudder));
+    const helm = s.rudder * (0.5 + 0.5 * Math.abs(s.rudder)) * warpHelm(s);
     // Reverse steering follows headway; it cannot spin a stopped vessel.
     const ahead = Math.abs(s.u) > 0.03 ? Math.sign(s.u) : Math.sign(s.rpm);
     const targetYaw = stopping

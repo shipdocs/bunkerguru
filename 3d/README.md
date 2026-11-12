@@ -10,7 +10,7 @@ Kies een haven (Amsterdam, Rotterdam, Europoort, Antwerpen of de Oefenhaven). Op
 - ←/→ of stuurwiel: roer. Het roer blijft staan; spatie of 0° = midscheeps. Q/E boegschroef (werkt alleen bij weinig vaart).
 - S of AFSTOPPEN: volle kracht achteruit tot stil, dan STOP. M vastmaken/losgooien.
 - J varen naar: het open water wordt overgeslagen tot vlak voor je bestemming (tijd, getij, verkeer en concurrenten lopen door).
-- N planning · B winkel (aan een terminal) · C brug/sluis oproepen · K grote kaart · T snelvaart (6×, nog eens: 12×) · H hoorn · V marifoon · G geluid · P muziek · F camera · Esc pauze.
+- N planning · B winkel (aan een terminal) · C brug/sluis oproepen · K grote kaart · T snelvaart (6×, nog eens: 12×; het roer werkt dan rustiger, bij de kant valt hij terug naar 3×) · H hoorn · V marifoon · G geluid · P muziek · F camera · Esc pauze.
 
 Op een telefoon: stuurwiel of ◀ ▶ vasthouden (roer blijft staan, 0° = midscheeps), ＋/− telegraaf, AFSTOPPEN, ⚓ vastmaken/los, BOEG-knoppen; slepen = rondkijken, knijpen = zoomen; 🗺 kaart en ☰ havenmenu bovenin. Dwars houden geeft het meeste zicht. Toetsaanwijzingen worden op een aanraakscherm vervangen door de naam van de knop (`src/ui/touch-text.mjs`).
 
