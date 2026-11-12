@@ -1,4 +1,4 @@
-import { timeScaleOf } from './time-scale.mjs';
+import { timeScaleOf, warpHelm } from './time-scale.mjs';
 import { profileOf, yawFactor, SHIP } from './ship-profile.mjs';
 import { clamp } from './math.mjs';
 
@@ -24,7 +24,9 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
   const currentAt = env.currentAt || (() => ({ x: 0, z: 0 }));
   const up = env.upgrades || {};
   const feel = env.feel || FEEL;
-  const total = clamp(dt, 0, 0.05) * timeScaleOf(s);
+  const total = clamp(dt, 0, 0.05) * timeScaleOf(s),
+    // fast-forward: a smaller rudder, so the swing per real second stays as at 3×
+    helmK = warpHelm(s);
   const count = Math.max(1, Math.ceil(total / (1 / 60))),
     h = total / count;
   const helmDirection = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
@@ -142,7 +144,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     }
     const flow = clamp(u + (s.rpm > 0 ? s.rpm * 2.0 : 0), -4, 6);
     const rudDeg = s.rudder * SHIP.maxRudder,
-      rudEff = Math.sin((rudDeg * Math.PI) / 180) / Math.sin((35 * Math.PI) / 180),
+      rudEff = (Math.sin((rudDeg * Math.PI) / 180) / Math.sin((35 * Math.PI) / 180)) * helmK,
       rudDrag = Math.pow(Math.abs(s.rudder), 2) * 0.35;
     const rudForce = rudEff * flow * Math.abs(flow) * 0.09;
     const bow = s.blackout > 0 ? 0 : (keys.bowR ? 1 : 0) - (keys.bowL ? 1 : 0);
