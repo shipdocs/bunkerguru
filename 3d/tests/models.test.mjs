@@ -69,11 +69,18 @@ test('the cruise ships lie against their quay and block the water', async () => 
       assert.ok(map.shape.inside(x, z), `${l.name} lies in the water over her whole length`);
     }
   }
-  // the moored customer of the Merwehaven keeps clear of the cruise ship
+  // the customer moored across the Merwehaven leaves a way through past the cruise ship
+  const hull = (c, L, B, h) =>
+    [-0.5, -0.25, 0, 0.25, 0.5].flatMap((t) =>
+      [-0.5, 0.5].map((w) => [
+        c.shipX + Math.sin(h) * L * t + Math.cos(h) * B * w,
+        c.shipZ - Math.cos(h) * L * t + Math.sin(h) * B * w,
+      ]),
+    );
   const opvang = map.liners[0],
-    merwe = map.customers.find((b) => b.name === 'MV MERWEHAVEN');
-  assert.ok(
-    Math.hypot(opvang.shipX - merwe.shipX, opvang.shipZ - merwe.shipZ) >
-      (opvang.length + merwe.length) / 2,
-  );
+    merwe = map.customers.find((b) => b.name === 'MV MERWEHAVEN'),
+    a1 = hull(opvang, opvang.length, opvang.beam, opvang.h),
+    a2 = hull(merwe, merwe.length, merwe.beam + 30, merwe.h); // with the bunker boat alongside
+  const gap = Math.min(...a1.flatMap(([x, z]) => a2.map(([u, v]) => Math.hypot(x - u, z - v))));
+  assert.ok(gap > 25, `way through ${gap.toFixed(0)} m`);
 });
