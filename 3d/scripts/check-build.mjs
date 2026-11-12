@@ -24,4 +24,7 @@ async function visit(filename) {
   }
 }
 await visit(path.join(base, 'index.html'));
+// The Blender buildings are fetched by name (render/models.mjs), not imported.
+const { MODEL_NAMES } = await import('../src/render/models.mjs');
+for (const name of MODEL_NAMES) await visit(path.join(base, 'assets/landmarks', name + '.glb'));
 console.log(`Verified ${visited.size} linked files in the published asset graph.`);

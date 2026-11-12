@@ -24,6 +24,8 @@ Geen GPU nodig: renders gaan via Cycles op de CPU (sprite van ~350 px: 2–5 s).
    Scheepssprites tekent `engine.js` als (L+4) × 1,25·B: render ruim (`--px 12`) en zet hem passend met `python3 blender/fit_sprite.py render.png art/ship_player.png --size 600x85 --length 110`. Een model uit de 3D-versie hergebruiken: zie `models/leonore.py` (importeert de GLB en draait de boeg naar +X).
 5. Spel testen (zie skill bunkerguru-dev, testharnas) en een screenshot laten zien vóór commit.
 
+Gebouwen voor de 3D-versie (`3d/assets/landmarks/<kind>.glb`): zie `blender/README.md`. Daar is **-Y de waterkant**, `B.facade` maakt raamrasters en `emit`-materialen worden 's nachts verlichte ramen.
+
 ## 3. Opdrachtregel `blender/make.sh <model> [vlaggen]`
 | vlag | betekenis |
 |---|---|

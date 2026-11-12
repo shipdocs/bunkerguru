@@ -13,6 +13,7 @@ import {
 } from '../maps/index.mjs';
 import { GeometryBatch } from './scene-batch.mjs';
 import { LANDMARKS, landmarkClear } from './landmarks.mjs';
+import { model, modelMaterial } from './models.mjs';
 
 const C = {
   grass: '#7fb85a',
@@ -300,6 +301,21 @@ export function truckPose(route, time) {
 
 export function createHarborScenery(scene, quality = { light: false }) {
   const root = new T.Group();
+  // The Erasmusbrug pylon from Blender (render/models.mjs), when it loaded: standing on
+  // `foot` (water level), its back stays towards `dir` (along the deck). False without it.
+  const swan = (foot, dir) => {
+    const made = model('erasmusbrug');
+    if (!made) return false;
+    const m = new T.Mesh(made.body, modelMaterial),
+      ex = new T.Vector3(...dir).normalize(),
+      up = new T.Vector3(0, 1, 0);
+    m.matrixAutoUpdate = false;
+    m.matrix.makeBasis(ex, up, ex.clone().cross(up)).setPosition(...foot);
+    m.castShadow = m.receiveShadow = true;
+    m.name = 'erasmusbrug-pylon';
+    root.add(m);
+    return true;
+  };
   root.name = MAP.name + ' scenery';
   scene.add(root);
   const night = { value: 0 },
@@ -461,6 +477,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
           const [x, z] = at(u0 + u, v);
           return [x, y, z];
         };
+      if (swan(P(0, 0, dy - 36), [tx, 0, tz])) return;
       for (const side of [-1, 1]) {
         beam(P(0, side * 15, 2), P(10, side * 5, 86), 2.6, br.color);
         beam(P(10, side * 5, 86), P(34, 0, 142), 2.2, br.color);
@@ -1358,7 +1375,9 @@ export function createHarborScenery(scene, quality = { light: false }) {
       box(26, 5, 14, br.color, x, 71, tz);
       for (const dx of [-11, 11]) box(2.4, 8, 2.4, C.dark, x + dx, 77, tz);
     }
-    if (/Erasmus/.test(name) && br.pylon !== null) {
+    if (/Erasmus/.test(name) && br.pylon !== null && !frame && swan([x, -2, br.pylon], [0, 0, 1])) {
+      // the Blender pylon stands (swan); on a warped map the built one bends along
+    } else if (/Erasmus/.test(name) && br.pylon !== null) {
       // The Swan: a bent white pylon leaning back, stays fanning to the deck.
       const pz = br.pylon,
         top = [x, 142, pz + 34];
