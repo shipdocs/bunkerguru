@@ -197,6 +197,58 @@ def ring(name, outer, inner, z0, z1, material=None, bevel=0.0, parent=None):
     return _mesh_object(name, verts, faces, material, bevel, parent)
 
 
+def beam(name, a, b, r, material=None, verts=12, r2=None, parent=None):
+    """Ronde balk (of taps met r2) van punt a naar punt b: kabels, poten, masten."""
+    A, Bv = Vector(a), Vector(b)
+    d = Bv - A
+    ob = cyl(name, r, d.length, (A + Bv) / 2, material, verts=verts, r2=r2, parent=parent)
+    ob.rotation_mode = 'QUATERNION'
+    ob.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
+    return ob
+
+
+def facade(name, x0, x1, z0, z1, y, face, dx, dz, w, h, glass, lit=None, share=0.4, seed=1, axis='X'):
+    """Raamraster op een gevel: ramen van w x h meter, om de dx (langs) en dz (hoogte).
+    De gevel ligt op y (bij axis='X', anders x) en kijkt naar face (+1/-1). Een deel van
+    de ramen krijgt een lichtgevend paneel ervoor (lit-materiaal): 's nachts verlicht."""
+    import random
+    rnd = random.Random(seed)
+    nx = max(1, int((x1 - x0) / dx))
+    nz = max(1, int((z1 - z0) / dz))
+    ox = x0 + ((x1 - x0) - (nx - 1) * dx) / 2
+    oz = z0 + ((z1 - z0) - (nz - 1) * dz) / 2
+    panes, glow = [], []
+    for i in range(nx):
+        for j in range(nz):
+            u, z = ox + i * dx, oz + j * dz
+            panes.append((u, z))
+            if lit is not None and rnd.random() < share:
+                glow.append((u, z))
+
+    def build(nm, items, off, depth, material):
+        if not items:
+            return None
+        vs, fs = [], []
+        for u, z in items:
+            k = len(vs)
+            for du, dzz in ((-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)):
+                for t in (0, depth):
+                    p = y + face * (off + t)
+                    vs.append((u + du, p, z + dzz) if axis == 'X' else (p, u + du, z + dzz))
+            # quad on the outside, four thin sides
+            q = [k + 1, k + 3, k + 5, k + 7]
+            fs.append(tuple(q) if face > 0 else tuple(reversed(q)))
+            for e in range(4):
+                a0, a1 = k + 2 * e, k + 2 * ((e + 1) % 4)
+                fs.append((a0, a1, a1 + 1, a0 + 1))
+        return _mesh_object(nm, vs, fs, material, 0, None)
+
+    if glass is not None:
+        build(name, panes, -0.05, 0.25, glass)
+    if lit is not None:
+        build(name + '-licht', glow, 0.2, 0.06, lit)
+
+
 def smooth(ob):
     for p in ob.data.polygons:
         p.use_smooth = True

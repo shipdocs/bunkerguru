@@ -11,6 +11,9 @@ export async function build() {
   await cp(path.join(root, 'styles'), path.join(output, 'styles'), { recursive: true });
   await cp(path.join(root, 'src'), path.join(output, 'src'), { recursive: true });
   await cp(path.join(root, 'vendor'), path.join(output, 'vendor'), { recursive: true });
+  await cp(path.join(root, 'assets/landmarks'), path.join(output, 'assets/landmarks'), {
+    recursive: true,
+  });
   // Preserve the source CSS cascade exactly, without nine extra mobile requests.
   const manifest = await readFile(path.join(root, 'styles/main.css'), 'utf8');
   const layers = [...manifest.matchAll(/@import url\(['"]\.\/([^'"]+)['"]\);/g)].map((m) => m[1]);

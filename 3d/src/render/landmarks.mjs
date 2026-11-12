@@ -1,6 +1,7 @@
 import * as T from '../../vendor/three.js';
 import { MAP, WARP, landAt, quayAxis } from '../maps/index.mjs';
 import { GeometryBatch } from './scene-batch.mjs';
+import { model } from './models.mjs';
 // Landmarks: the shapes you steer by in the real port. Cartoon models, but each one
 // stands where it stands on the harbour chart, in the s/n units of the 2D map
 // (s along the river from the sea, n across, n < 0 = north bank), so a position can
@@ -553,7 +554,25 @@ export function createLandmarks(scene, { mesh, textSprite }) {
     const f = z < 0 ? 1 : -1, // towards the river
       k = new Kit();
     let top = 40;
-    if (l.kind === 'euromast') {
+    const made = l.kind !== 'highrise' && model(l.kind);
+    if (made) {
+      // Modelled in Blender (render/models.mjs): one mesh, its windows light up at night.
+      const m = new T.Mesh(made.body, kitMaterial);
+      m.position.y = GROUND;
+      m.scale.z = f; // the model's front faces +z: turn it to the river
+      m.castShadow = m.receiveShadow = true;
+      m.name = 'landmark-model';
+      cur.add(m);
+      if (made.glow) {
+        const lights = new T.Mesh(made.glow, lightsMaterial);
+        lights.name = 'landmark-lights';
+        lights.visible = false;
+        m.add(lights);
+        lightMeshes.push(lights);
+      }
+      if (made.size.y > 100) beacon(0, made.size.y + 1.5, 0);
+      top = made.size.y + 14;
+    } else if (l.kind === 'euromast') {
       k.box(46, 9, 22, '#e7e1d2', 0, 0, 0).box(46, 2, 22, '#4f7184', 0, 3.5, 0);
       k.cyl(5.5, 100, '#e7e1d2', 0, 0, 0);
       k.cyl(13, 6, '#d8d1bf', 0, 92, 0, 1.25).cyl(16.2, 2.4, '#4f7184', 0, 98, 0);
