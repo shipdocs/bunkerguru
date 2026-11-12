@@ -1,14 +1,37 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-test('fast-forward falls back to the normal pace only near the bank', async () => {
-  const { warpBrake } = await import('../src/game/time-scale.mjs');
+test('fast-forward drops back only right by the bank or nearing the job, once', async () => {
+  const { warpBrake, WARP_ARRIVE } = await import('../src/game/time-scale.mjs');
   const fast = (o = {}) => ({ timeScale: 12, moored: false, u: 4, v: 0, ...o });
-  assert.equal(warpBrake(fast(), false), null, 'open water: keep going, steering or not');
-  assert.match(warpBrake(fast(), true), /dicht bij de kant/);
-  assert.equal(warpBrake(fast({ u: 0.5 }), true), null, 'drifting near the quay is fine');
-  assert.equal(warpBrake(fast({ moored: true }), true), null, 'moored: loading goes on fast');
-  assert.equal(warpBrake(fast({ timeScale: 3 }), true), null, 'already at the normal pace');
+  const open = { bank: false, target: 5000 };
+  assert.equal(warpBrake(fast(), open, {}), null, 'open water: keep going, steering or not');
+  assert.match(warpBrake(fast(), { ...open, bank: true }, {}), /vlak bij de kant/);
+  assert.equal(warpBrake(fast({ u: 0.5 }), { ...open, bank: true }, {}), null, 'drifting is fine');
+  assert.match(warpBrake(fast(), { ...open, target: WARP_ARRIVE - 1 }, {}), /bestemming/);
+  assert.equal(warpBrake(fast({ moored: true }), { bank: true, target: 0 }, {}), null, 'moored');
+  assert.equal(warpBrake(fast({ timeScale: 3 }), { bank: true, target: 0 }, {}), null, 'at 3x');
+  // only on getting there: T again near the destination keeps it on
+  const memo = {};
+  assert.equal(warpBrake(fast(), open, memo), null);
+  assert.ok(warpBrake(fast(), { ...open, target: 300 }, memo));
+  assert.equal(warpBrake(fast(), { ...open, target: 250 }, memo), null, 'pressed T again: stays');
+  assert.equal(warpBrake(fast(), { ...open, target: 250, bank: true }, memo) !== null, true);
+  // reaching the destination while at 3x, then T: stays on too
+  const m2 = {};
+  warpBrake(fast({ timeScale: 3 }), { ...open, target: 300 }, m2);
+  assert.equal(warpBrake(fast(), { ...open, target: 280 }, m2), null);
+  // loaded at the terminal, the ship to bunker lies close by: a new destination brakes again
+  const m3 = {},
+    terminal = { ...open, target: 100, goal: 'load:T1' };
+  warpBrake(fast(), terminal, m3);
+  assert.equal(warpBrake(fast(), terminal, m3), null);
+  assert.match(warpBrake(fast(), { ...open, target: 400, goal: 'sail:S2' }, m3), /bestemming/);
+  // the goal switched while still moored at the terminal: casting off, it brakes for the ship
+  const m4 = {},
+    ship = { ...open, target: 400, goal: 'S2' };
+  warpBrake(fast({ moored: true }), ship, m4);
+  assert.match(warpBrake(fast(), ship, m4), /bestemming/);
 });
 
 test('in fast-forward the helm swings her no faster per real second than at 3x', async () => {

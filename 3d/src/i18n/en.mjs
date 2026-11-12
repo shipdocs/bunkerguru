@@ -422,6 +422,14 @@ export const PHRASES = [
   ['⏩ Snelvaart 6× (T = nog sneller)', '⏩ Fast forward 6× (T = faster still)'],
   ['⏩⏩ Snelvaart 12× (T = uit)', '⏩⏩ Fast forward 12× (T = off)'],
   ['dubbele snelvaart', 'double fast forward'],
+  [
+    '⏩ Snelvaart uit: je nadert je bestemming (T = weer aan)',
+    '⏩ Fast forward off: nearing your destination (T = on again)',
+  ],
+  [
+    '⏩ Snelvaart uit: vlak bij de kant (T = weer aan)',
+    '⏩ Fast forward off: right by the bank (T = on again)',
+  ],
   ['Normale tijd 3×', 'Normal time 3×'],
   ['Goede vaart', 'Fair sailing'],
   [

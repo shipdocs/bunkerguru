@@ -8,13 +8,29 @@ export const timeScaleOf = (s) => (TEMPOS.includes(s.timeScale) ? s.timeScale : 
 // Fast-forward is for the straight stretches. The ship's physics runs on game time, so at
 // 6× or 12× the swing would come 2 or 4 times as fast in real seconds. So in fast-forward
 // the rudder bites less (warpHelm): she turns about as many degrees per real second as at
-// the normal pace, in a wider arc. Coming fast near the bank drops it back to the normal
-// pace. Moored (loading, bunkering, resting) it stays on. Returns why it should stop, or null.
+// the normal pace, in a wider arc.
 export const warpHelm = (s) => Math.min(1, DEFAULT_TEMPO / timeScaleOf(s));
-export function warpBrake(s, nearShore) {
+// It drops back to the normal pace only where it matters: underway right up against the
+// bank (CLOSE metres of water left), or coming in to the terminal or seagoing ship of the
+// job (ARRIVE metres). Only on getting there: press T again and it stays on. Moored
+// (loading, bunkering, resting) it stays on. near = { bank: metres of water to the bank
+// is under CLOSE, target: metres to the job's terminal or ship, goal: that terminal or ship };
+// memo keeps the last frame's state: a new destination counts as not reached yet.
+// Returns why it should stop, or null.
+export const WARP_CLOSE = 25,
+  WARP_ARRIVE = 600;
+export function warpBrake(s, near, memo = {}) {
+  const fast = Math.hypot(s.u || 0, s.v || 0) > 1.5,
+    bank = !!near.bank && fast,
+    arrive = (near.target ?? Infinity) < WARP_ARRIVE,
+    same = memo.goal === near.goal,
+    was = { bank: memo.bank, arrive: same && memo.arrive };
+  memo.bank = bank;
+  memo.arrive = arrive && !s.moored; // casting off counts as setting out afresh
+  memo.goal = near.goal;
   if (timeScaleOf(s) <= DEFAULT_TEMPO || s.moored) return null;
-  if (nearShore && Math.hypot(s.u || 0, s.v || 0) > 1.5)
-    return '⏩ Snelvaart uit: dicht bij de kant (T = weer aan)';
+  if (arrive && !was.arrive) return '⏩ Snelvaart uit: je nadert je bestemming (T = weer aan)';
+  if (bank && !was.bank) return '⏩ Snelvaart uit: vlak bij de kant (T = weer aan)';
   return null;
 }
 export const nextTempo = (value) => TEMPOS[(TEMPOS.indexOf(value) + 1) % TEMPOS.length];

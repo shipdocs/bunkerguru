@@ -1,4 +1,4 @@
-import { nextWarp, tempoLabel, warpBrake, DEFAULT_TEMPO } from '../game/time-scale.mjs';
+import { nextWarp, tempoLabel, warpBrake, DEFAULT_TEMPO, WARP_CLOSE } from '../game/time-scale.mjs';
 import { nextInertia, nextCurrent, inertiaLabel, currentLabel } from '../game/feel-settings.mjs';
 import { createTiltShift } from '../render/tilt-shift.mjs';
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
@@ -13,7 +13,7 @@ import { tr, getLang, setLang } from '../i18n/index.mjs';
 const spoken = (lines) => lines?.map?.((l) => ({ ...l, text: tr(l.text) })) ?? lines;
 import { radioChatter } from '../game/chatter.mjs';
 import { renderYaw } from '../game/vessel.mjs';
-import { fresh, step, createWorldState, takeJob } from '../game/simulation.mjs';
+import { fresh, step, createWorldState, takeJob, target } from '../game/simulation.mjs';
 import { nearestGate, callGate } from '../game/gates.mjs';
 import { saveRivals } from '../game/rivals.mjs';
 import { saveFleet, clearFleet } from '../game/fleet.mjs';
@@ -787,6 +787,7 @@ export function createGame({ createRenderer } = {}) {
     document.body?.classList?.toggle?.('underway', !s.moored && Math.hypot(s.u, s.v) > 0.5);
     updateHud(s, paused, sim);
   }
+  const warpMemo = {};
   let hudElapsed = 0,
     planElapsed = 0;
   const eyePos = camera.position.clone();
@@ -796,9 +797,19 @@ export function createGame({ createRenderer } = {}) {
     const dt = Math.max(0, Math.min(elapsed, MAX_FRAME_SECONDS));
     last = now;
     const playing = started && !paused && !document.querySelector('dialog[open]');
-    // Fast-forward stops when you come fast near the bank (time-scale.mjs warpBrake).
+    // Fast-forward stops right against the bank or coming in to the job's terminal or
+    // ship (time-scale.mjs warpBrake).
     if (playing) {
-      const why = warpBrake(s, !waterAt(s.x, s.z, 120));
+      const goal = target(s),
+        why = warpBrake(
+          s,
+          {
+            bank: !waterAt(s.x, s.z, WARP_CLOSE),
+            target: goal ? Math.hypot(goal.x - s.x, goal.z - s.z) : Infinity,
+            goal,
+          },
+          warpMemo,
+        );
       if (why) {
         s.timeScale = DEFAULT_TEMPO;
         toast(why);
