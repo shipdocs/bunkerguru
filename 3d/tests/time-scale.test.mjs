@@ -21,6 +21,17 @@ test('fast-forward drops back only right by the bank or nearing the job, once', 
   const m2 = {};
   warpBrake(fast({ timeScale: 3 }), { ...open, target: 300 }, m2);
   assert.equal(warpBrake(fast(), { ...open, target: 280 }, m2), null);
+  // loaded at the terminal, the ship to bunker lies close by: a new destination brakes again
+  const m3 = {},
+    terminal = { ...open, target: 100, goal: 'load:T1' };
+  warpBrake(fast(), terminal, m3);
+  assert.equal(warpBrake(fast(), terminal, m3), null);
+  assert.match(warpBrake(fast(), { ...open, target: 400, goal: 'sail:S2' }, m3), /bestemming/);
+  // the goal switched while still moored at the terminal: casting off, it brakes for the ship
+  const m4 = {},
+    ship = { ...open, target: 400, goal: 'S2' };
+  warpBrake(fast({ moored: true }), ship, m4);
+  assert.match(warpBrake(fast(), ship, m4), /bestemming/);
 });
 
 test('in fast-forward the helm swings her no faster per real second than at 3x', async () => {

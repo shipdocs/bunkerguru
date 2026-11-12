@@ -806,6 +806,7 @@ export function createGame({ createRenderer } = {}) {
           {
             bank: !waterAt(s.x, s.z, WARP_CLOSE),
             target: goal ? Math.hypot(goal.x - s.x, goal.z - s.z) : Infinity,
+            goal,
           },
           warpMemo,
         );
