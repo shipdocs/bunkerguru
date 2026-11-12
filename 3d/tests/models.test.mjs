@@ -46,7 +46,8 @@ test('a map only waits for the buildings it shows', async () => {
   const { MAP } = await import('../src/maps/index.mjs');
   const need = modelsNeeded();
   if (MAP.id === 'rotterdam') assert.ok(need.includes('euromast') && need.includes('erasmusbrug'));
-  assert.deepEqual(modelsNeeded('europoort'), []);
+  assert.deepEqual(modelsNeeded('europoort'), ['maeslantkering']);
+  assert.deepEqual(modelsNeeded('training'), []);
   assert.ok(modelsNeeded('rotterdam').includes('euromast'));
   // the Amsterdam grain silo keeps its own shape: the Maassilo model is Rotterdam's
   assert.ok(!modelsNeeded('amsterdam').includes('maassilo'));

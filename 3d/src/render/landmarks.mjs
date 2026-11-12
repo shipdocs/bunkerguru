@@ -71,7 +71,7 @@ export const LANDMARKS = {
     { kind: 'stadium', model: 'dekuip', name: 'De Kuip', s: 3900, n: 850, r: 85 },
   ],
   europoort: [
-    { kind: 'barrier', name: 'Maeslantkering', s: -500, n: 0 },
+    { kind: 'barrier', model: 'maeslantkering', name: 'Maeslantkering', s: -500, n: 0 },
     { kind: 'turbines', name: 'Windpark Landtong', s: 60, n: 285, r: 20, count: 5, gap: 130 },
     {
       kind: 'church',
@@ -201,7 +201,14 @@ export function landmarkSpots(id = MAP.id) {
   });
 }
 // Scenery keeps this ground free: no house inside a cooling tower.
-const clearList = list(MAP.id).filter((l) => l.r > 0);
+const clearList = list(MAP.id).flatMap((l) =>
+  // the barrier's arms lie on both banks, behind its doors
+  l.kind === 'barrier'
+    ? [-1, 1].map((side) => ({ x: l.x, z: l.z + side * (MAP.riverHalf + 125), r: 135 }))
+    : l.r > 0
+      ? [l]
+      : [],
+);
 export const landmarkClear = (x, z, pad = 0) =>
   clearList.some((l) => Math.hypot(x - l.x, z - l.z) < l.r + pad);
 
@@ -565,7 +572,7 @@ export function createLandmarks(scene, { mesh, textSprite }) {
       k = new Kit();
     let top = 40;
     // A landmark names its Blender model (`model`), or its kind is one (euromast).
-    const made = model(l.model || l.kind);
+    const made = l.kind !== 'barrier' && model(l.model || l.kind);
     if (made) {
       // Modelled in Blender (render/models.mjs): one mesh, its windows light up at night.
       const m = new T.Mesh(made.body, kitMaterial);
@@ -961,8 +968,20 @@ export function createLandmarks(scene, { mesh, textSprite }) {
     } else if (l.kind === 'barrier') {
       // Maeslantkering: two white gate arms parked in their docks, each braced back
       // to its ball joint by a lattice of tubes.
-      const RH = MAP.riverHalf;
-      for (const side of [-1, 1]) {
+      const RH = MAP.riverHalf,
+        half = model('maeslantkering');
+      // From Blender: one half, set down twice, mirrored, its door facing the river.
+      if (half)
+        for (const side of [-1, 1]) {
+          const m = new T.Mesh(half.body, kitMaterial);
+          m.position.set(0, 0, side * (RH + 22));
+          m.scale.z = -side;
+          m.castShadow = m.receiveShadow = true;
+          m.name = 'landmark-model';
+          cur.add(m);
+          beacon(0, 24, side * (RH + 236));
+        }
+      for (const side of half ? [] : [-1, 1]) {
         const gz = side * (RH + 22),
           jz = side * (RH + 230);
         k.box(240, 22, 7, '#f2f2ee', 0, -4, gz).box(240, 2.4, 7.4, '#e0a42b', 0, 15, gz);

@@ -26,6 +26,7 @@ export const MODEL_NAMES = [
   'laurenskerk',
   'zalmhaventoren',
   'willemsbrug',
+  'maeslantkering',
 ];
 const folder = new URL('../../assets/landmarks/', import.meta.url);
 
