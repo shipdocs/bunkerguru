@@ -1,4 +1,4 @@
-import { nextWarp, tempoLabel } from '../game/time-scale.mjs';
+import { nextWarp, tempoLabel, warpBrake, DEFAULT_TEMPO } from '../game/time-scale.mjs';
 import { nextInertia, nextCurrent, inertiaLabel, currentLabel } from '../game/feel-settings.mjs';
 import { createTiltShift } from '../render/tilt-shift.mjs';
 import { createSimulationClock, MAX_FRAME_SECONDS } from './simulation-clock.mjs';
@@ -6,7 +6,7 @@ import { graphicsProfile, GRAPHICS_MODES, GRAPHICS_LABELS } from '../render/grap
 import { MAP, quickJob, planTick, LOGIC, up } from '../game/harbor.mjs';
 import { HarborAudio } from '../audio/harbor-audio.mjs';
 import { createAmbience } from '../audio/ambience.mjs';
-import { SHAPE, decor, toWorld } from '../maps/index.mjs';
+import { SHAPE, decor, toWorld, waterAt } from '../maps/index.mjs';
 import { createRadio } from '../audio/radio.mjs';
 import { tr, getLang, setLang } from '../i18n/index.mjs';
 // VHF lines are spoken, not only shown: translate them before they reach the voice.
@@ -787,7 +787,8 @@ export function createGame({ createRenderer } = {}) {
     document.body?.classList?.toggle?.('underway', !s.moored && Math.hypot(s.u, s.v) > 0.5);
     updateHud(s, paused, sim);
   }
-  let hudElapsed = 0,
+  let lastRudderCmd,
+    hudElapsed = 0,
     planElapsed = 0;
   const eyePos = camera.position.clone();
   function frame(now) {
@@ -796,6 +797,20 @@ export function createGame({ createRenderer } = {}) {
     const dt = Math.max(0, Math.min(elapsed, MAX_FRAME_SECONDS));
     last = now;
     const playing = started && !paused && !document.querySelector('dialog[open]');
+    // Fast-forward stops when you steer or come near the bank (time-scale.mjs warpBrake).
+    if (playing) {
+      // any change of the rudder order counts: keys, buttons or the touch wheel
+      const steering =
+        !!(keys.bowL || keys.bowR) ||
+        (lastRudderCmd !== undefined && Math.abs((s.rudderCmd ?? 0) - lastRudderCmd) > 1e-4);
+      lastRudderCmd = s.rudderCmd ?? 0;
+      const why = warpBrake(s, steering, !waterAt(s.x, s.z, 120));
+      if (why) {
+        s.timeScale = DEFAULT_TEMPO;
+        toast(why);
+        $('tempo').textContent = tempoLabel(s.timeScale);
+      }
+    }
     clock.advance(elapsed, playing, (delta) =>
       step(s, sim, delta, keys, fx, (reversing) => sound.clutch(reversing)),
     );
