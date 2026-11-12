@@ -1,7 +1,7 @@
 import * as T from '../../vendor/three.js';
 import { MAP, WARP, landAt, quayAxis } from '../maps/index.mjs';
 import { GeometryBatch } from './scene-batch.mjs';
-import { model } from './models.mjs';
+import { model, MODEL_NAMES } from './models.mjs';
 // Landmarks: the shapes you steer by in the real port. Cartoon models, but each one
 // stands where it stands on the harbour chart, in the s/n units of the 2D map
 // (s along the river from the sea, n across, n < 0 = north bank), so a position can
@@ -161,6 +161,13 @@ const list = (id) =>
         z: toZ(l.n),
         r: (l.r || 0) * MAP.sn.k,
       }));
+// The Blender models this map needs (render/models.mjs): its landmarks and bridges.
+export const modelsNeeded = (id = MAP.id) =>
+  MODEL_NAMES.filter(
+    (n) =>
+      list(id).some((l) => l.kind === n) ||
+      (n === 'erasmusbrug' && (MAP.bridges || []).some((b) => /Erasmus/.test(b.name || ''))),
+  );
 // A landmark is one rigid object in the warped world (maps/warp.mjs): it stands at the
 // warped spot of its map position and turns with the quay it belongs to.
 function seat(l) {

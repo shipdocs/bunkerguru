@@ -30,3 +30,11 @@ test('the towers have windows that light up at night', () => {
 test('a broken file is refused, not half drawn', () => {
   assert.throws(() => parseGlb(new ArrayBuffer(16)));
 });
+
+test('a map only waits for the buildings it shows', async () => {
+  const { modelsNeeded } = await import('../src/render/landmarks.mjs');
+  const { MAP } = await import('../src/maps/index.mjs');
+  const need = modelsNeeded();
+  if (MAP.id === 'rotterdam') assert.ok(need.includes('euromast') && need.includes('erasmusbrug'));
+  assert.deepEqual(modelsNeeded('europoort'), []);
+});
