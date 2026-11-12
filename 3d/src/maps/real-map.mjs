@@ -334,7 +334,7 @@ function makeDecor(shape, useAt, bounds, landmarks) {
       const k = kind(px, pz),
         r = rnd();
       if (k === 'p') {
-        if (q.d < 160 && r < 0.75) {
+        if (q.d < 160 && r < 0.45) {
           const col = COLS[Math.floor(rnd() * COLS.length)];
           out.push({ type: 'container', x: px, z: pz - 9, col });
           out.push({ type: 'container', x: px, z: pz + 9, col: COLS[Math.floor(rnd() * 6)] });
@@ -351,16 +351,20 @@ function makeDecor(shape, useAt, bounds, landmarks) {
             out.push({ type: 'tree', x: px + (rnd() - 0.5) * 36, z: pz + (rnd() - 0.5) * 36 });
       }
     }
-  // Cranes along the port quays, square to the wall, the boom over the water.
-  let run = 0;
+  // Cranes along the port quays, square to the wall, the boom over the water: in pairs
+  // with a long stretch of bare quay between (a pair per ~700 m), not a fence of them.
+  // Counted in metres of port quay, not in pieces (a detailed OSM wall has many).
+  let along = 0,
+    next = 60,
+    second = false;
   for (const g of shape.segments(30)) {
     const bx = g.x - g.nx * 10,
       bz = g.z - g.nz * 10;
-    if (kind(g.x - g.nx * 40, g.z - g.nz * 40) !== 'p' || near(bx, bz, 20)) {
-      run = 0;
-      continue;
-    }
-    if (run++ % 4 !== 1) continue;
+    if (kind(g.x - g.nx * 40, g.z - g.nz * 40) !== 'p' || near(bx, bz, 20)) continue;
+    along += g.length;
+    if (along < next) continue;
+    next = along + (second ? 700 : 36);
+    second = !second;
     out.push({ type: 'crane', x: bx, z: bz, yaw: Math.atan2(g.nx, -g.nz) });
   }
   return out;
