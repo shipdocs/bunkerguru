@@ -31,6 +31,7 @@ import { createLandmarks } from './landmarks.mjs';
 import { createFleetWake, vesselWake } from './fleet-wake.mjs';
 import { createShipSmoke } from './ship-smoke.mjs';
 import { createQuayLife, flag } from './quay-life.mjs';
+import { createWorkingCranes } from './quay-crane.mjs';
 import { tr } from '../i18n/index.mjs';
 import { dayClock } from '../game/harbor.mjs';
 import { profileOf } from '../game/ship-profile.mjs';
@@ -174,6 +175,9 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     : [];
   const quayLife = createQuayLife(scene, { strollers: strollSpots, light: quality.light });
   let nightNow = 0;
+  // A crane unloading every moored customer ship onto a lorry (render/quay-crane.mjs).
+  const workingCranes = createWorkingCranes(scene, customers),
+    playerAt = { x: 0, z: 0 };
   // Names stand where their place lies in the world.
   const nameAt = (text, x, y, z, ...rest) => {
     const p = toWorld(x, z);
@@ -487,6 +491,8 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
   // The sun follows the clock; create-game keeps the light this far from the boat.
   const sunOffset = new T.Vector3(-220, 220, 160);
   function updateAmbient(st) {
+    playerAt.x = st.x;
+    playerAt.z = st.z;
     const look = skyLook(dayClock(st));
     const sd = sunDirection(dayClock(st));
     sunOffset.set(sd.x, sd.y, sd.z).multiplyScalar(330);
@@ -563,6 +569,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     fleetWake.update(wakeList, level, time);
     shipSmoke.update(wakeList, dt, level, wx.wind);
     quayLife.update(time, dt, nightNow, level);
+    workingCranes.update(time, playerAt);
     if (meshOf.size > world.rivals.length) {
       const live = new Set(world.rivals);
       for (const [r, m] of meshOf) {
