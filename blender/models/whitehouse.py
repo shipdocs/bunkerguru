@@ -12,16 +12,16 @@ glas = B.mat('glas', '#3a5462', rough=0.3)
 goud = B.mat('goud', '#d6a841', rough=0.4, metal=0.6)
 licht = B.mat('licht', '#ffd596', emit=2.0)
 
-W, H = 18, 36
+W, H = 18, 31  # tot de knop op de spits: 45 m
 B.box('romp', (W, W, H), (0, 0, H / 2), wit)
 B.box('plint', (W + 0.6, W + 0.6, 4), (0, 0, 2), room)
-for z in (4.2, 12, 20, 28, 35.6):
+for z in (4.2, 11, 18, 25, 30.6):
     B.box(f'lijst{z}', (W + 0.5, W + 0.5, 0.5), (0, 0, z), room)
 for face, y in ((-1, -W / 2), (1, W / 2)):
-    B.facade(f'ramen{face}', -W / 2 + 2, W / 2 - 2, 5, 35, y, face, 2.4, 3.2, 1.2, 2.2, glas, licht,
+    B.facade(f'ramen{face}', -W / 2 + 2, W / 2 - 2, 5, 30, y, face, 2.4, 3.2, 1.2, 2.2, glas, licht,
              0.4, 3 + face)
 for face, x in ((-1, -W / 2), (1, W / 2)):
-    B.facade(f'zij{face}', -W / 2 + 2, W / 2 - 2, 5, 35, x, face, 2.4, 3.2, 1.2, 2.2, glas, licht,
+    B.facade(f'zij{face}', -W / 2 + 2, W / 2 - 2, 5, 30, x, face, 2.4, 3.2, 1.2, 2.2, glas, licht,
              0.4, 9 + face, axis='Y')
 # Mansardekap met lantaarn.
 B.loft('kap', [(-W / 2, -W / 2), (W / 2, -W / 2), (W / 2, W / 2), (-W / 2, W / 2)], H, H + 6, lei,

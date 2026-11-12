@@ -16,7 +16,7 @@ hoorn = B.mat('hoorn', '#e09a3e', rough=0.7)
 markt = B.mat('markt', '#c9b48a', rough=0.9)
 licht = B.mat('licht', '#ffd596', emit=2.0)
 
-W, H, L, T = 35.0, 40.0, 110.0, 6.0
+W, H, L, T = 35.0, 40.0, 120.0, 6.0
 
 
 def profile(w, h, n=26):
