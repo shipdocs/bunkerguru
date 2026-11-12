@@ -26,7 +26,10 @@ test('in fast-forward the helm swings her no faster per real second than at 3x',
     const normal = turned(3),
       fast = turned(12);
     assert.ok(normal > 0.05, `${step.name}: she turns at 3x (${normal})`);
-    assert.ok(fast < normal * 1.5, `${step.name}: 12x turns ${fast} rad vs ${normal} at 3x`);
+    assert.ok(
+      fast > normal * 0.7 && fast < normal * 1.5,
+      `${step.name}: 12x turns ${fast} rad vs ${normal} at 3x (she still steers, no faster)`,
+    );
   }
 });
 
@@ -45,7 +48,10 @@ test('in fast-forward the rudder swings over and brakes at the 3x pace per real 
     // the wheel thrown hard over: the rudder gets there no sooner in real time
     const r3 = after(3, 0.05).rudder,
       r12 = after(12, 0.05).rudder;
-    assert.ok(r12 < r3 * 1.5, `${step.name}: rudder after 0.05 s ${r12} at 12x vs ${r3} at 3x`);
+    assert.ok(
+      r12 > r3 * 0.7 && r12 < r3 * 1.5,
+      `${step.name}: rudder after 0.05 s ${r12} at 12x vs ${r3} at 3x`,
+    );
   }
   // schipper: speed lost to a hard-over rudder per real second stays near the 3x loss
   const lost = (timeScale) => {
