@@ -71,8 +71,18 @@ export function createGame({ createRenderer } = {}) {
   });
   let quality = graphicsProfile(graphicsMode, screenInfo());
   const world = createWorld({ canvas: $('world'), state: s, world: sim, quality, createRenderer });
-  const { renderer, scene, camera, sun, waterMat, scenery, boat, vesselProfile, zoomLimits } =
-    world;
+  const {
+    renderer,
+    scene,
+    camera,
+    sun,
+    sunOffset,
+    waterMat,
+    scenery,
+    boat,
+    vesselProfile,
+    zoomLimits,
+  } = world;
   const tiltShift = createTiltShift(renderer),
     focusPoint = camera.position.clone();
   const effects = createNavigationEffects(scene, world.primitives.mesh, vesselProfile);
@@ -751,7 +761,7 @@ export function createGame({ createRenderer } = {}) {
       }
       if (sim.radioOn) radio.tick(s.clock * LOGIC, () => spoken(radioChatter(s, sim)), getLang());
     }
-    sun.position.set(s.x - 220, 220, s.z + 160);
+    sun.position.set(s.x + sunOffset.x, sunOffset.y, s.z + sunOffset.z);
     sun.target.position.set(s.x, 0, s.z);
     sun.target.updateMatrixWorld();
     helm.update();

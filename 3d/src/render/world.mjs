@@ -24,7 +24,7 @@ import {
   riverSpan,
   riverHalfAt,
 } from '../maps/index.mjs';
-import { skyLook } from './daylight.mjs';
+import { skyLook, sunDirection } from './daylight.mjs';
 import { createLandmarks } from './landmarks.mjs';
 import { tr } from '../i18n/index.mjs';
 import { dayClock } from '../game/harbor.mjs';
@@ -385,8 +385,14 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     tmp = new T.Color();
   // Sky, sun, fog and water follow the harbour clock; the water rises and falls with
   // the tide (±1,2 m against the quay walls). Returns the water level for the ships.
+  // The sun follows the clock; create-game keeps the light this far from the boat.
+  const sunOffset = new T.Vector3(-220, 220, 160);
   function updateAmbient(st) {
     const look = skyLook(dayClock(st));
+    const sd = sunDirection(dayClock(st));
+    sunOffset.set(sd.x, sd.y, sd.z).multiplyScalar(330);
+    skyMat.uniforms.sunDir.value.set(sd.x, sd.y, sd.z);
+    waterMat.uniforms.sun.value.set(sd.x, sd.y, sd.z);
     // Weather greys the day: the same sky, pulled towards slate, the sun turned down.
     const g = gloom * (1 - look.night * 0.6);
     scene.background = skyCol.set(look.sky).lerp(grey, g * 0.85);
@@ -500,6 +506,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     primitives,
     updateDynamic,
     updateAmbient,
+    sunOffset,
     mastLight,
     lamps,
     landmarks,

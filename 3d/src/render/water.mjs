@@ -301,10 +301,29 @@ export function createWater(mesh, map, quality = { light: false }, renderer = nu
     mirrorOn: { value: 0 },
     mirrorMatrix: { value: new T.Matrix4() },
   };
+  // The scene's lights, so the water can take the sun's shadow map (ships, cranes and
+  // bridges throw their shadow on the water too).
+  Object.assign(uniforms, T.UniformsUtils.clone(T.UniformsLib.lights));
   const waterMat = new T.ShaderMaterial({
     uniforms,
-    vertexShader: `varying vec3 wp;varying vec4 mp;uniform mat4 mirrorMatrix;void main(){vec4 w=modelMatrix*vec4(position,1.);wp=w.xyz;mp=mirrorMatrix*w;gl_Position=projectionMatrix*viewMatrix*w;}`,
-    fragmentShader: `varying vec3 wp;varying vec4 mp;uniform float time;uniform vec3 sun;uniform float night;uniform vec3 fogCol;uniform vec3 skyTop;
+    lights: true,
+    vertexShader: `varying vec3 wp;varying vec4 mp;uniform mat4 mirrorMatrix;
+#include <common>
+#include <shadowmap_pars_vertex>
+void main(){
+#include <beginnormal_vertex>
+#include <defaultnormal_vertex>
+#include <begin_vertex>
+#include <project_vertex>
+#include <worldpos_vertex>
+#include <shadowmap_vertex>
+vec4 w=modelMatrix*vec4(position,1.);wp=w.xyz;mp=mirrorMatrix*w;}`,
+    fragmentShader: `#include <common>
+#include <packing>
+#include <lights_pars_begin>
+#include <shadowmap_pars_fragment>
+#include <shadowmask_pars_fragment>
+varying vec3 wp;varying vec4 mp;uniform float time;uniform vec3 sun;uniform float night;uniform vec3 fogCol;uniform vec3 skyTop;
 uniform sampler2D shore;uniform vec2 shoreMin;uniform vec2 shoreSize;uniform float fogDensity;
 uniform sampler2D waves;uniform sampler2D mirror;uniform float mirrorOn;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -333,6 +352,8 @@ vec3 rd=reflect(-v,n);vec3 sky=mix(fogCol,skyTop,smoothstep(0.,.55,rd.y));
 vec3 refl=sky;
 if(mirrorOn>.5){vec2 m=mp.xy/mp.w+n.xz*.06;vec4 h=texture2D(mirror,clamp(m,.001,.999));refl=mix(sky,h.rgb,h.a>0.?.92:0.);}
 vec3 color=mix(body,refl,clamp(fres*1.15+.06,0.,1.));
+// in the shadow of a hull, a crane or a bridge: darker, and no sun on the waves
+float shade=getShadowMask();color*=mix(.62,1.,shade);
 // the quay: a dark foot under the wall, then foam washing against it
 color*=mix(.6,1.,smoothstep(.0,7.,d));
 float wob=sin(p.x*.37+time*.9)*sin(p.y*.33-time*.7);
@@ -343,7 +364,7 @@ color=mix(color,vec3(.8,.88,.86),foam*(.7+.3*vnoise(p*1.7+time*.3)));
 color*=mix(1.,.3,night);
 // sun: a broad sheen and sharp glitter where the small waves catch it
 vec3 r=reflect(-sun,n);float sd=max(dot(r,v),0.);
-color+=vec3(1.,.9,.7)*(pow(sd,300.)*1.3+pow(sd,24.)*.07)*(1.-night*.9)*(.6+.4*calm);
+color+=shade*vec3(1.,.9,.7)*(pow(sd,300.)*1.3+pow(sd,24.)*.07)*(1.-night*.9)*(.6+.4*calm);
 float fog=1.-exp(-dist*dist*fogDensity*fogDensity);color=mix(color,fogCol,fog);gl_FragColor=vec4(color,1.);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
@@ -352,7 +373,7 @@ float fog=1.-exp(-dist*dist*fogDensity*fogDensity);color=mix(color,fogCol,fog);g
   const water = mesh(new T.PlaneGeometry(14000, 14000), waterMat);
   water.rotation.x = -Math.PI / 2;
   water.castShadow = false;
-  water.receiveShadow = false;
+  water.receiveShadow = true;
   waterMat.userData.mesh = water; // tide moves it up and down
   if (renderer && !quality.light) createMirror(renderer, water, uniforms);
   return waterMat;
