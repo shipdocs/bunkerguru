@@ -787,7 +787,7 @@ export function createGame({ createRenderer } = {}) {
     document.body?.classList?.toggle?.('underway', !s.moored && Math.hypot(s.u, s.v) > 0.5);
     updateHud(s, paused, sim);
   }
-  let lastHelm,
+  let lastRudderCmd,
     hudElapsed = 0,
     planElapsed = 0;
   const eyePos = camera.position.clone();
@@ -799,10 +799,11 @@ export function createGame({ createRenderer } = {}) {
     const playing = started && !paused && !document.querySelector('dialog[open]');
     // Fast-forward stops when you steer or come near the bank (time-scale.mjs warpBrake).
     if (playing) {
+      // any change of the rudder order counts: keys, buttons or the touch wheel
       const steering =
-        !!(keys.left || keys.right || keys.bowL || keys.bowR) ||
-        (Number.isFinite(keys.helm) && keys.helm !== lastHelm);
-      lastHelm = keys.helm;
+        !!(keys.bowL || keys.bowR) ||
+        (lastRudderCmd !== undefined && Math.abs((s.rudderCmd ?? 0) - lastRudderCmd) > 1e-4);
+      lastRudderCmd = s.rudderCmd ?? 0;
       const why = warpBrake(s, steering, !waterAt(s.x, s.z, 120));
       if (why) {
         s.timeScale = DEFAULT_TEMPO;
