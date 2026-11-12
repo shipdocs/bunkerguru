@@ -160,8 +160,8 @@ export default {
     {
       name: 'MV MERWEHAVEN',
       col: '#f39c12',
-      at: [-3110, -230],
-      length: 200,
+      at: [-3180, 200],
+      length: 230,
       where: 'oostwand Merwehaven',
     },
     {
@@ -189,11 +189,12 @@ export default {
   // Large ships that lie there for good (Blender models, render/models.mjs): against the
   // nearest wall like a berth; bow −1 points her the other way along the wall.
   liners: [
-    // MS Silja, the cruise ferry that houses refugees, in the first stretch of the Merwehaven.
-    { name: 'MS Silja', model: 'opvangschip', at: [-3245, -18], length: 204, beam: 32, bow: -1 },
-    // SS Rotterdam, the former Holland America Line flagship: Katendrecht's Maashaven quay
-    // just inside the entrance (3e Katendrechtse Hoofd), bow to the east.
-    { name: 'SS Rotterdam', model: 'ssrotterdam', at: [700, 1310], length: 228, beam: 29, bow: -1 },
+    // MS Silja, the cruise ferry that houses refugees: west wall of the first basin of the
+    // Merwehaven.
+    { name: 'MS Silja', model: 'opvangschip', at: [-3320, -65], length: 204, beam: 32, bow: 1 },
+    // SS Rotterdam, the former Holland America Line flagship: along the 3e Katendrechtse
+    // Hoofd (51.8980 N, 4.4735 E, the map fitted to the OSM Maashaven), bow to the east.
+    { name: 'SS Rotterdam', model: 'ssrotterdam', at: [275, 1222], length: 228, beam: 29, bow: -1 },
   ],
   // dir: the direction of the deck (heading), from the first bank to the second.
   bridges: [
