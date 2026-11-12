@@ -38,3 +38,24 @@ export function skyLook(daySeconds) {
     exposure: mix(1.04, 1.05, night),
   };
 }
+
+// Where the sun stands (unit vector towards it; x east, y up, z south): up in the
+// east-north-east at dawn, high in the south early in the afternoon, down in the
+// west-north-west in the evening (Rotterdam, summer). At night the moon, in the south.
+export function sunDirection(daySeconds) {
+  const h = (((daySeconds % 86400) + 86400) % 86400) / 3600;
+  const day = Math.max(0, Math.min(1, (h - 5.5) / 16));
+  const az = ((70 + day * 220) * Math.PI) / 180,
+    el = (Math.max(7, 55 * Math.sin(day * Math.PI)) * Math.PI) / 180;
+  const sx = Math.sin(az) * Math.cos(el),
+    sy = Math.sin(el),
+    sz = -Math.cos(az) * Math.cos(el);
+  // Hand over to the moon in the hour around 05:00 and 22:00, without a jump.
+  const m = Math.max(0, Math.min(1, h < 12 ? 5.5 - h : h - 21.5)),
+    mn = norm(0.25, 0.75, 0.6);
+  return norm(sx + (mn.x - sx) * m, sy + (mn.y - sy) * m, sz + (mn.z - sz) * m);
+}
+function norm(x, y, z) {
+  const l = Math.hypot(x, y, z);
+  return { x: x / l, y: y / l, z: z / l };
+}

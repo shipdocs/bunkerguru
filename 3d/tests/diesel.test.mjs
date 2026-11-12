@@ -61,3 +61,28 @@ test('the signal stays finite and within range', () => {
   const b = run(d, 12);
   for (const v of b) assert(Number.isFinite(v) && Math.abs(v) <= 1);
 });
+
+test('the diesel runs on the audio thread: the worklet renders the same engine', async () => {
+  let Proc = null;
+  globalThis.AudioWorkletProcessor = class {
+    constructor() {
+      this.port = { onmessage: null };
+    }
+  };
+  globalThis.registerProcessor = (name, cls) => {
+    assert.equal(name, 'bunkerguru-diesel');
+    Proc = cls;
+  };
+  globalThis.sampleRate = 48000;
+  await import('../src/audio/diesel-worklet.mjs');
+  const p = new Proc(),
+    out = new Float32Array(128);
+  p.port.onmessage({ data: { on: true, power: 0.6 } });
+  let energy = 0;
+  for (let i = 0; i < (48000 * 5) / 128; i++) {
+    assert.equal(p.process([], [[out]]), true);
+    if (i > (48000 * 4) / 128) for (const v of out) energy += v * v;
+  }
+  assert(energy > 1, 'the engine runs after its air start');
+  assert(p.diesel.state.mode === 'run');
+});
