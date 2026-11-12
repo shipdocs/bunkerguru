@@ -13,7 +13,7 @@ test('every Blender building loads, stands on the ground and has a sane size', (
     const m = load(name),
       box = m.body.boundingBox;
     assert.ok(Math.abs(box.min.y) < 0.5, `${name} stands on the ground (${box.min.y})`);
-    assert.ok(m.size.y > 20 && m.size.y < 200, `${name} height ${m.size.y}`);
+    assert.ok(m.size.y > 20 && m.size.y < 260, `${name} height ${m.size.y}`);
     assert.ok(m.size.x < 400 && m.size.z < 400, `${name} footprint`);
     const p = m.body.attributes.position.array;
     assert.ok(p.every(Number.isFinite), `${name} finite`);
@@ -23,7 +23,17 @@ test('every Blender building loads, stands on the ground and has a sane size', (
 });
 
 test('the towers have windows that light up at night', () => {
-  for (const name of ['euromast', 'derotterdam', 'hotelny', 'whitehouse', 'markthal'])
+  for (const name of [
+    'euromast',
+    'derotterdam',
+    'hotelny',
+    'whitehouse',
+    'markthal',
+    'maassilo',
+    'laurenskerk',
+    'zalmhaventoren',
+    'dekuip',
+  ])
     assert.ok(load(name).glow, name);
 });
 
@@ -38,4 +48,6 @@ test('a map only waits for the buildings it shows', async () => {
   if (MAP.id === 'rotterdam') assert.ok(need.includes('euromast') && need.includes('erasmusbrug'));
   assert.deepEqual(modelsNeeded('europoort'), []);
   assert.ok(modelsNeeded('rotterdam').includes('euromast'));
+  // the Amsterdam grain silo keeps its own shape: the Maassilo model is Rotterdam's
+  assert.ok(!modelsNeeded('amsterdam').includes('maassilo'));
 });

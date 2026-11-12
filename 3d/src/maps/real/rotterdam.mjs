@@ -246,10 +246,11 @@ export default {
   // World positions of the landmarks (render/landmarks.mjs kinds).
   landmarks: [
     { kind: 'euromast', name: 'Euromast', x: -130, z: 400, r: 40 },
-    { kind: 'depot', name: 'Depot Boijmans', x: 450, z: -380, r: 45 },
+    { kind: 'depot', model: 'depot', name: 'Depot Boijmans', x: 450, z: -380, r: 45 },
     { kind: 'mill', name: 'Delfshaven', x: -1150, z: 300, r: 22, body: '#6b4a38' },
     {
       kind: 'highrise',
+      model: 'zalmhaventoren',
       name: 'Zalmhaventoren',
       x: 850,
       z: -330,
@@ -264,6 +265,7 @@ export default {
     { kind: 'markthal', name: 'Markthal', x: 1420, z: -1120, r: 62 },
     {
       kind: 'church',
+      model: 'laurenskerk',
       name: 'Laurenskerk',
       x: 1150,
       z: -1060,
@@ -285,7 +287,7 @@ export default {
       c: '#8a96a3',
       crown: '#6f7c88',
     },
-    { kind: 'silo', name: 'Maassilo', x: 2120, z: 1180, r: 45 },
-    { kind: 'stadium', name: 'De Kuip', x: 3650, z: 1600, r: 85 },
+    { kind: 'silo', model: 'maassilo', name: 'Maassilo', x: 2120, z: 1180, r: 45 },
+    { kind: 'stadium', model: 'dekuip', name: 'De Kuip', x: 3650, z: 1600, r: 85 },
   ],
 };

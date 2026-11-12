@@ -301,10 +301,10 @@ export function truckPose(route, time) {
 
 export function createHarborScenery(scene, quality = { light: false }) {
   const root = new T.Group();
-  // The Erasmusbrug pylon from Blender (render/models.mjs), when it loaded: standing on
-  // `foot` (water level), its back stays towards `dir` (along the deck). False without it.
-  const swan = (foot, dir) => {
-    const made = model('erasmusbrug');
+  // A bridge pylon from Blender (render/models.mjs), when it loaded: standing on `foot`
+  // (its own water level), its +x along the deck towards `dir`. False without it.
+  const pylon = (name, foot, dir) => {
+    const made = model(name);
     if (!made) return false;
     const m = new T.Mesh(made.body, modelMaterial),
       ex = new T.Vector3(...dir).normalize(),
@@ -312,10 +312,11 @@ export function createHarborScenery(scene, quality = { light: false }) {
     m.matrixAutoUpdate = false;
     m.matrix.makeBasis(ex, up, ex.clone().cross(up)).setPosition(...foot);
     m.castShadow = m.receiveShadow = true;
-    m.name = 'erasmusbrug-pylon';
+    m.name = name + '-pylon';
     root.add(m);
     return true;
   };
+  const swan = (foot, dir) => pylon('erasmusbrug', foot, dir);
   root.name = MAP.name + ' scenery';
   scene.add(root);
   const night = { value: 0 },
@@ -470,6 +471,23 @@ export function createHarborScenery(scene, quality = { light: false }) {
     for (const p of br.pillars) {
       box(9, dy, 9, '#c9c9c4', p.x, dy / 2, p.z, rot);
       box(13, 3, 13, '#aeb0aa', p.x, 1, p.z, rot, true);
+      // the red pylons of the Willemsbrug stand on its river pier (deck 30 m in the model)
+      if (/Willems/.test(br.name) && !pylon('willemsbrug', [p.x, dy - 30, p.z], [tx, 0, tz])) {
+        // without the model: two red pylons with a fan of stays each way
+        const W = (u, v, y) => [p.x + tx * u + nx * v, y, p.z + tz * u + nz * v];
+        for (const side of [-13.6, 13.6]) {
+          beam(W(0, side, dy), W(0, side, dy + 62), 1.8, br.color);
+          for (let i = 1; i <= 5; i++)
+            for (const d of [-1, 1])
+              beam(
+                W(0, side, dy + 58 - i * 3),
+                W(d * (18 + i * 21), side, dy),
+                0.22,
+                br.color,
+                true,
+              );
+        }
+      }
     }
     if (br.pylon !== null && /Erasmus/.test(br.name)) {
       const u0 = (br.pylon - 0.5) * L,
@@ -1406,6 +1424,7 @@ export function createHarborScenery(scene, quality = { light: false }) {
     if (/Willems/.test(name))
       // Two red A-pylons on the river pier, stays to both sides.
       for (const p of br.pillars) {
+        if (!frame && pylon('willemsbrug', [x, 4, p], [0, 0, 1])) continue;
         for (const side of [-1, 1]) beam([x + side * 15, 34, p], [x, 96, p], 1.8, br.color);
         for (let i = 1; i <= 5; i++)
           for (const dir of [-1, 1])
