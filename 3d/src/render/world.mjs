@@ -26,6 +26,7 @@ import {
 } from '../maps/index.mjs';
 import { skyLook, sunDirection } from './daylight.mjs';
 import { createLandmarks } from './landmarks.mjs';
+import { createFleetWake, vesselWake } from './fleet-wake.mjs';
 import { tr } from '../i18n/index.mjs';
 import { dayClock } from '../game/harbor.mjs';
 import { profileOf } from '../game/ship-profile.mjs';
@@ -240,6 +241,9 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     return m;
   };
   const meshOf = new Map(sim.rivals.map((r) => [r, vesselMesh(r)]));
+  // Bow wave and wake of every other vessel (render/fleet-wake.mjs).
+  const fleetWake = createFleetWake(scene),
+    wakeList = [];
   const rivalMeshes = [...meshOf.values()];
   // Movable bridges and lock gates: a coloured barrier that slides away when open.
   const gateMeshes = sim.gates.map((g) => {
@@ -419,6 +423,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     if (waterMat.userData.mesh) waterMat.userData.mesh.position.y = level;
     for (const m of customerMeshes) m.position.y = level;
     for (const m of stripMeshes) m.position.y = level;
+    for (const m of landmarks.floating) m.position.y = level;
     return level;
   }
   function updateDynamic(world, time) {
@@ -429,9 +434,13 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     updateRain(wx, dt);
     // Smoke and steam lean with the wind, a light breeze when it is calm.
     landmarks.update(time, { x: 0.3 + wx.wind.x * 1.6, z: 0.1 + wx.wind.z * 1.6 });
+    wakeList.length = 0;
+    const wake = (x, z, h, speed, length, beam) =>
+      wakeList.push(vesselWake(x, z, h, speed, length, beam));
     for (const [i, b] of world.traffic.entries()) {
       trafficMeshes[i].position.set(b.wx ?? b.x, level, b.wz ?? b.z);
       trafficMeshes[i].rotation.y = renderYaw(b.wh ?? b.h);
+      wake(b.wx ?? b.x, b.wz ?? b.z, b.wh ?? b.h, b.speed || 0, b.length, b.beam);
     }
     for (const m of meshOf.values()) m.visible = false;
     for (const [i, r] of world.rivals.entries()) {
@@ -448,9 +457,11 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
       );
       m.rotation.set(sinking * 0.3, renderYaw(r.wh ?? r.h), 0);
       m.visible = sinking < 1;
+      if (!sinking) wake(r.wx ?? r.x, r.wz ?? r.z, r.wh ?? r.h, r.cur || 0, 110, 11);
     }
     // A boat that left the list (new career) takes its mesh and name textures with it.
     // Colour materials are shared through primitives' cache; only textured ones are per boat.
+    fleetWake.update(wakeList, level, time);
     if (meshOf.size > world.rivals.length) {
       const live = new Set(world.rivals);
       for (const [r, m] of meshOf) {

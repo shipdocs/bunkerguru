@@ -156,6 +156,21 @@ export function buildReal(def) {
       },
     };
   });
+  // Ships that lie there for good (a cruise ship, a hotel ship): against the wall like a
+  // berth, a box for collisions, a Blender model in the world (render/world.mjs).
+  const liners = (def.liners || []).map((l) => {
+    const w = quay(l.at[0], l.at[1], l.name),
+      bow = l.bow === -1 ? -1 : 1;
+    return {
+      name: l.name,
+      model: l.model,
+      length: l.length,
+      beam: l.beam,
+      shipX: w.qx + w.nx * (l.beam / 2 + 1),
+      shipZ: w.qz + w.nz * (l.beam / 2 + 1),
+      h: headingOf(w.tx * bow, w.tz * bow),
+    };
+  });
   // Fixed bridges: from a point on the water straight across (angle = deck direction),
   // to 30 m onto the land on either side.
   const bridges = def.bridges.map((b) => {
@@ -265,15 +280,20 @@ export function buildReal(def) {
       s: t.s,
       v: t.v,
       length: t.len,
-      beam: t.len >= 150 ? SHIP_BEAM : t.len >= 80 ? 10 : 8,
+      beam: t.len >= 150 ? SHIP_BEAM : t.len >= 80 ? 10 : t.len >= 30 ? 8 : 4,
       shuttle: !!t.path,
     })),
     gates: [],
+    liners,
     bridges,
     channels: [],
     labels: def.labels.map((l) => ({ x: l.at[0], z: l.at[1], text: l.text, size: l.size })),
     roads: [],
-    decor: makeDecor(shape, useAt, bounds, def.landmarks || []),
+    // no crane, shed or house on the quay beside a cruise ship
+    decor: makeDecor(shape, useAt, bounds, [
+      ...(def.landmarks || []),
+      ...liners.map((l) => ({ x: l.shipX, z: l.shipZ, r: l.length / 2 + 15 })),
+    ]),
     landmarks: def.landmarks || [],
     start,
     mstart: start,
@@ -334,7 +354,7 @@ function makeDecor(shape, useAt, bounds, landmarks) {
       const k = kind(px, pz),
         r = rnd();
       if (k === 'p') {
-        if (q.d < 160 && r < 0.75) {
+        if (q.d < 160 && r < 0.45) {
           const col = COLS[Math.floor(rnd() * COLS.length)];
           out.push({ type: 'container', x: px, z: pz - 9, col });
           out.push({ type: 'container', x: px, z: pz + 9, col: COLS[Math.floor(rnd() * 6)] });
@@ -351,16 +371,20 @@ function makeDecor(shape, useAt, bounds, landmarks) {
             out.push({ type: 'tree', x: px + (rnd() - 0.5) * 36, z: pz + (rnd() - 0.5) * 36 });
       }
     }
-  // Cranes along the port quays, square to the wall, the boom over the water.
-  let run = 0;
+  // Cranes along the port quays, square to the wall, the boom over the water: in pairs
+  // with a long stretch of bare quay between (a pair per ~700 m), not a fence of them.
+  // Counted in metres of port quay, not in pieces (a detailed OSM wall has many).
+  let along = 0,
+    next = 60,
+    second = false;
   for (const g of shape.segments(30)) {
     const bx = g.x - g.nx * 10,
       bz = g.z - g.nz * 10;
-    if (kind(g.x - g.nx * 40, g.z - g.nz * 40) !== 'p' || near(bx, bz, 20)) {
-      run = 0;
-      continue;
-    }
-    if (run++ % 4 !== 1) continue;
+    if (kind(g.x - g.nx * 40, g.z - g.nz * 40) !== 'p' || near(bx, bz, 20)) continue;
+    along += g.length;
+    if (along < next) continue;
+    next = along + (second ? 700 : 36);
+    second = !second;
     out.push({ type: 'crane', x: bx, z: bz, yaw: Math.atan2(g.nx, -g.nz) });
   }
   return out;

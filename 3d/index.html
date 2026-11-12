@@ -9,6 +9,8 @@
   </head>
   <body>
     <canvas id="world" aria-label="Driedimensionale haven"></canvas>
+    <!-- Sailing on radar in fog: full screen, heading up, instead of the 3D view. -->
+    <canvas id="radarScreen" hidden aria-label="Radarscherm, koers boven"></canvas>
     <header>
       <div class="brand">
         <span class="mark">≈</span>
@@ -121,6 +123,12 @@
     </nav>
     <div id="label" class="destination"></div>
     <div id="toast" role="status" aria-live="polite"></div>
+    <button id="radarBtn" class="radarBtn" hidden>📡 Op radar varen</button>
+    <div id="radarBar" class="radarBar glass" hidden role="group" aria-label="Radar">
+      <button id="radarNear" aria-label="Bereik kleiner">−</button><span id="radarRange">1 km</span
+      ><button id="radarFar" aria-label="Bereik groter">＋</button
+      ><button id="radarClose">✕ Buiten kijken</button>
+    </div>
     <div id="radio" aria-live="polite"></div>
     <div id="dockStamp" aria-live="polite"></div>
     <div id="momentCard" class="momentCard" aria-live="polite"></div>

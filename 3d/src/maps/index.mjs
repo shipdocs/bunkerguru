@@ -52,6 +52,8 @@ export const {
   roads,
   decor,
 } = MAP;
+// Ships that lie there for good (a real map's cruise ship and hotel ship).
+export const liners = MAP.liners || [];
 
 // Two frames (see warp.mjs). The MAP is the straight 2D chart: land rectangles, zones,
 // lanes and routes are defined and planned there (…M functions, m-prefixed fields).

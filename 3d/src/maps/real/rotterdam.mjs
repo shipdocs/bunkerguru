@@ -160,8 +160,8 @@ export default {
     {
       name: 'MV MERWEHAVEN',
       col: '#f39c12',
-      at: [-3180, 200],
-      length: 230,
+      at: [-3110, -230],
+      length: 200,
       where: 'oostwand Merwehaven',
     },
     {
@@ -185,6 +185,15 @@ export default {
       length: 240,
       where: 'Eemhaven, noordkade',
     },
+  ],
+  // Large ships that lie there for good (Blender models, render/models.mjs): against the
+  // nearest wall like a berth; bow −1 points her the other way along the wall.
+  liners: [
+    // MS Silja, the cruise ferry that houses refugees, in the first stretch of the Merwehaven.
+    { name: 'MS Silja', model: 'opvangschip', at: [-3245, -18], length: 204, beam: 32, bow: -1 },
+    // SS Rotterdam, the former Holland America Line flagship: Katendrecht's Maashaven quay
+    // just inside the entrance (3e Katendrechtse Hoofd), bow to the east.
+    { name: 'SS Rotterdam', model: 'ssrotterdam', at: [700, 1310], length: 228, beam: 29, bow: -1 },
   ],
   // dir: the direction of the deck (heading), from the first bank to the second.
   bridges: [
@@ -212,7 +221,74 @@ export default {
     { name: 'MV TRAAG', col: '#16a085', lane: -55, s: 9000, v: -3.5, len: 260 },
     { name: 'RONDVAART 1', col: '#f5f5f5', lane: -55, s: 6500, v: -2.5, len: 120 },
     { name: 'MT HAAST', col: '#d35400', lane: 55, s: 600, v: 3.0, len: 220 },
-    { name: 'WATERTAXI', col: '#f1c40f', lane: 20, s: 4500, v: 7.0, len: 50 },
+    // Water taxis between their stops (Veerhaven, Hotel New York, Boompjes, Oude Haven,
+    // Parkhaven/Euromast, SS Rotterdam/Katendrecht, Feijenoord): small, quick, to and fro.
+    {
+      name: 'WATERTAXI 1',
+      col: '#f1c40f',
+      path: [
+        [850, 500],
+        [1010, 510],
+        [1150, 200],
+        [1240, -100],
+        [1330, -320],
+        [1520, -520],
+        [1750, -760],
+        [1830, -850],
+      ],
+      s: 300,
+      v: 7.5,
+      len: 14,
+    },
+    {
+      name: 'WATERTAXI 2',
+      col: '#f1c40f',
+      path: [
+        [-110, 830],
+        [60, 960],
+        [100, 1100],
+        [100, 1180],
+        [160, 1260],
+        [330, 1340],
+        [470, 1400],
+      ],
+      s: 100,
+      v: 6.5,
+      len: 14,
+    },
+    {
+      name: 'WATERTAXI 3',
+      col: '#f1c40f',
+      path: [
+        [1000, 520],
+        [800, 650],
+        [560, 820],
+        [300, 1000],
+        [100, 1100],
+        [100, 1180],
+        [160, 1260],
+        [330, 1340],
+        [470, 1400],
+      ],
+      s: 400,
+      v: 7.0,
+      len: 14,
+    },
+    {
+      name: 'WATERTAXI 4',
+      col: '#f1c40f',
+      path: [
+        [1860, -830],
+        [2050, -920],
+        [2500, -890],
+        [2900, -700],
+        [3150, -400],
+        [3300, 0],
+      ],
+      s: 900,
+      v: 8.0,
+      len: 14,
+    },
     {
       name: 'SLB DUW',
       col: '#2c3e50',

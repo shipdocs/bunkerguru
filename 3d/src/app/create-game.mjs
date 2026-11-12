@@ -34,6 +34,7 @@ import { hintFor, isTouch } from '../ui/touch-text.mjs';
 import { bindPinch } from '../input/pinch.mjs';
 import { haptic } from '../input/haptics.mjs';
 import { createChart } from '../ui/chart.mjs';
+import { createRadar } from '../ui/radar.mjs';
 import { createHud } from '../ui/hud.mjs';
 import { loadCareer, saveCareer, loadGraphicsMode, saveGraphicsMode } from './storage.mjs';
 // The only lifecycle owner: compose rendering, UI, input and simulation here.
@@ -668,6 +669,43 @@ export function createGame({ createRenderer } = {}) {
   window.addEventListener('resize', resize);
   resize();
   const chart = createChart($('map'));
+  // Sailing on radar: in fog a button opens a full-screen heading-up radar; the 3D view
+  // is not drawn meanwhile. It stays up until you close it, fog or no fog.
+  const radar = createRadar($('radarScreen'), {
+    insets: () => {
+      const head = document.querySelector?.('header')?.getBoundingClientRect?.(),
+        foot = document.querySelector?.('footer')?.getBoundingClientRect?.();
+      const bottom = foot && Number.isFinite(foot.top) ? Math.max(0, innerHeight - foot.top) : 0;
+      // the range bar sits just above the console, the screen above that
+      $('radarBar').style.bottom = bottom + 8 + 'px';
+      return { top: Math.max(56, head?.bottom || 0), bottom: bottom + 60 };
+    },
+  });
+  let radarView = false;
+  const rangeLabel = () =>
+    ($('radarRange').textContent =
+      radar.range >= 1000 ? radar.range / 1000 + ' km' : radar.range + ' m');
+  function setRadarView(on) {
+    radarView = on;
+    $('radarScreen').hidden = !on;
+    $('radarBar').hidden = !on;
+    $('radarBtn').hidden = true;
+    document.body?.classList?.toggle?.('radarOn', on);
+    if (on) {
+      setChartBig(false);
+      mobilePanels.close(); // the phone's harbour menu must not hang over the radar
+    }
+    if (on && !s.equipment.radar) {
+      s.equipment.radar = true;
+      equipment.render();
+      toast(tr('Radar aangezet.'));
+    }
+    rangeLabel();
+  }
+  $('radarBtn').onclick = () => setRadarView(true);
+  $('radarClose').onclick = () => setRadarView(false);
+  $('radarNear').onclick = () => (radar.zoom(-1), rangeLabel());
+  $('radarFar').onclick = () => (radar.zoom(1), rangeLabel());
   // The big chart is a strategy pause: open it and the harbour waits; close it (tap
   // outside, the chart again, K or Esc) and the game runs on, unless it was paused.
   let chartPaused = false,
@@ -732,6 +770,8 @@ export function createGame({ createRenderer } = {}) {
     equipment.render();
     const plan = s.job && !s.moored && started ? planFastTravel(s, sim) : null;
     $('fastBtn').hidden = !plan?.ok;
+    // In fog: the way onto the radar.
+    $('radarBtn').hidden = radarView || !started || !(sim.events?.fog > 0);
     // Panels step back while underway (desktop CSS), full again when moored or slow.
     document.body?.classList?.toggle?.('underway', !s.moored && Math.hypot(s.u, s.v) > 0.5);
     updateHud(s, paused, sim);
@@ -814,8 +854,10 @@ export function createGame({ createRenderer } = {}) {
     }
     toastTime -= dt;
     if (toastTime <= 0) $('toast').style.opacity = 0;
+    // On radar the harbour is not drawn at all: only the radar picture.
+    if (radarView) radar.draw(s, sim, dt, s.equipment.radar !== false);
     // Miniature look in the rich mode; plain drawing on phones and in the wheelhouse.
-    if (tiltShift && !quality.light && cameraControl.mode !== 'bridge') {
+    else if (tiltShift && !quality.light && cameraControl.mode !== 'bridge') {
       // Keep the band on the ship: where she is on screen, bottom 0 … top 1.
       focusPoint.set(s.x, 0, s.z).project(camera);
       tiltShift.render(scene, camera, Math.min(0.8, Math.max(0.2, focusPoint.y * 0.5 + 0.5)));

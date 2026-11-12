@@ -163,7 +163,7 @@ export function eventTick(ev, s, dt, world, fx) {
   } else if (pick === 2) {
     fx.sound('alarm', 2);
     ev.fog = 70 + Math.random() * 40;
-    fx.say('🌫️ Mistbank – zicht valt weg. Vaar op de kaart.', 6);
+    fx.say('🌫️ Mistbank – zicht valt weg. Vaar op de radar (📡).', 6);
     fx.radio([
       {
         who: sector(),

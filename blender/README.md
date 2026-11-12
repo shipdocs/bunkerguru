@@ -20,7 +20,9 @@ Werkwijze en stijlregels: `.claude/skills/blender/SKILL.md`.
 De herkenningspunten van Rotterdam komen uit Blender: `euromast`, `erasmusbrug` en
 `willemsbrug` (pylonen en tuien; het dek tekent het spel), `hotelny`, `derotterdam`, `cubes`
 (Kubuswoningen met het Potlood), `markthal`, `whitehouse`, `dekuip`, `maassilo`, `depot`,
-`laurenskerk` en `zalmhaventoren`. Alles opnieuw maken:
+`laurenskerk` en `zalmhaventoren`; in Europoort de `maeslantkering` (één helft, het spel
+zet er twee neer, gespiegeld). Afgemeerde schepen (`liners` in `maps/real/rotterdam.mjs`,
++X = boeg): `ssrotterdam` en `opvangschip` (MS Silja). Alles opnieuw maken:
 
 ```sh
 for m in $(ls blender/models | grep -v -e boei -e sleepboot -e leonore | sed 's/\.py$//'); do
