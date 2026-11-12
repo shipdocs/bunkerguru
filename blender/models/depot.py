@@ -25,8 +25,8 @@ for z in (8, 18, 28):
 B.cyl('dakrand', 30.6, 1.4, (0, 0, 39.7), rand, verts=48)
 B.cyl('dak', 29.5, 0.6, (0, 0, 40.1), groen2, verts=48)
 # De diagonale trappen in het atrium, achter een raamstrook aan de waterkant.
-B.box('atriumraam', (16, 0.6, 3), (0, -26.6, 30), glas, rot=(math.radians(-14), 0, 0))
-B.box('atriumlicht', (14, 0.6, 2.2), (0, -26.9, 30), licht, rot=(math.radians(-14), 0, 0))
+B.box('atriumraam', (16, 0.6, 3), (0, -28.0, 30), glas, rot=(math.radians(-14), 0, 0))
+B.box('atriumlicht', (14, 0.6, 2.2), (0, -28.3, 30), licht, rot=(math.radians(-14), 0, 0))
 rnd = random.Random(4)
 for i in range(22):
     a = rnd.uniform(0, 2 * math.pi)

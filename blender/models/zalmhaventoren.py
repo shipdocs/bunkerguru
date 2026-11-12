@@ -12,7 +12,7 @@ kroon = B.mat('kroon', '#d7dde2', rough=0.5)
 plint = B.mat('plint', '#8d8a82', rough=0.8)
 licht = B.mat('licht', '#ffd596', emit=2.0)
 
-W, D, H = 28, 26, 200
+W, D, H = 28, 26, 194  # kroon tot 209 m, mast tot 215 m
 B.box('plint', (W + 14, D + 10, 9), (0, 0, 4.5), plint)
 B.box('romp', (W, D, H), (0, 0, H / 2), glas)
 for z in range(10, H - 2, 4):

@@ -1,5 +1,6 @@
 """Grote of Sint-Laurenskerk (1449-1525), het enige middeleeuwse gebouw van de binnenstad:
-laatgotisch schip met steile kappen, dwarsschip en de stompe toren van 64 m.
+laatgotisch schip met steile kappen, dwarsschip en de stompe toren met een klein koperen
+lantaarntje, samen 64 m.
     blender/make.sh laurenskerk --glb 3d/assets/landmarks/laurenskerk.glb
 Assen: het schip langs X met de toren in het westen (-X), Z omhoog, maaiveld Z = 0."""
 import bglib as B
@@ -37,12 +38,12 @@ for x in range(-20, 41, 8):
 for face, y in ((-1, -11), (1, 11)):
     B.facade(f'ramen{face}', -22, 40, 5, 18, y, face, 8, 13, 3.2, 10, glas, licht, 0.5, 4 + face)
 # De toren: drie geledingen, smaller naar boven, met een klein koperen lantaarntje.
-for i, (w, z0, z1) in enumerate(((18, 0, 30), (16, 30, 50), (14, 50, 62))):
+for i, (w, z0, z1) in enumerate(((18, 0, 28), (16, 28, 46), (14, 46, 56))):
     B.box(f'toren{i}', (w, w, z1 - z0), (-33, 0, (z0 + z1) / 2), steen if i % 2 == 0 else steen2)
     B.box(f'torenlijst{i}', (w + 0.8, w + 0.8, 1), (-33, 0, z1), steen2)
     for face in (-1, 1):
         B.facade(f'galmgat{i}{face}', -33 - w / 2 + 2, -33 + w / 2 - 2, z0 + 4, z1 - 3, face * w / 2, face,
                  4.5, 10, 2.0, 7, glas, licht if i == 0 else None, 0.3, 10 + i)
-B.cyl('lantaarn', 3, 4, (-33, 0, 64.5), koper, verts=8)
-B.cyl('spits', 3.2, 3.5, (-33, 0, 68.2), koper, verts=8, r2=0.2)
+B.cyl('lantaarn', 3, 4, (-33, 0, 58.5), koper, verts=8)
+B.cyl('spits', 3.2, 3.5, (-33, 0, 62.25), koper, verts=8, r2=0.2)
 B.finish(__file__)

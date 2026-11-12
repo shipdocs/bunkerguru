@@ -472,7 +472,22 @@ export function createHarborScenery(scene, quality = { light: false }) {
       box(9, dy, 9, '#c9c9c4', p.x, dy / 2, p.z, rot);
       box(13, 3, 13, '#aeb0aa', p.x, 1, p.z, rot, true);
       // the red pylons of the Willemsbrug stand on its river pier (deck 30 m in the model)
-      if (/Willems/.test(br.name)) pylon('willemsbrug', [p.x, dy - 30, p.z], [tx, 0, tz]);
+      if (/Willems/.test(br.name) && !pylon('willemsbrug', [p.x, dy - 30, p.z], [tx, 0, tz])) {
+        // without the model: two red pylons with a fan of stays each way
+        const W = (u, v, y) => [p.x + tx * u + nx * v, y, p.z + tz * u + nz * v];
+        for (const side of [-13.6, 13.6]) {
+          beam(W(0, side, dy), W(0, side, dy + 62), 1.8, br.color);
+          for (let i = 1; i <= 5; i++)
+            for (const d of [-1, 1])
+              beam(
+                W(0, side, dy + 58 - i * 3),
+                W(d * (18 + i * 21), side, dy),
+                0.22,
+                br.color,
+                true,
+              );
+        }
+      }
     }
     if (br.pylon !== null && /Erasmus/.test(br.name)) {
       const u0 = (br.pylon - 0.5) * L,
