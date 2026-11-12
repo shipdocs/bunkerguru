@@ -402,6 +402,7 @@ c=mix(c,mix(low,top,.35)*.8,(1.-smoothstep(land-.06,land+.06,y))*.55*step(-.3,y)
     skyMat.uniforms.glow.value = (1 - look.night) * (1 - gloom);
     sun.color.set(look.sunColor);
     sun.intensity = look.sun * (1 - gloom * 0.6);
+    waterMat.uniforms.gloom.value = gloom;
     hemi.intensity = look.hemi * (1 - gloom * 0.15);
     renderer.toneMappingExposure = look.exposure;
     waterMat.uniforms.night.value = look.night;

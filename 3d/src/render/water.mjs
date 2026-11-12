@@ -288,6 +288,7 @@ export function createWater(mesh, map, quality = { light: false }, renderer = nu
   const uniforms = {
     time: { value: 0 },
     night: { value: 0 },
+    gloom: { value: 0 },
     fogCol: { value: new T.Vector3(0.68, 0.8, 0.77) },
     skyTop: { value: new T.Vector3(0.05, 0.3, 0.75) },
     // Towards the sun, as the scene's light stands: (−220, 220, 160) from the boat.
@@ -323,7 +324,7 @@ vec4 w=modelMatrix*vec4(position,1.);wp=w.xyz;mp=mirrorMatrix*w;}`,
 #include <lights_pars_begin>
 #include <shadowmap_pars_fragment>
 #include <shadowmask_pars_fragment>
-varying vec3 wp;varying vec4 mp;uniform float time;uniform vec3 sun;uniform float night;uniform vec3 fogCol;uniform vec3 skyTop;
+varying vec3 wp;varying vec4 mp;uniform float time;uniform vec3 sun;uniform float night;uniform float gloom;uniform vec3 fogCol;uniform vec3 skyTop;
 uniform sampler2D shore;uniform vec2 shoreMin;uniform vec2 shoreSize;uniform float fogDensity;
 uniform sampler2D waves;uniform sampler2D mirror;uniform float mirrorOn;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -364,7 +365,7 @@ color=mix(color,vec3(.8,.88,.86),foam*(.7+.3*vnoise(p*1.7+time*.3)));
 color*=mix(1.,.3,night);
 // sun: a broad sheen and sharp glitter where the small waves catch it
 vec3 r=reflect(-sun,n);float sd=max(dot(r,v),0.);
-color+=shade*vec3(1.,.9,.7)*(pow(sd,300.)*1.3+pow(sd,24.)*.07)*(1.-night*.9)*(.6+.4*calm);
+color+=shade*vec3(1.,.9,.7)*(pow(sd,300.)*1.3+pow(sd,24.)*.07)*(1.-night*.9)*(1.-gloom*.8)*(.6+.4*calm);
 float fog=1.-exp(-dist*dist*fogDensity*fogDensity);color=mix(color,fogCol,fog);gl_FragColor=vec4(color,1.);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
