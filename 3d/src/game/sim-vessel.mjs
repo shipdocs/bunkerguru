@@ -55,7 +55,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     if (!(s.jamT > 0))
       s.rudder +=
         (s.rudderCmd + (tired ? Math.sin((s.clock || 0) * 0.7) * 0.15 : 0) - s.rudder) *
-        Math.min(1, h * (tired ? 0.6 : 1.5));
+        Math.min(1, h * (tired ? 0.6 : 1.5) * helmK);
     const sn = Math.sin(s.h),
       cs = Math.cos(s.h);
     // Ground velocity in world frame, then relative to the water.
@@ -145,7 +145,7 @@ export function simStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 0
     const flow = clamp(u + (s.rpm > 0 ? s.rpm * 2.0 : 0), -4, 6);
     const rudDeg = s.rudder * SHIP.maxRudder,
       rudEff = (Math.sin((rudDeg * Math.PI) / 180) / Math.sin((35 * Math.PI) / 180)) * helmK,
-      rudDrag = Math.pow(Math.abs(s.rudder), 2) * 0.35;
+      rudDrag = Math.pow(Math.abs(s.rudder), 2) * 0.35 * helmK;
     const rudForce = rudEff * flow * Math.abs(flow) * 0.09;
     const bow = s.blackout > 0 ? 0 : (keys.bowR ? 1 : 0) - (keys.bowL ? 1 : 0);
     const bowF = 0.04 * bowK * Math.max(0, 1 - Math.abs(u) / 3.5);

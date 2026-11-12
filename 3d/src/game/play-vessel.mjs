@@ -26,7 +26,7 @@ export function playStep(s, dt, keys = {}, contact, onClutch = () => {}, tele = 
       ? clamp(keys.helm, -1, 1)
       : clamp((s.rudderCmd ?? s.rudder ?? 0) + helmDirection * 2.5 * h * warpHelm(s), -1, 1);
     const command = s.rudderCmd;
-    s.rudder += (s.rudderCmd - s.rudder) * (1 - Math.exp(-h * 6));
+    s.rudder += (s.rudderCmd - s.rudder) * (1 - Math.exp(-h * 6 * warpHelm(s)));
     if (s.moored) {
       s.u = s.v = s.r = s.rpm = 0;
       s.braking = false;
